@@ -1,0 +1,12 @@
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+.venv/
+.vscode/
+assets/
+build/
+dist/
+ui/node_modules/
+
+*.py[cod]
+*.spec
