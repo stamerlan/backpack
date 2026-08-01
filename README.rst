@@ -45,3 +45,18 @@ From ``ui/``, TypeScript is checked separately::
 
     cd ui
     npm run check
+
+Tests
+-----
+
+From the root, ``pytest`` runs the Python test suite (the same command also
+type checks the sources through pytest-mypy)::
+
+    .venv\Scripts\python.exe -m pytest
+
+From ``ui/``, Vitest runs the frontend tests once::
+
+    cd ui
+    npm test
+
+Use ``npm run test:watch`` from ``ui/`` to re-run them as files change.

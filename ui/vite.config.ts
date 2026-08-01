@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
@@ -15,5 +16,10 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+  },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./vitest.setup.ts"],
+    css: false,
   },
 });
