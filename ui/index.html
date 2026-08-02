@@ -14,6 +14,14 @@
      * own overflow, so the window itself must never scroll.
      */
     html, body { overflow: hidden; }
+    /* Fluent mounts each dialog and drawer portal as a themed FluentProvider
+     * directly on <body>, and that provider paints an opaque
+     * colorNeutralBackground1 across the whole viewport. Behind the modal
+     * scrim that reads as a solid grey wall that hides the app. The app's own
+     * provider lives under #root, so clearing the background on body-level
+     * providers keeps the window visible (shadowed) behind the overlay.
+     */
+    body > .fui-FluentProvider { background-color: transparent; }
   </style>
 </head>
 
