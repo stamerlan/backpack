@@ -28,6 +28,10 @@ function api_call(name: string, ...args: unknown[]): Promise<unknown> {
 
 /* Backend exposed methods */
 interface Api {
+  new_doc(): Promise<unknown>;
+  open_doc(filename?: string): Promise<unknown>;
+  save_doc(filename?: string | null, save_as?: boolean): Promise<unknown>;
+  open_settings(): Promise<unknown>;
 }
 
 const api = new Proxy({} as Api, {

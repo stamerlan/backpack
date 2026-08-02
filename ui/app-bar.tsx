@@ -38,7 +38,9 @@ const use_styles = makeStyles({
   },
 });
 
-export function AppBar() {
+export function AppBar({ on_menu_click }: {
+  on_menu_click: () => void;
+}) {
   const styles = use_styles();
 
   return (
@@ -48,6 +50,7 @@ export function AppBar() {
         title="Open menu"
         aria-label="Open menu"
         icon={icon("menu")}
+        onClick={on_menu_click}
       />
       <span className={mergeClasses(styles.title, styles.untitled)}>
         Untitled trip
