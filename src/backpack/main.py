@@ -1,14 +1,13 @@
 import asyncio
 import logging
-import sys
 import threading
 import webview
 from argparse import ArgumentParser
 from datetime import datetime
-from pathlib import Path
 
 from . import APP_NAME
 from backpack.app import App
+from backpack.paths import assets_dir
 
 
 DEV_SERVER_URL = "http://localhost:5173"
@@ -24,22 +23,6 @@ class LogFormatter(logging.Formatter):
         if datefmt:
             return dt.strftime(datefmt)
         return dt.strftime("%H:%M:%S.%f")
-
-
-def assets_dir() -> Path:
-    """Locate the bundled assets directory.
-
-    Works both for a normal run (source tree or installed wheel), where
-    the directory is looked up in the parents of this file, and for a
-    PyInstaller build, where data files are unpacked under sys._MEIPASS.
-    """
-    base = getattr(sys, "_MEIPASS", None)
-    dirs = [Path(base)] if base else Path(__file__).resolve().parents
-    for d in dirs:
-        assets = d / "assets"
-        if (assets / "index.html").is_file():
-            return assets
-    raise FileNotFoundError("assets not found, run: npm run build")
 
 
 def main() -> None:
