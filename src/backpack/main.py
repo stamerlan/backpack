@@ -1,11 +1,14 @@
+import asyncio
 import logging
 import sys
+import threading
 import webview
 from argparse import ArgumentParser
 from datetime import datetime
 from pathlib import Path
 
 from . import APP_NAME
+from backpack.app import App
 
 
 DEV_SERVER_URL = "http://localhost:5173"
@@ -57,14 +60,52 @@ def main() -> None:
     url = args.dev or str(assets_dir() / "index.html")
     logger.debug(f"url:{url}")
 
-    webview.create_window(
-        "Backpack", url, width=1200, height=800, min_size=(800, 600)
+    mainloop = asyncio.new_event_loop()
+    mainloop_th = threading.Thread(
+        target=_run_mainloop, name="app.mainloop", args=(mainloop,)
     )
+    mainloop_th.start()
 
-    webview.settings['OPEN_DEVTOOLS_IN_DEBUG'] = False
-    webview.start(debug=logger.isEnabledFor(logging.DEBUG))
+    app = App(mainloop)
 
-    logger.debug("exit")
+    try:
+        window = webview.create_window(
+            "Backpack", url, width=1200, height=800, min_size=(800, 600)
+        )
+        assert window is not None
+        webview.settings['OPEN_DEVTOOLS_IN_DEBUG'] = False
+
+        app.start(window)
+        # Finish app work before pywebview tears the window down; the event
+        # runs synchronously and defers the close until shutdown returns.
+        window.events.closing += app.shutdown
+
+        webview.start(debug=logger.isEnabledFor(logging.DEBUG))
+    finally:
+        app.shutdown()
+        mainloop.call_soon_threadsafe(mainloop.stop)
+        mainloop_th.join()
+        logger.debug("exit")
+
+
+def _run_mainloop(loop: asyncio.AbstractEventLoop) -> None:
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_forever()
+    finally:
+        try:
+            tasks = asyncio.all_tasks(loop)
+            for task in tasks:
+                task.cancel()
+            if tasks:
+                loop.run_until_complete(
+                    asyncio.gather(*tasks, return_exceptions=True)
+                )
+            loop.run_until_complete(loop.shutdown_asyncgens())
+        finally:
+            asyncio.set_event_loop(None)
+            loop.close()
+            logger.debug("app.mainloop stopped")
 
 
 if __name__ == "__main__":
