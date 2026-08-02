@@ -6,6 +6,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Backpack</title>
   <link rel="icon" href="data:," />
+  <style>
+    * { box-sizing: border-box; }
+    html, body, #root { height: 100%; }
+    body { margin: 0; }
+    /* The app shell fills the window and every scrollable region owns its
+     * own overflow, so the window itself must never scroll.
+     */
+    html, body { overflow: hidden; }
+  </style>
 </head>
 
 <body>
