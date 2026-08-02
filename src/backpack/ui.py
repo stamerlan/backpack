@@ -37,3 +37,11 @@ class UI:
 
     def set_recent(self, items: Iterable[RecentItem]) -> "Future[Any]":
         return self.js.submit("menu.set_recent", (list(items),))
+
+    def clear_doc(self) -> "Future[Any]":
+        return self.js.submit("doc.clear", ())
+
+    def add_trip_card(
+        self, card_id: str, title: str = "", notes: str = ""
+    ) -> "Future[Any]":
+        return self.js.submit("doc.add_trip_card", (card_id, title, notes))

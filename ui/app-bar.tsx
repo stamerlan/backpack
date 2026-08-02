@@ -38,10 +38,12 @@ const use_styles = makeStyles({
   },
 });
 
-export function AppBar({ on_menu_click }: {
+export function AppBar(props: {
+  title: string;
   on_menu_click: () => void;
 }) {
   const styles = use_styles();
+  const has_title = props.title.trim().length > 0;
 
   return (
     <header className={styles.bar}>
@@ -50,10 +52,14 @@ export function AppBar({ on_menu_click }: {
         title="Open menu"
         aria-label="Open menu"
         icon={icon("menu")}
-        onClick={on_menu_click}
+        onClick={props.on_menu_click}
       />
-      <span className={mergeClasses(styles.title, styles.untitled)}>
-        Untitled trip
+      <span
+        className={mergeClasses(
+          styles.title, !has_title && styles.untitled
+        )}
+      >
+        {has_title ? props.title : "Untitled trip"}
       </span>
       <ToggleButton
         appearance="subtle"
