@@ -63,6 +63,9 @@ def main() -> None:
         # Finish app work before pywebview tears the window down; the event
         # runs synchronously and defers the close until shutdown returns.
         window.events.closing += app.shutdown
+        window.events.loaded += lambda *_: asyncio.run_coroutine_threadsafe(
+            app.on_loaded(), mainloop
+        )
 
         webview.start(debug=logger.isEnabledFor(logging.DEBUG))
     finally:
