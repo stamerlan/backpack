@@ -29,3 +29,10 @@ class ResizeObserverMock {
 
 globalThis.ResizeObserver ??=
   ResizeObserverMock as unknown as typeof ResizeObserver;
+
+window.pywebview ??= {
+  api: new Proxy(
+    {},
+    { get: () => (..._args: unknown[]) => Promise.resolve() },
+  ),
+} as Window["pywebview"];

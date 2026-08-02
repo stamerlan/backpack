@@ -1,0 +1,37 @@
+/* Serialize Python API calls so the backend sees user actions in order.
+ * Each call is chained onto action_chain; .then(cb) adopts the api promise
+ * cb returns, so the next link cannot fire until Python has responded. This
+ * keeps one call in flight at a time, in the order calls were enqueued.
+ */
+let action_chain: Promise<unknown> = Promise.resolve();
+
+interface PyWebView {
+  api: Record<string, (...args: unknown[]) => Promise<unknown>>;
+}
+
+declare global {
+  interface Window {
+    pywebview: PyWebView;
+  }
+}
+
+function api_call(name: string, ...args: unknown[]): Promise<unknown> {
+  const result = action_chain.then(() => {
+    const method = window.pywebview?.api?.[name];
+    if (method === undefined)
+      throw new Error(`pywebview.api.${name} is not available`);
+    return method(...args);
+  });
+  action_chain = result.catch((e) => console.error(`${name}() failed`, e));
+  return result; /* caller sees the real value or error */
+}
+
+/* Backend exposed methods */
+interface Api {
+}
+
+const api = new Proxy({} as Api, {
+  get: (_t, name: string) => (...args: unknown[]) => api_call(name, ...args),
+});
+
+export default api;
