@@ -70,7 +70,8 @@ def main() -> None:
 
     try:
         window = webview.create_window(
-            "Backpack", url, width=1200, height=800, min_size=(800, 600)
+            "Backpack", url, js_api=app.api,
+            width=1200, height=800, min_size=(800, 600)
         )
         assert window is not None
         webview.settings['OPEN_DEVTOOLS_IN_DEBUG'] = False
