@@ -76,3 +76,9 @@ class Api:
     @api_method
     def open_settings(self) -> Coroutine[Any, Any, Any]:
         return self._app.open_settings()
+
+    @api_method
+    def set_trip_info(
+        self, card_id: str, title: str, notes: str
+    ) -> Coroutine[Any, Any, Any]:
+        return self._app.set_trip_info(card_id, title, notes)
