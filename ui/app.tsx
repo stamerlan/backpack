@@ -5,6 +5,7 @@ import {
   webLightTheme,
 } from "@fluentui/react-components";
 import { AppBar } from "./app-bar";
+import { Busy } from "./busy";
 import { Doc } from "./doc";
 import { DialogHost } from "./dialog-host";
 import { Menu } from "./menu";
@@ -28,6 +29,7 @@ export function App() {
       <Doc on_title_change={set_title} />
       <Menu open={menu_open} show_menu={set_menu_open} />
       <DialogHost />
+      <Busy />
     </FluentProvider>
   );
 }
