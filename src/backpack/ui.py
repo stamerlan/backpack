@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Iterable
 if TYPE_CHECKING:
     from concurrent.futures import Future
     from .js_worker import JsWorker
+    from .model.data import TrackPoint
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,9 @@ class UI:
         return self.js.submit("doc.add_trip_card", (card_id, title, notes))
 
     def add_route_card(
-        self, card_id: str, title: str = "", notes: str = ""
+        self, card_id: str, title: str, notes: str,
+        track: "Iterable[TrackPoint]"
     ) -> "Future[Any]":
-        return self.js.submit("doc.add_route_card", (card_id, title, notes))
+        return self.js.submit(
+            "doc.add_route_card", (card_id, title, notes, list(track))
+        )

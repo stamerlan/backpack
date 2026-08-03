@@ -1,0 +1,125 @@
+.route-map-block {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.route-map {
+  display: block;
+  position: relative;
+  height: 320px;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: var(--borderRadiusMedium);
+}
+.route-map .leaflet-container {
+  height: 100%;
+  background: var(--colorNeutralBackground3);
+  font-family: var(--fontFamilyBase);
+  font-size: var(--fontSizeBase200);
+  cursor: grab;
+}
+.route-map .leaflet-container:active { cursor: grabbing; }
+
+.route-map .route-map-casing { stroke: var(--colorNeutralBackground1); }
+.route-map .route-map-line { stroke: var(--colorBrandStroke1); }
+.route-map .route-map-start {
+  stroke: var(--colorNeutralBackground1);
+  fill: var(--colorPaletteGreenForeground1);
+}
+.route-map .route-map-end {
+  stroke: var(--colorNeutralBackground1);
+  fill: var(--colorPaletteRedForeground1);
+}
+.route-map .route-map-context {
+  stroke: var(--colorNeutralForeground4);
+  stroke-dasharray: 4 4;
+  opacity: 0.7;
+}
+.route-map .route-map-context-dot {
+  stroke: var(--colorNeutralBackground1);
+  fill: var(--colorNeutralForeground4);
+  opacity: 0.7;
+}
+
+.route-map .leaflet-bar {
+  border: 1px solid var(--colorNeutralStroke1);
+  border-radius: var(--borderRadiusMedium);
+  box-shadow: var(--shadow4);
+}
+.route-map .leaflet-bar a {
+  background: var(--colorNeutralBackground1);
+  color: var(--colorNeutralForeground1);
+  border-bottom: 1px solid var(--colorNeutralStroke2);
+}
+.route-map .leaflet-bar a:hover {
+  background: var(--colorNeutralBackground1Hover);
+  color: var(--colorNeutralForeground1);
+}
+.route-map .leaflet-control-layers {
+  background: var(--colorNeutralBackground1);
+  color: var(--colorNeutralForeground1);
+  border: 1px solid var(--colorNeutralStroke1);
+  border-radius: var(--borderRadiusMedium);
+  box-shadow: var(--shadow4);
+}
+.route-map .leaflet-control-layers-expanded {
+  padding: 6px 10px 6px 8px;
+  font-family: var(--fontFamilyBase);
+  font-size: var(--fontSizeBase200);
+}
+.route-map .leaflet-control-layers-list label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
+  cursor: pointer;
+}
+.route-map .leaflet-control-layers-selector {
+  margin: 0;
+  accent-color: var(--colorBrandBackground);
+}
+.route-map .leaflet-control-attribution {
+  background: var(--colorNeutralBackground1);
+  color: var(--colorNeutralForeground3);
+  font-family: var(--fontFamilyBase);
+  font-size: var(--fontSizeBase100);
+  padding: 0 6px;
+  border-radius: var(--borderRadiusSmall) 0 0 0;
+}
+.route-map .leaflet-control-attribution a {
+  color: var(--colorBrandForeground1);
+}
+
+.route-map-handle {
+  position: relative;
+  height: 12px;
+  cursor: ns-resize;
+  background: var(--colorNeutralBackground3);
+  border: 1px solid var(--colorNeutralStroke2);
+  border-top: none;
+  border-radius: 0 0 var(--borderRadiusMedium) var(--borderRadiusMedium);
+  transition: background 0.15s ease;
+}
+.route-map-handle::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 32px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--colorNeutralStroke1);
+  transition: background 0.15s ease, width 0.15s ease;
+}
+.route-map-handle:hover {
+  background: var(--colorNeutralBackground3Hover);
+}
+.route-map-handle:hover::after {
+  width: 40px;
+  background: var(--colorBrandForeground1);
+}
+.route-map-handle:active::after {
+  background: var(--colorBrandForeground2);
+}

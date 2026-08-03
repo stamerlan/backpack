@@ -10,6 +10,7 @@ import {
 } from "@fluentui/react-components";
 import api from "./api";
 import { icon } from "./icon";
+import { RouteMap, type MapOverlay } from "./route-map";
 
 const use_styles = makeStyles({
   card: {
@@ -17,6 +18,12 @@ const use_styles = makeStyles({
     flexDirection: "column",
     gap: "8px",
     padding: "8px 12px 12px",
+  },
+  body: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    minWidth: 0,
   },
   header: {
     display: "flex",
@@ -104,6 +111,7 @@ export function RouteCard(props: {
   id: string;
   title: string;
   notes: string;
+  overlay: MapOverlay;
   on_remove: (id: string) => void;
 }) {
   const styles = use_styles();
@@ -154,14 +162,17 @@ export function RouteCard(props: {
         />
       </div>
       {!route.folded && (
-        <Textarea
-          placeholder="Notes for this route..."
-          resize="vertical"
-          value={route.notes}
-          textarea={{ className: styles.notes_area }}
-          onChange={(_event, data) => { route.notes = data.value; }}
-          onBlur={() => route.commit()}
-        />
+        <div className={styles.body}>
+          <RouteMap overlay={props.overlay} />
+          <Textarea
+            placeholder="Notes for this route..."
+            resize="vertical"
+            value={route.notes}
+            textarea={{ className: styles.notes_area }}
+            onChange={(_event, data) => { route.notes = data.value; }}
+            onBlur={() => route.commit()}
+          />
+        </div>
       )}
     </Card>
   );

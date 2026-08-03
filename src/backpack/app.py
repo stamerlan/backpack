@@ -55,7 +55,7 @@ class App:
 
     async def add_route(self) -> None:
         logger.debug("")
-        self.ui.add_route_card(f"route-{uuid4().hex}")
+        self.ui.add_route_card(f"route-{uuid4().hex}", "", "", [])
 
     async def set_route_info(
         self, card_id: str, title: str, notes: str
