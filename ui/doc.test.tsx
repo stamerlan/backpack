@@ -69,31 +69,50 @@ describe("document view", () => {
 
   it("adds a route card with its title and notes", async () => {
     mount_host();
-    window.doc!.add_route_card("route-1", "Day 1", "Wojtal to Olpuch");
+    window.doc!.add_route_card("route-1", "Day 1", "A to B", []);
     expect(await screen.findByDisplayValue("Day 1")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Wojtal to Olpuch")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("A to B")).toBeInTheDocument();
   });
 
   it("keeps the app bar title when a route card arrives", async () => {
     const on_title_change = vi.fn();
     mount_host(on_title_change);
-    window.doc!.add_route_card("route-1", "Day 1", "");
+    window.doc!.add_route_card("route-1", "Day 1", "", []);
     await screen.findByDisplayValue("Day 1");
     expect(on_title_change).not.toHaveBeenCalled();
+  });
+
+  it("shows the map for an unfolded route card", async () => {
+    const { container } = mount_host();
+    window.doc!.add_route_card("route-1", "Day 1", "", []);
+    await screen.findByDisplayValue("Day 1");
+    expect(container.querySelector(".route-map")).toBeInTheDocument();
+  });
+
+  it("adds a route card carrying its track from the backend", async () => {
+    mount_host();
+    expect(() =>
+      window.doc!.add_route_card("route-1", "Day 1", "", [
+        { lat: 53.9, long: 18.0, elev_m: 132, slope: 0, dist_m: 0, dur_s: 0 },
+        { lat: 53.8, long: 18.1, elev_m: 140, slope: 2, dist_m: 900,
+          dur_s: 600 },
+      ])
+    ).not.toThrow();
+    expect(await screen.findByDisplayValue("Day 1")).toBeInTheDocument();
   });
 
   it("folds a route card away", async () => {
     const user = userEvent.setup();
     mount_host();
-    window.doc!.add_route_card("route-1", "Day 1", "Wojtal to Olpuch");
+    window.doc!.add_route_card("route-1", "Day 1", "A to B", []);
     await screen.findByDisplayValue("Day 1");
     await user.click(screen.getByLabelText("Fold route"));
     expect(
-      screen.queryByDisplayValue("Wojtal to Olpuch")
+      screen.queryByDisplayValue("A to B")
     ).not.toBeInTheDocument();
     await user.click(screen.getByLabelText("Unfold route"));
     expect(
-      await screen.findByDisplayValue("Wojtal to Olpuch")
+      await screen.findByDisplayValue("A to B")
     ).toBeInTheDocument();
   });
 
@@ -101,7 +120,7 @@ describe("document view", () => {
     const user = userEvent.setup();
     mount_host();
     window.doc!.add_trip_card("trip-1", "Alps hike", "");
-    window.doc!.add_route_card("route-1", "Day 1", "");
+    window.doc!.add_route_card("route-1", "Day 1", "", []);
     await screen.findByDisplayValue("Day 1");
     await user.click(screen.getByLabelText("Delete route"));
     await waitFor(() =>
