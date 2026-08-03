@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Iterable
+from typing import TYPE_CHECKING, Any, Iterable, Literal
 
 if TYPE_CHECKING:
     from concurrent.futures import Future
@@ -15,8 +15,11 @@ logger = logging.getLogger(__name__)
 class DialogAction:
     title: str
     result: Any = None
-    size: str | None = None
-    appearance: str | None = None
+    size: Literal["small", "medium", "large"] | None = None
+    appearance: (
+        Literal["secondary", "primary", "outline", "subtle", "transparent"]
+        | None
+    ) = None
 
 
 @dataclass
@@ -24,6 +27,16 @@ class RecentItem:
     title: str
     meta: str
     filename: str
+
+
+@dataclass
+class NotifyAction:
+    title: str
+    result: Any = None
+    appearance: (
+        Literal["secondary", "primary", "outline", "subtle", "transparent"]
+        | None
+    ) = None
 
 
 class UI:
@@ -39,6 +52,20 @@ class UI:
 
     def set_recent(self, items: Iterable[RecentItem]) -> "Future[Any]":
         return self.js.submit("menu.set_recent", (list(items),))
+
+    def notify(
+        self,
+        message: str,
+        intent: Literal["info", "success", "warning", "error"] = "info",
+        title: str = "",
+        actions: Iterable[NotifyAction] = (),
+    ) -> "Future[Any]":
+        return self.js.submit(
+            "notify", (message, intent, title, list(actions))
+        )
+
+    def clear_notify(self) -> "Future[Any]":
+        return self.js.submit("clear_notify", ())
 
     def set_busy(self, busy: bool, label: str = "") -> "Future[Any]":
         return self.js.submit("set_busy", (busy, label))

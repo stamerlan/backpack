@@ -40,6 +40,7 @@ class App:
         doc = model.Document()
         doc.subscribe(self.on_change)
         self.doc = doc
+        self.ui.clear_notify()
         self.ui.clear_doc()
         self.ui.add_trip_card(f"trip-{uuid4().hex}", doc.title, doc.notes)
 
@@ -90,8 +91,14 @@ class App:
                     )
                     with self.doc.edit(self) as ed:
                         ed.apply(model.AddRoute(r))
-                except Exception:
+                except Exception as e:
                     logger.exception(f'Failed to load "{filepath}"')
+                    name = pathlib.Path(filepath).name
+                    self.ui.notify(
+                        f"{name}: {e}",
+                        intent="error",
+                        title="Could not load route"
+                    )
         finally:
             self.ui.set_busy(False)
 
