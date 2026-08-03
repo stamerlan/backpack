@@ -75,7 +75,7 @@ describe("document view", () => {
     const on_title_change = vi.fn();
     mount_host(on_title_change);
     window.doc!.add_trip_card("trip-1", "", "");
-    const field = await screen.findByPlaceholderText("Trip title");
+    const field = await screen.findByPlaceholderText("Untitled trip");
     await user.type(field, "Hi");
     expect(on_title_change).toHaveBeenLastCalledWith("Hi");
   });

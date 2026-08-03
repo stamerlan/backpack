@@ -2,11 +2,11 @@ import { useState, type Dispatch, type SetStateAction } from "react";
 import {
   Card,
   Input,
-  Textarea,
   makeStyles,
   tokens,
 } from "@fluentui/react-components";
 import api from "./api";
+import { MdInput } from "./md-input";
 
 const use_styles = makeStyles({
   card: {
@@ -15,12 +15,22 @@ const use_styles = makeStyles({
     gap: "12px",
     padding: "16px",
   },
-  title_input: {
-    fontSize: tokens.fontSizeBase500,
-    fontWeight: tokens.fontWeightSemibold,
+  title_root: {
+    border: "none",
+    borderRadius: 0,
+    paddingLeft: 0,
+    paddingRight: 0,
+    backgroundColor: "transparent",
+    "::after": { display: "none" },
+    "::before": { display: "none" },
   },
-  notes_area: {
-    minHeight: "160px",
+  title_input: {
+    paddingLeft: 0,
+    paddingRight: 0,
+    fontFamily: tokens.fontFamilyBase,
+    fontSize: tokens.fontSizeHero800,
+    lineHeight: tokens.lineHeightHero800,
+    fontWeight: tokens.fontWeightSemibold,
   },
 });
 
@@ -80,21 +90,20 @@ export function TripCard(props: {
   return (
     <Card className={styles.card}>
       <Input
+        className={styles.title_root}
         appearance="underline"
-        size="large"
-        placeholder="Trip title"
+        placeholder="Untitled trip"
         value={trip.title}
         input={{ className: styles.title_input }}
         onChange={(_event, data) => { trip.title = data.value; }}
         onBlur={() => trip.commit()}
       />
-      <Textarea
-        placeholder="Notes"
-        resize="vertical"
+      <MdInput
+        placeholder="Add trip notes..."
         value={trip.notes}
-        textarea={{ className: styles.notes_area }}
-        onChange={(_event, data) => { trip.notes = data.value; }}
-        onBlur={() => trip.commit()}
+        min_height={160}
+        on_change={(value) => { trip.notes = value; }}
+        on_commit={() => trip.commit()}
       />
     </Card>
   );
