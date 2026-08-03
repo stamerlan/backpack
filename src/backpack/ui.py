@@ -6,6 +6,7 @@ if TYPE_CHECKING:
     from concurrent.futures import Future
     from .js_worker import JsWorker
     from .model.data import TrackPoint
+    from .route import RouteStats
 
 logger = logging.getLogger(__name__)
 
@@ -49,10 +50,10 @@ class UI:
 
     def add_route_card(
         self, card_id: str, title: str, notes: str,
-        track: "Iterable[TrackPoint]"
+        track: "Iterable[TrackPoint]", stats: "RouteStats | None"
     ) -> "Future[Any]":
         return self.js.submit(
-            "doc.add_route_card", (card_id, title, notes, list(track))
+            "doc.add_route_card", (card_id, title, notes, list(track), stats)
         )
 
     def remove_card(self, card_id: str) -> "Future[Any]":
