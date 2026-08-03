@@ -14,7 +14,8 @@
     "@fluentui/react-components": "^9.74.4",
     "leaflet": "^1.9.4",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "uplot": "^1.6.32"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.0",

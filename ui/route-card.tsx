@@ -10,7 +10,13 @@ import {
 } from "@fluentui/react-components";
 import api from "./api";
 import { icon } from "./icon";
-import { RouteMap, type MapOverlay } from "./route-map";
+import {
+  RouteMap,
+  type Coord,
+  type MapOverlay,
+  type TrackPoint,
+} from "./route-map";
+import { RouteProfile } from "./route-profile";
 
 const use_styles = makeStyles({
   card: {
@@ -58,6 +64,8 @@ class RouteView {
   #set_notes: Dispatch<SetStateAction<string>>;
   #folded: boolean;
   #set_folded: Dispatch<SetStateAction<boolean>>;
+  #hover: Coord | null;
+  #set_hover: Dispatch<SetStateAction<Coord | null>>;
   #on_remove: (id: string) => void;
 
   constructor(
@@ -70,6 +78,7 @@ class RouteView {
     [this.#title, this.#set_title] = useState(title);
     [this.#notes, this.#set_notes] = useState(notes);
     [this.#folded, this.#set_folded] = useState(false);
+    [this.#hover, this.#set_hover] = useState<Coord | null>(null);
     this.#on_remove = on_remove;
   }
 
@@ -97,6 +106,14 @@ class RouteView {
     this.#set_folded((folded) => !folded);
   }
 
+  get hover(): Coord | null {
+    return this.#hover;
+  }
+
+  set hover(point: Coord | null) {
+    this.#set_hover(point);
+  }
+
   commit(): void {
     void api.set_route_info(this.#id, this.#title, this.#notes);
   }
@@ -111,6 +128,7 @@ export function RouteCard(props: {
   id: string;
   title: string;
   notes: string;
+  track: TrackPoint[];
   overlay: MapOverlay;
   on_remove: (id: string) => void;
 }) {
@@ -163,7 +181,14 @@ export function RouteCard(props: {
       </div>
       {!route.folded && (
         <div className={styles.body}>
-          <RouteMap overlay={props.overlay} />
+          <RouteMap overlay={props.overlay} hover={route.hover} />
+          {props.track.length > 0 && (
+            <RouteProfile
+              track={props.track}
+              onHover={(point) => { route.hover = point; }}
+              onLeave={() => { route.hover = null; }}
+            />
+          )}
           <Textarea
             placeholder="Notes for this route..."
             resize="vertical"

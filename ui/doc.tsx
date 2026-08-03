@@ -114,6 +114,10 @@ class DocView {
     return route_overlay(route_id, this.#tracks);
   }
 
+  track(route_id: string): TrackPoint[] {
+    return this.#tracks[route_id] ?? [];
+  }
+
   set title(title: string) {
     this.#on_title_change(title);
   }
@@ -183,6 +187,7 @@ export function Doc(props: {
                   id={card.id}
                   title={card.title}
                   notes={card.notes}
+                  track={doc.track(card.id)}
                   overlay={doc.overlay(card.id)}
                   on_remove={(id) => doc.remove_card(id)}
                 />
