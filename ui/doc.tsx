@@ -4,7 +4,9 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import { makeStyles } from "@fluentui/react-components";
+import { Button, makeStyles } from "@fluentui/react-components";
+import api from "./api";
+import { RouteCard } from "./route-card";
 import { TripCard } from "./trip-card";
 
 const use_styles = makeStyles({
@@ -21,6 +23,9 @@ const use_styles = makeStyles({
     maxWidth: "800px",
     margin: "0 auto",
   },
+  add_route: {
+    alignSelf: "flex-start",
+  },
 });
 
 interface TripCardView {
@@ -30,7 +35,14 @@ interface TripCardView {
   notes: string;
 }
 
-type CardView = TripCardView;
+interface RouteCardView {
+  id: string;
+  kind: "route";
+  title: string;
+  notes: string;
+}
+
+type CardView = TripCardView | RouteCardView;
 
 /* The document view's state together with the whole surface the backend may
  * drive. It is a hook-backed view model: the constructor calls useState, so a
@@ -70,11 +82,19 @@ class DocView {
     this.#set_cards((cards) => [...cards, { id, kind: "trip", title, notes }]);
     this.title = title;
   }
+
+  add_route_card(id: string, title: string, notes: string): void {
+    this.#set_cards((cards) => [...cards, { id, kind: "route", title, notes }]);
+  }
+
+  remove_card(id: string): void {
+    this.#set_cards((cards) => cards.filter((card) => card.id !== id));
+  }
 }
 
 /* One DocView instance is the document view's whole backend surface: while
  * mounted it is published as the global `doc`, so the backend pushes changes
- * with doc.add_trip_card(...), doc.clear() and the like.
+ * with doc.add_route_card(...), doc.clear() and the like.
  */
 export function Doc(props: {
   on_title_change: (title: string) => void;
@@ -102,10 +122,27 @@ export function Doc(props: {
                   on_title_change={props.on_title_change}
                 />
               );
+            case "route":
+              return (
+                <RouteCard
+                  key={card.id}
+                  id={card.id}
+                  title={card.title}
+                  notes={card.notes}
+                  on_remove={(id) => doc.remove_card(id)}
+                />
+              );
             default:
               return null;
           }
         })}
+        <Button
+          className={styles.add_route}
+          appearance="subtle"
+          onClick={() => { void api.add_route(); }}
+        >
+          + Add route
+        </Button>
       </div>
     </main>
   );

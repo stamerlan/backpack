@@ -82,3 +82,17 @@ class Api:
         self, card_id: str, title: str, notes: str
     ) -> Coroutine[Any, Any, Any]:
         return self._app.set_trip_info(card_id, title, notes)
+
+    @api_method
+    def add_route(self) -> Coroutine[Any, Any, Any]:
+        return self._app.add_route()
+
+    @api_method
+    def set_route_info(
+        self, card_id: str, title: str, notes: str
+    ) -> Coroutine[Any, Any, Any]:
+        return self._app.set_route_info(card_id, title, notes)
+
+    @api_method
+    def remove_route(self, card_id: str) -> Coroutine[Any, Any, Any]:
+        return self._app.remove_route(card_id)

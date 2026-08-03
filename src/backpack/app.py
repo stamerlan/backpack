@@ -52,3 +52,15 @@ class App:
         self, card_id: str, title: str, notes: str
     ) -> None:
         logger.debug(f"card_id:{card_id} title:{title!r} notes:{notes!r}")
+
+    async def add_route(self) -> None:
+        logger.debug("")
+        self.ui.add_route_card(f"route-{uuid4().hex}")
+
+    async def set_route_info(
+        self, card_id: str, title: str, notes: str
+    ) -> None:
+        logger.debug(f"card_id:{card_id} title:{title!r} notes:{notes!r}")
+
+    async def remove_route(self, card_id: str) -> None:
+        logger.debug(f"card_id:{card_id}")
