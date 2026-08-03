@@ -40,6 +40,9 @@ class UI:
     def set_recent(self, items: Iterable[RecentItem]) -> "Future[Any]":
         return self.js.submit("menu.set_recent", (list(items),))
 
+    def set_busy(self, busy: bool, label: str = "") -> "Future[Any]":
+        return self.js.submit("set_busy", (busy, label))
+
     def clear_doc(self) -> "Future[Any]":
         return self.js.submit("doc.clear", ())
 

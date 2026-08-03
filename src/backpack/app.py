@@ -74,21 +74,26 @@ class App:
         )
         if not files:
             return
-        for filepath in files:
-            try:
-                text = await asyncio.to_thread(
-                    pathlib.Path(filepath).read_text, encoding="utf-8"
-                )
-                gpx = await asyncio.to_thread(route.parse_gpx, text)
-                r = model.RouteData(
-                    title=gpx.name or pathlib.Path(filepath).stem,
-                    notes=gpx.description,
-                    track=gpx.track,
-                )
-                with self.doc.edit(self) as ed:
-                    ed.apply(model.AddRoute(r))
-            except Exception:
-                logger.exception(f'Failed to load "{filepath}"')
+
+        self.ui.set_busy(True, "Loading routes...")
+        try:
+            for filepath in files:
+                try:
+                    text = await asyncio.to_thread(
+                        pathlib.Path(filepath).read_text, encoding="utf-8"
+                    )
+                    gpx = await asyncio.to_thread(route.parse_gpx, text)
+                    r = model.RouteData(
+                        title=gpx.name or pathlib.Path(filepath).stem,
+                        notes=gpx.description,
+                        track=gpx.track,
+                    )
+                    with self.doc.edit(self) as ed:
+                        ed.apply(model.AddRoute(r))
+                except Exception:
+                    logger.exception(f'Failed to load "{filepath}"')
+        finally:
+            self.ui.set_busy(False)
 
     async def set_route_info(
         self, card_id: str, title: str, notes: str
