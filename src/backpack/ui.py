@@ -54,3 +54,6 @@ class UI:
         return self.js.submit(
             "doc.add_route_card", (card_id, title, notes, list(track))
         )
+
+    def remove_card(self, card_id: str) -> "Future[Any]":
+        return self.js.submit("doc.remove_card", (card_id,))
