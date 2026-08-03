@@ -40,6 +40,7 @@ interface Api {
     card_id: string, title: string, notes: string
   ): Promise<unknown>;
   remove_route(card_id: string): Promise<unknown>;
+  move_route(card_id: string, after_id: string | null): Promise<unknown>;
 }
 
 const api = new Proxy({} as Api, {

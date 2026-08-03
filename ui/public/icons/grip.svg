@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="icon" viewBox="0 0 12 16"
+  fill="currentColor">
+  <circle cx="3" cy="3" r="1.2"></circle>
+  <circle cx="9" cy="3" r="1.2"></circle>
+  <circle cx="3" cy="8" r="1.2"></circle>
+  <circle cx="9" cy="8" r="1.2"></circle>
+  <circle cx="3" cy="13" r="1.2"></circle>
+  <circle cx="9" cy="13" r="1.2"></circle>
+</svg>
