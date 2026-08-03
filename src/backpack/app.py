@@ -104,11 +104,13 @@ class App:
 
     def on_change(self, change: model.Change, origin: model.Origin) -> None:
         if isinstance(change, model.AddRoute):
+            track = change.route.track
             self.ui.add_route_card(
                 change.route.id,
                 change.route.title,
                 change.route.notes,
-                change.route.track
+                track,
+                route.RouteStats.from_track(track) if track else None,
             )
         elif isinstance(change, model.RemoveRoute):
             if origin is not self.api:

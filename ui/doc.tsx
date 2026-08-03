@@ -6,7 +6,7 @@ import {
 } from "react";
 import { Button, makeStyles } from "@fluentui/react-components";
 import api from "./api";
-import { RouteCard } from "./route-card";
+import { RouteCard, type RouteStats } from "./route-card";
 import type { MapOverlay, TrackPoint } from "./route-map";
 import { TripCard } from "./trip-card";
 
@@ -41,6 +41,7 @@ interface RouteCardView {
   kind: "route";
   title: string;
   notes: string;
+  stats: RouteStats | null;
 }
 
 type CardView = TripCardView | RouteCardView;
@@ -134,9 +135,15 @@ class DocView {
   }
 
   add_route_card(
-    id: string, title: string, notes: string, track: TrackPoint[]
+    id: string,
+    title: string,
+    notes: string,
+    track: TrackPoint[],
+    stats: RouteStats | null,
   ): void {
-    this.#set_cards((cards) => [...cards, { id, kind: "route", title, notes }]);
+    this.#set_cards((cards) => [
+      ...cards, { id, kind: "route", title, notes, stats },
+    ]);
     this.#set_tracks((tracks) => ({ ...tracks, [id]: track }));
   }
 
@@ -187,6 +194,7 @@ export function Doc(props: {
                   id={card.id}
                   title={card.title}
                   notes={card.notes}
+                  stats={card.stats}
                   track={doc.track(card.id)}
                   overlay={doc.overlay(card.id)}
                   on_remove={(id) => doc.remove_card(id)}

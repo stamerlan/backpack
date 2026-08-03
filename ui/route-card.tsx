@@ -1,5 +1,6 @@
 import { useState, type Dispatch, type SetStateAction } from "react";
 import {
+  Badge,
   Button,
   Card,
   Input,
@@ -17,6 +18,42 @@ import {
   type TrackPoint,
 } from "./route-map";
 import { RouteProfile } from "./route-profile";
+
+export interface RouteStats {
+  dist_m: number;
+  dur_s: number;
+  ascent_m: number;
+  descent_m: number;
+  vertical_m: number;
+  elev_min_m: number;
+  elev_max_m: number;
+  elev_net_m: number;
+  elev_mean_m: number;
+}
+
+function fmt_hm(seconds: number): string {
+  const total = Math.round(seconds / 60);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return `${h}:${String(m).padStart(2, "0")}`;
+}
+
+function fmt_signed(meters: number): string {
+  const v = Math.round(meters);
+  return v > 0 ? `+${v}` : String(v);
+}
+
+function elev_title(stats: RouteStats): string {
+  /* The badge only has room for the two totals, so the rest of the
+   * elevation numbers ride along in its tooltip. */
+  return (
+    `Net ${fmt_signed(stats.elev_net_m)} m over ` +
+    `${Math.round(stats.vertical_m)} m of vertical\n` +
+    `Lowest ${Math.round(stats.elev_min_m)} m, ` +
+    `highest ${Math.round(stats.elev_max_m)} m, ` +
+    `average ${Math.round(stats.elev_mean_m)} m`
+  );
+}
 
 const use_styles = makeStyles({
   card: {
@@ -50,6 +87,12 @@ const use_styles = makeStyles({
   title_input: {
     fontSize: tokens.fontSizeBase400,
     fontWeight: tokens.fontWeightSemibold,
+  },
+  summary: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    flex: "none",
   },
   notes_area: {
     minHeight: "120px",
@@ -128,6 +171,7 @@ export function RouteCard(props: {
   id: string;
   title: string;
   notes: string;
+  stats: RouteStats | null;
   track: TrackPoint[];
   overlay: MapOverlay;
   on_remove: (id: string) => void;
@@ -136,6 +180,7 @@ export function RouteCard(props: {
   const route = new RouteView(
     props.id, props.title, props.notes, props.on_remove
   );
+  const stats = props.stats;
 
   return (
     <Card className={styles.card}>
@@ -171,6 +216,39 @@ export function RouteCard(props: {
           }}
           onBlur={() => route.commit()}
         />
+        {stats && (
+          <div className={styles.summary}>
+            <Badge
+              appearance="tint"
+              color="informative"
+              shape="rounded"
+              title="Route length, elevation included"
+            >
+              {(stats.dist_m / 1000).toFixed(2)} km
+            </Badge>
+            <Badge
+              appearance="tint"
+              color="informative"
+              shape="rounded"
+              title={
+                "Estimated walking time from Tobler's hiking " +
+                "function, with a 33% allowance for pack, rests " +
+                "and terrain"
+              }
+            >
+              {fmt_hm(stats.dur_s)}
+            </Badge>
+            <Badge
+              appearance="tint"
+              color="informative"
+              shape="rounded"
+              title={elev_title(stats)}
+            >
+              {`\u2197${Math.round(stats.ascent_m)} ` +
+                `\u2198${Math.round(stats.descent_m)} m`}
+            </Badge>
+          </div>
+        )}
         <Button
           appearance="subtle"
           title="Delete route"
