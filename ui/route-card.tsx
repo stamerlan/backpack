@@ -4,13 +4,13 @@ import {
   Button,
   Card,
   Input,
-  Textarea,
   makeStyles,
   mergeClasses,
   tokens,
 } from "@fluentui/react-components";
 import api from "./api";
 import { icon } from "./icon";
+import { MdInput } from "./md-input";
 import {
   RouteMap,
   type Coord,
@@ -105,9 +105,20 @@ const use_styles = makeStyles({
   title: {
     flex: "1 1 auto",
     minWidth: 0,
+    border: "none",
+    borderRadius: 0,
+    paddingLeft: 0,
+    paddingRight: 0,
+    backgroundColor: "transparent",
+    "::after": { display: "none" },
+    "::before": { display: "none" },
   },
   title_input: {
-    fontSize: tokens.fontSizeBase400,
+    paddingLeft: 0,
+    paddingRight: 0,
+    fontFamily: tokens.fontFamilyBase,
+    fontSize: "17px",
+    lineHeight: "1.3",
     fontWeight: tokens.fontWeightSemibold,
   },
   summary: {
@@ -115,9 +126,6 @@ const use_styles = makeStyles({
     alignItems: "center",
     gap: "6px",
     flex: "none",
-  },
-  notes_area: {
-    minHeight: "120px",
   },
 });
 
@@ -301,13 +309,12 @@ export function RouteCard(props: {
               onLeave={() => { route.hover = null; }}
             />
           )}
-          <Textarea
+          <MdInput
             placeholder="Notes for this route..."
-            resize="vertical"
             value={route.notes}
-            textarea={{ className: styles.notes_area }}
-            onChange={(_event, data) => { route.notes = data.value; }}
-            onBlur={() => route.commit()}
+            min_height={120}
+            on_change={(value) => { route.notes = value; }}
+            on_commit={() => route.commit()}
           />
         </div>
       )}

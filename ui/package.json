@@ -12,7 +12,9 @@
   },
   "dependencies": {
     "@fluentui/react-components": "^9.74.4",
+    "dompurify": "^3.4.13",
     "leaflet": "^1.9.4",
+    "marked": "^18.0.7",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "uplot": "^1.6.32"
