@@ -45,3 +45,8 @@ class UI:
         self, card_id: str, title: str = "", notes: str = ""
     ) -> "Future[Any]":
         return self.js.submit("doc.add_trip_card", (card_id, title, notes))
+
+    def add_route_card(
+        self, card_id: str, title: str = "", notes: str = ""
+    ) -> "Future[Any]":
+        return self.js.submit("doc.add_route_card", (card_id, title, notes))

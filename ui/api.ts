@@ -35,6 +35,11 @@ interface Api {
   set_trip_info(
     card_id: string, title: string, notes: string
   ): Promise<unknown>;
+  add_route(): Promise<unknown>;
+  set_route_info(
+    card_id: string, title: string, notes: string
+  ): Promise<unknown>;
+  remove_route(card_id: string): Promise<unknown>;
 }
 
 const api = new Proxy({} as Api, {
