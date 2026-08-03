@@ -159,6 +159,53 @@ describe("document view", () => {
     expect(screen.getByDisplayValue("Alps hike")).toBeInTheDocument();
   });
 
+  function route_order(): string[] {
+    return screen
+      .getAllByPlaceholderText("Untitled route")
+      .map((input) => (input as HTMLInputElement).value);
+  }
+
+  it("moves a route to the front when after_id is null", async () => {
+    mount_host();
+    window.doc!.add_trip_card("trip-1", "Alps hike", "");
+    window.doc!.add_route_card("route-1", "R1", "", [], null);
+    window.doc!.add_route_card("route-2", "R2", "", [], null);
+    window.doc!.add_route_card("route-3", "R3", "", [], null);
+    await screen.findByDisplayValue("R3");
+    window.doc!.move_card("route-3", null);
+    await waitFor(() => expect(route_order()).toEqual(["R3", "R1", "R2"]));
+    expect(screen.getByDisplayValue("Alps hike")).toBeInTheDocument();
+  });
+
+  it("moves a route to sit just after another route", async () => {
+    mount_host();
+    window.doc!.add_route_card("route-1", "R1", "", [], null);
+    window.doc!.add_route_card("route-2", "R2", "", [], null);
+    window.doc!.add_route_card("route-3", "R3", "", [], null);
+    await screen.findByDisplayValue("R3");
+    window.doc!.move_card("route-1", "route-2");
+    await waitFor(() => expect(route_order()).toEqual(["R2", "R1", "R3"]));
+  });
+
+  it("moves a route to the end past the last route", async () => {
+    mount_host();
+    window.doc!.add_route_card("route-1", "R1", "", [], null);
+    window.doc!.add_route_card("route-2", "R2", "", [], null);
+    window.doc!.add_route_card("route-3", "R3", "", [], null);
+    await screen.findByDisplayValue("R3");
+    window.doc!.move_card("route-1", "route-3");
+    await waitFor(() => expect(route_order()).toEqual(["R2", "R3", "R1"]));
+  });
+
+  it("leaves the order untouched for an unknown target", async () => {
+    mount_host();
+    window.doc!.add_route_card("route-1", "R1", "", [], null);
+    window.doc!.add_route_card("route-2", "R2", "", [], null);
+    await screen.findByDisplayValue("R2");
+    window.doc!.move_card("route-1", "route-nope");
+    await waitFor(() => expect(route_order()).toEqual(["R1", "R2"]));
+  });
+
   it("drops the global handle once the view unmounts", () => {
     const view = mount_host();
     expect(window.doc).not.toBeNull();

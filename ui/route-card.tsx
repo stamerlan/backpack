@@ -73,6 +73,28 @@ const use_styles = makeStyles({
     alignItems: "center",
     gap: "8px",
   },
+  grip: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flex: "none",
+    width: "22px",
+    height: "28px",
+    padding: 0,
+    border: "none",
+    background: "transparent",
+    color: tokens.colorNeutralForeground4,
+    cursor: "grab",
+    borderRadius: tokens.borderRadiusSmall,
+    touchAction: "none",
+    ":hover": {
+      color: tokens.colorNeutralForeground2,
+      background: tokens.colorNeutralBackground3,
+    },
+    ":active": {
+      cursor: "grabbing",
+    },
+  },
   chevron: {
     display: "inline-flex",
     transition: "transform 0.15s ease",
@@ -175,6 +197,8 @@ export function RouteCard(props: {
   track: TrackPoint[];
   overlay: MapOverlay;
   on_remove: (id: string) => void;
+  on_grip_down?: () => void;
+  on_grip_up?: () => void;
 }) {
   const styles = use_styles();
   const route = new RouteView(
@@ -185,6 +209,16 @@ export function RouteCard(props: {
   return (
     <Card className={styles.card}>
       <div className={styles.header}>
+        <button
+          type="button"
+          className={styles.grip}
+          title="Drag to reorder"
+          aria-label="Drag to reorder"
+          onPointerDown={() => props.on_grip_down?.()}
+          onPointerUp={() => props.on_grip_up?.()}
+        >
+          {icon("grip", 12)}
+        </button>
         <Button
           appearance="subtle"
           size="small"

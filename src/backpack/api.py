@@ -96,3 +96,9 @@ class Api:
     @api_method
     def remove_route(self, card_id: str) -> Coroutine[Any, Any, Any]:
         return self._app.remove_route(card_id)
+
+    @api_method
+    def move_route(
+        self, card_id: str, after_id: str | None = None
+    ) -> Coroutine[Any, Any, Any]:
+        return self._app.move_route(card_id, after_id)

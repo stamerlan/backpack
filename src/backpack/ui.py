@@ -88,3 +88,8 @@ class UI:
 
     def remove_card(self, card_id: str) -> "Future[Any]":
         return self.js.submit("doc.remove_card", (card_id,))
+
+    def move_card(
+        self, card_id: str, after_id: str | None
+    ) -> "Future[Any]":
+        return self.js.submit("doc.move_card", (card_id, after_id))

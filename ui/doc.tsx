@@ -1,10 +1,17 @@
 import {
   useEffect,
+  useRef,
   useState,
+  type DragEvent as ReactDragEvent,
   type Dispatch,
   type SetStateAction,
 } from "react";
-import { Button, makeStyles } from "@fluentui/react-components";
+import {
+  Button,
+  makeStyles,
+  mergeClasses,
+  tokens,
+} from "@fluentui/react-components";
 import api from "./api";
 import { RouteCard, type RouteStats } from "./route-card";
 import type { MapOverlay, TrackPoint } from "./route-map";
@@ -26,6 +33,36 @@ const use_styles = makeStyles({
   },
   add_route: {
     alignSelf: "flex-start",
+  },
+  route_wrap: {
+    position: "relative",
+  },
+  dragging: {
+    opacity: 0.5,
+  },
+  drop_before: {
+    "::before": {
+      content: '""',
+      position: "absolute",
+      left: 0,
+      right: 0,
+      top: "-6px",
+      height: "2px",
+      background: tokens.colorBrandStroke1,
+      borderRadius: "2px",
+    },
+  },
+  drop_after_last: {
+    "::after": {
+      content: '""',
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: "-6px",
+      height: "2px",
+      background: tokens.colorBrandStroke1,
+      borderRadius: "2px",
+    },
   },
 });
 
@@ -155,6 +192,29 @@ class DocView {
       return next;
     });
   }
+
+  /* Reorder a route card to sit just after after_id, or at the front of the
+   * route list when after_id is null. The trip card always leads, so a front
+   * drop lands right below it. Non-route ids and unknown targets are ignored,
+   * mirroring the model, so a stale drop cannot scramble the list.
+   */
+  move_card(id: string, after_id: string | null): void {
+    this.#set_cards((cards) => {
+      const moving = cards.find((card) => card.id === id);
+      if (moving === undefined || moving.kind !== "route")
+        return cards;
+      const rest = cards.filter((card) => card.id !== id);
+      if (after_id === null) {
+        const at = rest.findIndex((card) => card.kind === "route");
+        const cut = at === -1 ? rest.length : at;
+        return [...rest.slice(0, cut), moving, ...rest.slice(cut)];
+      }
+      const at = rest.findIndex((card) => card.id === after_id);
+      if (at === -1)
+        return cards;
+      return [...rest.slice(0, at + 1), moving, ...rest.slice(at + 1)];
+    });
+  }
 }
 
 /* One DocView instance is the document view's whole backend surface: while
@@ -167,10 +227,69 @@ export function Doc(props: {
   const styles = use_styles();
   const doc = new DocView(props.on_title_change);
 
+  /* Drag-to-reorder state. grip_armed gates which card the browser may lift:
+   * a card is only draggable once its grip is pressed, so pointer drags that
+   * start inside a text field never move the card. drag_id is the card in
+   * flight; drop_after is where it would land (null = front of the routes).
+   */
+  const grip_armed = useRef<string | null>(null);
+  const [drag_id, set_drag_id] = useState<string | null>(null);
+  const [drop_after, set_drop_after] = useState<string | null>(null);
+
   useEffect(() => {
     window.doc = doc;
     return () => { window.doc = null; };
   });
+
+  const route_ids = doc.cards
+    .filter((card) => card.kind === "route")
+    .map((card) => card.id);
+  const last_route = route_ids[route_ids.length - 1] ?? null;
+
+  function end_drag(): void {
+    grip_armed.current = null;
+    set_drag_id(null);
+    set_drop_after(null);
+  }
+
+  function on_drag_start(
+    event: ReactDragEvent<HTMLDivElement>, id: string,
+  ): void {
+    if (grip_armed.current !== id) {
+      event.preventDefault();
+      return;
+    }
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", id);
+    set_drag_id(id);
+    set_drop_after(null);
+  }
+
+  function on_drag_over(
+    event: ReactDragEvent<HTMLDivElement>, over_id: string,
+  ): void {
+    if (drag_id === null)
+      return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    const rect = event.currentTarget.getBoundingClientRect();
+    const before = event.clientY < rect.top + rect.height / 2;
+    const at = route_ids.indexOf(over_id);
+    set_drop_after(before ? (at <= 0 ? null : route_ids[at - 1]!) : over_id);
+  }
+
+  function on_drop(event: ReactDragEvent<HTMLDivElement>): void {
+    if (drag_id === null)
+      return;
+    event.preventDefault();
+    const from = route_ids.indexOf(drag_id);
+    const pred = from > 0 ? route_ids[from - 1]! : null;
+    if (drop_after !== drag_id && drop_after !== pred) {
+      doc.move_card(drag_id, drop_after);
+      void api.move_route(drag_id, drop_after);
+    }
+    end_drag();
+  }
 
   return (
     <main className={styles.content}>
@@ -187,19 +306,42 @@ export function Doc(props: {
                   on_title_change={props.on_title_change}
                 />
               );
-            case "route":
-              return (
-                <RouteCard
-                  key={card.id}
-                  id={card.id}
-                  title={card.title}
-                  notes={card.notes}
-                  stats={card.stats}
-                  track={doc.track(card.id)}
-                  overlay={doc.overlay(card.id)}
-                  on_remove={(id) => doc.remove_card(id)}
-                />
+            case "route": {
+              const ri = route_ids.indexOf(card.id);
+              const line_before = drag_id !== null && (
+                ri === 0 ? drop_after === null : drop_after === route_ids[ri - 1]
               );
+              const line_after_last = drag_id !== null &&
+                card.id === last_route && drop_after === card.id;
+              return (
+                <div
+                  key={card.id}
+                  className={mergeClasses(
+                    styles.route_wrap,
+                    card.id === drag_id && styles.dragging,
+                    line_before && styles.drop_before,
+                    line_after_last && styles.drop_after_last,
+                  )}
+                  draggable
+                  onDragStart={(event) => on_drag_start(event, card.id)}
+                  onDragOver={(event) => on_drag_over(event, card.id)}
+                  onDrop={on_drop}
+                  onDragEnd={end_drag}
+                >
+                  <RouteCard
+                    id={card.id}
+                    title={card.title}
+                    notes={card.notes}
+                    stats={card.stats}
+                    track={doc.track(card.id)}
+                    overlay={doc.overlay(card.id)}
+                    on_remove={(id) => doc.remove_card(id)}
+                    on_grip_down={() => { grip_armed.current = card.id; }}
+                    on_grip_up={() => { grip_armed.current = null; }}
+                  />
+                </div>
+              );
+            }
             default:
               return null;
           }

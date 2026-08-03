@@ -114,6 +114,13 @@ class App:
         with self.doc.edit(self.api) as ed:
             ed.apply(model.RemoveRoute(card_id))
 
+    async def move_route(
+        self, card_id: str, after_id: str | None = None
+    ) -> None:
+        logger.debug(f"card_id:{card_id} after_id:{after_id}")
+        with self.doc.edit(self.api) as ed:
+            ed.apply(model.MoveRoute(card_id, after_id))
+
     def on_change(self, change: model.Change, origin: model.Origin) -> None:
         if isinstance(change, model.AddRoute):
             track = change.route.track
@@ -127,3 +134,6 @@ class App:
         elif isinstance(change, model.RemoveRoute):
             if origin is not self.api:
                 self.ui.remove_card(change.route_id)
+        elif isinstance(change, model.MoveRoute):
+            if origin is not self.api:
+                self.ui.move_card(change.route_id, change.after_id)
