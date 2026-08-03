@@ -60,3 +60,16 @@ def assets_dir() -> Path:
         if (assets / "index.html").is_file():
             return assets
     raise FileNotFoundError("assets not found, run: npm run build")
+
+
+def app_icon_path(name: str | None = None) -> str | None:
+    """Pick a window icon the platform backend can actually decode.
+
+    Windows loads it through System.Drawing.Icon, which reads ICO only.
+    Cocoa (NSImage), GTK (GdkPixbuf) and QT (QIcon) all read PNG, while
+    SVG needs librsvg or the QT svg plugin and fails on Cocoa.
+    """
+    if name is None:
+        name = "app.ico" if sys.platform == "win32" else "app.png"
+    icon = assets_dir() / "icons" / name
+    return str(icon) if icon.is_file() else None

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import sys
 import threading
 import webview
 from argparse import ArgumentParser
@@ -7,7 +8,7 @@ from datetime import datetime
 
 from . import APP_NAME
 from backpack.app import App
-from backpack.paths import assets_dir
+from backpack.paths import app_icon_path, assets_dir
 
 
 DEV_SERVER_URL = "http://localhost:5173"
@@ -43,6 +44,12 @@ def main() -> None:
     url = args.dev or str(assets_dir() / "index.html")
     logger.debug(f"url:{url}")
 
+    if sys.platform == "win32":
+        # Group the window under our own taskbar identity instead of
+        # inheriting python.exe when running from source.
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_NAME)
+
     mainloop = asyncio.new_event_loop()
     mainloop_th = threading.Thread(
         target=_run_mainloop, name="app.mainloop", args=(mainloop,)
@@ -67,7 +74,10 @@ def main() -> None:
             app.on_loaded(), mainloop
         )
 
-        webview.start(debug=logger.isEnabledFor(logging.DEBUG))
+        webview.start(
+            debug=logger.isEnabledFor(logging.DEBUG),
+            icon=app_icon_path(),
+        )
     finally:
         app.shutdown()
         mainloop.call_soon_threadsafe(mainloop.stop)
