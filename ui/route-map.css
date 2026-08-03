@@ -42,6 +42,10 @@
   fill: var(--colorNeutralForeground4);
   opacity: 0.7;
 }
+.route-map .route-map-hover {
+  stroke: var(--colorNeutralBackground1);
+  fill: #ff8c00;
+}
 
 .route-map .leaflet-bar {
   border: 1px solid var(--colorNeutralStroke1);

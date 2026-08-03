@@ -94,6 +94,7 @@ class MapView {
   #host: RefObject<HTMLDivElement | null>;
   #map: RefObject<leaflet.Map | null>;
   #layer: RefObject<leaflet.LayerGroup | null>;
+  #hover: RefObject<leaflet.LayerGroup | null>;
   #height: number;
   #set_height: Dispatch<SetStateAction<number>>;
 
@@ -101,6 +102,7 @@ class MapView {
     this.#host = useRef<HTMLDivElement>(null);
     this.#map = useRef<leaflet.Map | null>(null);
     this.#layer = useRef<leaflet.LayerGroup | null>(null);
+    this.#hover = useRef<leaflet.LayerGroup | null>(null);
     [this.#height, this.#set_height] = useState(DEFAULT_H);
   }
 
@@ -139,6 +141,8 @@ class MapView {
     map.attributionControl.setPrefix(false);
     this.#layer.current = leaflet.layerGroup().addTo(map);
 
+    this.#hover.current = leaflet.layerGroup().addTo(map);
+
     /* Keep the map and its controls out of the Tab order. */
     map
       .getContainer()
@@ -162,6 +166,7 @@ class MapView {
       map.remove();
       this.#map.current = null;
       this.#layer.current = null;
+      this.#hover.current = null;
     };
   }
 
@@ -188,6 +193,19 @@ class MapView {
       this.#map.current.fitBounds(overlay.fit.map(to_coords), {
         animate: false, padding: [20, 20],
       });
+  }
+
+  put_hover(point: Coord | null): void {
+    const layer = this.#hover.current;
+    if (layer === null)
+      return;
+    layer.clearLayers();
+    if (point === null)
+      return;
+    leaflet.circleMarker([point.lat, point.long], {
+      radius: MARKER_RADIUS, weight: MARKER_WEIGHT, fillOpacity: 1,
+      className: "route-map-hover", interactive: false,
+    }).addTo(layer);
   }
 
   invalidate(): void {
@@ -217,11 +235,15 @@ class MapView {
   }
 }
 
-export function RouteMap(props: { overlay: MapOverlay }) {
+export function RouteMap(props: {
+  overlay: MapOverlay;
+  hover?: Coord | null;
+}) {
   const map = new MapView();
 
   useEffect(() => map.mount(), []);
   useEffect(() => { map.paint(props.overlay); }, [props.overlay]);
+  useEffect(() => { map.put_hover(props.hover ?? null); }, [props.hover]);
   useEffect(() => { map.invalidate(); }, [map.height]);
 
   return (
