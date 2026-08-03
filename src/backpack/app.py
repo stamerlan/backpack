@@ -1,8 +1,10 @@
 import asyncio
 import logging
+import pathlib
 import webview
 from uuid import uuid4
 
+from backpack import model, route
 from backpack.api import Api
 from backpack.js_worker import JsWorker
 from backpack.ui import UI
@@ -17,6 +19,7 @@ class App:
         self.api = Api(self)
         self.js = JsWorker()
         self.ui = UI(self.js)
+        self.doc = model.Document()
 
     def start(self, window: webview.Window) -> None:
         """Bind the window and start application tasks."""
@@ -34,8 +37,11 @@ class App:
 
     async def new_doc(self) -> None:
         logger.debug("")
+        doc = model.Document()
+        doc.subscribe(self.on_change)
+        self.doc = doc
         self.ui.clear_doc()
-        self.ui.add_trip_card(f"trip-{uuid4().hex}")
+        self.ui.add_trip_card(f"trip-{uuid4().hex}", doc.title, doc.notes)
 
     async def open_doc(self, filepath: str | None = None) -> None:
         logger.debug(f"filepath:{filepath}")
@@ -52,15 +58,58 @@ class App:
         self, card_id: str, title: str, notes: str
     ) -> None:
         logger.debug(f"card_id:{card_id} title:{title!r} notes:{notes!r}")
+        with self.doc.edit(self.api) as ed:
+            ed.apply(model.SetDocInfo(title=title, notes=notes))
 
     async def add_route(self) -> None:
         logger.debug("")
-        self.ui.add_route_card(f"route-{uuid4().hex}", "", "", [])
+        window = self.window
+        if window is None:
+            return
+        files = await asyncio.to_thread(
+            window.create_file_dialog,
+            webview.FileDialog.OPEN,
+            allow_multiple=True,
+            file_types=("GPX files (*.gpx)", "All files (*.*)"),
+        )
+        if not files:
+            return
+        for filepath in files:
+            try:
+                text = await asyncio.to_thread(
+                    pathlib.Path(filepath).read_text, encoding="utf-8"
+                )
+                gpx = await asyncio.to_thread(route.parse_gpx, text)
+                r = model.RouteData(
+                    title=gpx.name or pathlib.Path(filepath).stem,
+                    notes=gpx.description,
+                    track=gpx.track,
+                )
+                with self.doc.edit(self) as ed:
+                    ed.apply(model.AddRoute(r))
+            except Exception:
+                logger.exception(f'Failed to load "{filepath}"')
 
     async def set_route_info(
         self, card_id: str, title: str, notes: str
     ) -> None:
         logger.debug(f"card_id:{card_id} title:{title!r} notes:{notes!r}")
+        with self.doc.edit(self.api) as ed:
+            ed.apply(model.SetRouteInfo(card_id, title=title, notes=notes))
 
     async def remove_route(self, card_id: str) -> None:
         logger.debug(f"card_id:{card_id}")
+        with self.doc.edit(self.api) as ed:
+            ed.apply(model.RemoveRoute(card_id))
+
+    def on_change(self, change: model.Change, origin: model.Origin) -> None:
+        if isinstance(change, model.AddRoute):
+            self.ui.add_route_card(
+                change.route.id,
+                change.route.title,
+                change.route.notes,
+                change.route.track
+            )
+        elif isinstance(change, model.RemoveRoute):
+            if origin is not self.api:
+                self.ui.remove_card(change.route_id)
