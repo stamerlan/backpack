@@ -102,3 +102,17 @@ class Api:
         self, card_id: str, after_id: str | None = None
     ) -> Coroutine[Any, Any, Any]:
         return self._app.move_route(card_id, after_id)
+
+    @api_method
+    def add_chat(self) -> Coroutine[Any, Any, Any]:
+        return self._app.add_chat()
+
+    @api_method
+    def del_chat(self, chat_id: str) -> Coroutine[Any, Any, Any]:
+        return self._app.del_chat(chat_id)
+
+    @api_method
+    def ask_assist(
+        self, chat_id: str, model_id: str, prompt: str
+    ) -> Coroutine[Any, Any, Any]:
+        return self._app.ask_assist(chat_id, model_id, prompt)
