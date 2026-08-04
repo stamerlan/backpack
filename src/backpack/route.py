@@ -204,6 +204,33 @@ def _gain_loss(elev: list[float], threshold_m: float) -> tuple[float, float]:
     return ascent_m, descent_m
 
 
+def bbox(
+    points: Iterable[tuple[float, float]],
+) -> tuple[float, float, float, float]:
+    """Bounding box of (lat, long) pairs.
+
+    Returns (south, west, north, east).
+    Raises ValueError if the iterable is empty.
+    """
+    it = iter(points)
+    try:
+        lat, lng = next(it)
+    except StopIteration:
+        raise ValueError("no points")
+    south = north = lat
+    west = east = lng
+    for lat, lng in it:
+        if lat < south:
+            south = lat
+        elif lat > north:
+            north = lat
+        if lng < west:
+            west = lng
+        elif lng > east:
+            east = lng
+    return south, west, north, east
+
+
 def _mean_elev(track: list[model.TrackPoint]) -> float:
     """Elevation averaged over distance rather than over points.
 
