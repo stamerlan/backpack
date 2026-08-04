@@ -7,18 +7,22 @@ from uuid import uuid4
 from backpack import model, route
 from backpack.api import Api
 from backpack.js_worker import JsWorker
+from backpack.storage import Storage
 from backpack.ui import UI
 
 logger = logging.getLogger(__name__)
 
 
 class App:
-    def __init__(self, mainloop: asyncio.AbstractEventLoop) -> None:
+    def __init__(
+        self, mainloop: asyncio.AbstractEventLoop, storage: Storage
+    ) -> None:
         self.mainloop = mainloop
         self.window: webview.Window | None = None
         self.api = Api(self)
         self.js = JsWorker()
         self.ui = UI(self.js)
+        self.storage = storage
         self.doc = model.Document()
 
     def start(self, window: webview.Window) -> None:

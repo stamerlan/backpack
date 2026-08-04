@@ -73,3 +73,8 @@ def app_icon_path(name: str | None = None) -> str | None:
         name = "app.ico" if sys.platform == "win32" else "app.png"
     icon = assets_dir() / "icons" / name
     return str(icon) if icon.is_file() else None
+
+
+def app_settings_path() -> Path:
+    """Default path to settings file"""
+    return appdata() / "settings.json"
