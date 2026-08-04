@@ -8,6 +8,7 @@ dependencies = [
     "gpxpy>=1.6,<2",
     "geopy>=2.4,<3",
     "keyring>=25.7,<26",
+    "pydantic-ai-slim[google]>=2.21,<3",
 ]
 readme = "README.rst"
 
@@ -57,6 +58,17 @@ ignore_missing_imports = true
 module = "keyring.*"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "pydantic_ai.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "google.*"
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 addopts = "--mypy"
 testpaths = ["src", "tests"]
+filterwarnings = [
+    "ignore:.*_UnionGenericAlias.*:DeprecationWarning:google.genai.types",
+]
