@@ -8,7 +8,8 @@ from datetime import datetime
 
 from . import APP_NAME
 from backpack.app import App
-from backpack.paths import app_icon_path, assets_dir
+from backpack.paths import app_icon_path, app_settings_path, assets_dir
+from backpack.storage import Storage
 
 
 DEV_SERVER_URL = "http://localhost:5173"
@@ -50,13 +51,21 @@ def main() -> None:
         import ctypes
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_NAME)
 
+    storage = Storage()
+    try:
+        settings_path = app_settings_path()
+        logger.debug(f'Loading settings from "{settings_path}"')
+        storage.settings = storage.read_settings_file(settings_path)
+    except (OSError, ValueError) as e:
+        logger.warning(f"Could not read settings: {e}")
+
     mainloop = asyncio.new_event_loop()
     mainloop_th = threading.Thread(
         target=_run_mainloop, name="app.mainloop", args=(mainloop,)
     )
     mainloop_th.start()
 
-    app = App(mainloop)
+    app = App(mainloop, storage)
 
     try:
         window = webview.create_window(
@@ -82,6 +91,14 @@ def main() -> None:
         app.shutdown()
         mainloop.call_soon_threadsafe(mainloop.stop)
         mainloop_th.join()
+
+        try:
+            settings_path = app_settings_path()
+            logger.debug(f'Storing settings to "{settings_path}"')
+            storage.write_settings_file(settings_path)
+        except OSError as e:
+            logger.warning(f"Could not store settings: {e}")
+
         logger.debug("exit")
 
 
