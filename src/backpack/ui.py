@@ -4,8 +4,9 @@ from typing import TYPE_CHECKING, Any, Iterable, Literal
 
 if TYPE_CHECKING:
     from concurrent.futures import Future
+    from .ai import AiModel
     from .js_worker import JsWorker
-    from .model.data import TrackPoint
+    from .model.data import ChatCard, TrackPoint
     from .route import RouteStats
 
 logger = logging.getLogger(__name__)
@@ -39,11 +40,57 @@ class NotifyAction:
     ) = None
 
 
+class Assist:
+    """Outbound bridge for the assistant panel (window.assist.*)."""
+
+    def __init__(self, js: "JsWorker") -> None:
+        self.js = js
+
+    def clear(self) -> "Future[Any]":
+        return self.js.submit("assist.clear", ())
+
+    def set_models(self, models: Iterable["AiModel"]) -> "Future[Any]":
+        return self.js.submit("assist.set_models", (list(models),))
+
+    def new_chat(self, chat_id: str, title: str = "") -> "Future[Any]":
+        return self.js.submit("assist.new_chat", (chat_id, title))
+
+    def del_chat(self, chat_id: str) -> "Future[Any]":
+        return self.js.submit("assist.del_chat", (chat_id,))
+
+    def set_active_chat(self, chat_id: str) -> "Future[Any]":
+        return self.js.submit("assist.set_active_chat", (chat_id,))
+
+    def set_chat_title(self, chat_id: str, title: str) -> "Future[Any]":
+        return self.js.submit("assist.set_chat_title", (chat_id, title))
+
+    def new_turn(
+        self, chat_id: str, turn_id: str, prompt: str
+    ) -> "Future[Any]":
+        return self.js.submit("assist.new_turn", (chat_id, turn_id, prompt))
+
+    def del_turn(self, chat_id: str, turn_id: str) -> "Future[Any]":
+        return self.js.submit("assist.del_turn", (chat_id, turn_id))
+
+    def append_thinking(self, chat_id: str, text: str) -> "Future[Any]":
+        return self.js.submit("assist.append_thinking", (chat_id, text))
+
+    def append_reply(self, chat_id: str, text: str) -> "Future[Any]":
+        return self.js.submit("assist.append_reply", (chat_id, text))
+
+    def add_card(self, chat_id: str, card: "ChatCard") -> "Future[Any]":
+        return self.js.submit("assist.add_card", (chat_id, card))
+
+    def end_turn(self, chat_id: str) -> "Future[Any]":
+        return self.js.submit("assist.end_turn", (chat_id,))
+
+
 class UI:
     """Outbound bridge: methods Python may call on the frontend."""
 
     def __init__(self, js: "JsWorker") -> None:
         self.js = js
+        self.assist = Assist(js)
 
     def show_dialog(
         self, title: str, text: str, actions: Iterable[DialogAction] = ()

@@ -1,10 +1,13 @@
 import asyncio
+import json
 import logging
 import pathlib
 import webview
+from concurrent.futures import CancelledError, Future
+from typing import Any
 from uuid import uuid4
 
-from backpack import model, route
+from backpack import ai, model, route
 from backpack.api import Api
 from backpack.js_worker import JsWorker
 from backpack.storage import Storage
@@ -23,6 +26,10 @@ class App:
         self.js = JsWorker()
         self.ui = UI(self.js)
         self.storage = storage
+        self.ai = ai.Agent(storage)
+        self.ai_models: asyncio.Future[tuple[ai.AiModel, ...]] = (
+            mainloop.create_future()
+        )
         self.doc = model.Document()
 
     def start(self, window: webview.Window) -> None:
@@ -37,6 +44,8 @@ class App:
         self.js.shutdown()
 
     async def on_loaded(self) -> None:
+        # enumerate models in the background; it might take a while
+        self.ai_models = asyncio.ensure_future(ai.enum_models())
         await self.new_doc()
 
     async def new_doc(self) -> None:
@@ -44,12 +53,63 @@ class App:
         doc = model.Document()
         doc.subscribe(self.on_change)
         self.doc = doc
-        self.ui.clear_notify()
-        self.ui.clear_doc()
-        self.ui.add_trip_card(f"trip-{uuid4().hex}", doc.title, doc.notes)
+        models = await self.ai_models
+        self._reset_ui(doc, models)
+        chat = model.ChatData()
+        with doc.edit(self.api) as ed:
+            ed.apply(model.AddChat(chat))
+        self.ui.assist.set_active_chat(chat.id)
+        doc.mark_saved()
 
     async def open_doc(self, filepath: str | None = None) -> None:
         logger.debug(f"filepath:{filepath}")
+        if filepath is None:
+            return
+        text = await asyncio.to_thread(
+            pathlib.Path(filepath).read_text, encoding="utf-8"
+        )
+        doc = model.Document.from_dict(json.loads(text))
+        doc.subscribe(self.on_change)
+        self.doc = doc
+        models = await self.ai_models
+        self._reset_ui(doc, models)
+        if not doc.chats():
+            chat = model.ChatData()
+            with doc.edit(self.api) as ed:
+                ed.apply(model.AddChat(chat))
+            self.ui.assist.set_active_chat(chat.id)
+        doc.mark_saved()
+
+    def _reset_ui(
+        self, doc: model.Document, models: tuple[ai.AiModel, ...]
+    ) -> None:
+        """Render the whole UI to match doc: trip, routes and chats."""
+        self.ui.clear_notify()
+        self.ui.clear_doc()
+        self.ui.add_trip_card(f"trip-{uuid4().hex}", doc.title, doc.notes)
+        for r in doc.routes():
+            self.ui.add_route_card(
+                r.id, r.title, r.notes, r.track,
+                route.RouteStats.from_track(r.track) if r.track else None,
+            )
+        self.ui.assist.clear()
+        self.ui.assist.set_models(models)
+        for chat in doc.chats():
+            self.ui.assist.new_chat(chat.id, chat.title)
+            for turn in chat.turns:
+                self.ui.assist.new_turn(chat.id, turn.id, turn.prompt)
+                for item in turn.items:
+                    match item:
+                        case model.ChatThinking(text=text):
+                            self.ui.assist.append_thinking(chat.id, text)
+                        case model.ChatReply(text=text):
+                            self.ui.assist.append_reply(chat.id, text)
+                        case model.ChatCard():
+                            self.ui.assist.add_card(chat.id, item)
+                self.ui.assist.end_turn(chat.id)
+        chats = doc.chats()
+        if chats:
+            self.ui.assist.set_active_chat(chats[0].id)
 
     async def save_doc(
         self, filepath: str | None = None, show_dialog: bool = False
@@ -58,6 +118,112 @@ class App:
 
     async def open_settings(self) -> None:
         logger.debug("")
+
+    async def add_chat(self) -> None:
+        logger.debug("")
+        chat = model.ChatData()
+        with self.doc.edit(self.api) as ed:
+            ed.apply(model.AddChat(chat))
+        self.ui.assist.set_active_chat(chat.id)
+
+    async def del_chat(self, chat_id: str) -> None:
+        logger.debug(f"chat_id:{chat_id}")
+        active: str | None = None
+        with self.doc.edit(self.api) as ed:
+            ed.apply(model.RemoveChat(chat_id))
+            if not self.doc.chats():
+                chat = model.ChatData()
+                ed.apply(model.AddChat(chat))
+                active = chat.id
+        if active is None:
+            chats = self.doc.chats()
+            active = chats[-1].id if chats else None
+        if active is not None:
+            self.ui.assist.set_active_chat(active)
+
+    async def ask_assist(
+        self, chat_id: str, model_id: str, prompt: str
+    ) -> None:
+        logger.debug(f"chat_id:{chat_id} model_id:{model_id!r}")
+        doc = self.doc
+        if doc.chat(chat_id) is None:
+            return
+
+        turn_id = model.ChatTurn.unique_id()
+        self.ui.assist.new_turn(chat_id, turn_id, prompt)
+
+        items = list[model.ChatItem]()
+
+        def on_text(text: str) -> None:
+            if items and isinstance(items[-1], model.ChatReply):
+                items[-1] = model.ChatReply(items[-1].text + text)
+            else:
+                items.append(model.ChatReply(text))
+            self.ui.assist.append_reply(chat_id, text)
+
+        def on_think(text: str) -> None:
+            if items and isinstance(items[-1], model.ChatThinking):
+                items[-1] = model.ChatThinking(items[-1].text + text)
+            else:
+                items.append(model.ChatThinking(text))
+            self.ui.assist.append_thinking(chat_id, text)
+
+        def card_action(fut: Future[Any]) -> None:
+            try:
+                action_id = fut.result()
+            except CancelledError:
+                return
+            except Exception as e:
+                self.ui.notify(str(e) or type(e).__name__)
+                return
+
+            logger.debug(
+                f"chat_id:{chat_id} turn_id:{turn_id} action_id:{action_id!r}"
+            )
+            if action_id == "retry":
+                async def _retry() -> None:
+                    if self.doc.chat(chat_id) is None:
+                        return
+                    with self.doc.edit(self.api) as ed:
+                        ed.apply(model.RemoveChatTurn(chat_id, turn_id))
+                    await self.ask_assist(chat_id, model_id, prompt)
+                asyncio.run_coroutine_threadsafe(_retry(), self.mainloop)
+
+        card: model.ChatCard | None = None
+        try:
+            await self.ai.ask(
+                doc, chat_id, model_id, prompt,
+                on_text=on_text, on_think=on_think,
+            )
+        except ai.AiError as e:
+            logger.exception(e.message)
+            card = model.ChatCard(
+                card_kind="error",
+                text=e.message,
+                actions=(
+                    model.ChatCardAction(
+                        id="retry", label="Retry", appearance="primary"
+                    ),
+                ) if e.retryable else ()
+            )
+        except Exception as e:
+            logger.exception("assist run failed")
+            card = model.ChatCard(
+                card_kind="error",
+                text=str(e) or type(e).__name__
+            )
+
+        if card is not None:
+            items.append(card)
+
+        turn = model.ChatTurn(id=turn_id, prompt=prompt, items=tuple(items))
+        with doc.edit(self.ai) as ed:
+            ed.apply(model.AppendChatTurn(chat_id, turn))
+
+        if card is not None:
+            fut = self.ui.assist.add_card(chat_id, card)
+            fut.add_done_callback(card_action)
+        self.ui.assist.end_turn(chat_id)
 
     async def set_trip_info(
         self, card_id: str, title: str, notes: str
@@ -141,3 +307,13 @@ class App:
         elif isinstance(change, model.MoveRoute):
             if origin is not self.api:
                 self.ui.move_card(change.route_id, change.after_id)
+        elif isinstance(change, model.AddChat):
+            self.ui.assist.new_chat(change.chat.id, change.chat.title)
+        elif isinstance(change, model.RemoveChat):
+            self.ui.assist.del_chat(change.chat_id)
+        elif isinstance(change, model.SetChatTitle):
+            self.ui.assist.set_chat_title(change.chat_id, change.title)
+        elif isinstance(change, model.AppendChatTurn):
+            pass  # already streamed to the UI while running
+        elif isinstance(change, model.RemoveChatTurn):
+            self.ui.assist.del_turn(change.chat_id, change.turn_id)

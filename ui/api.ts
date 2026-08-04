@@ -41,6 +41,11 @@ interface Api {
   ): Promise<unknown>;
   remove_route(card_id: string): Promise<unknown>;
   move_route(card_id: string, after_id: string | null): Promise<unknown>;
+  add_chat(): Promise<unknown>;
+  del_chat(chat_id: string): Promise<unknown>;
+  ask_assist(
+    chat_id: string, model_id: string, prompt: string
+  ): Promise<unknown>;
 }
 
 const api = new Proxy({} as Api, {

@@ -17,28 +17,26 @@ def _build_history(
 ) -> list[pydantic_ai.ModelMessage]:
     """Map persisted chat turns to pydantic-ai message history.
 
-    Each turn yields the user prompt and, when the model produced any reply
-    text, a single assistant message with its reply blocks joined. Thinking and
-    card items never enter the LLM context.
+    Each turn contributes the user prompt and a single assistant message with
+    its reply blocks joined. A turn that produced no reply (e.g. a failed run)
+    is skipped so the history never carries a dangling user message. Thinking
+    and card items never enter the LLM context.
     """
     from ..model.data import ChatReply
 
     messages = list[pydantic_ai.ModelMessage]()
     for turn in chat.turns:
-        messages.append(
-            pydantic_ai.ModelRequest(
-                parts=[pydantic_ai.UserPromptPart(content=turn.prompt)]
-            )
-        )
         reply = "".join(
             it.text for it in turn.items if isinstance(it, ChatReply)
         )
-        if reply:
-            messages.append(
-                pydantic_ai.ModelResponse(
-                    parts=[pydantic_ai.TextPart(content=reply)]
-                )
-            )
+        if not reply:
+            continue
+        messages.append(pydantic_ai.ModelRequest(
+            parts=[pydantic_ai.UserPromptPart(content=turn.prompt)]
+        ))
+        messages.append(pydantic_ai.ModelResponse(
+            parts=[pydantic_ai.TextPart(content=reply)]
+        ))
     return messages
 
 
