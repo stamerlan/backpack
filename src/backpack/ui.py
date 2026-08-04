@@ -125,6 +125,16 @@ class UI:
     ) -> "Future[Any]":
         return self.js.submit("doc.add_trip_card", (card_id, title, notes))
 
+    def set_trip_card(self, title: str, notes: str) -> "Future[Any]":
+        return self.js.submit("doc.set_trip_card", (title, notes))
+
+    def set_route_card(
+        self, route_id: str, title: str, notes: str
+    ) -> "Future[Any]":
+        return self.js.submit(
+            "doc.set_route_card", (route_id, title, notes)
+        )
+
     def add_route_card(
         self, card_id: str, title: str, notes: str,
         track: "Iterable[TrackPoint]", stats: "RouteStats | None"

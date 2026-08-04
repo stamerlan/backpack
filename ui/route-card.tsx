@@ -1,4 +1,9 @@
-import { useState, type Dispatch, type SetStateAction } from "react";
+import {
+  useEffect,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import {
   Badge,
   Button,
@@ -213,6 +218,11 @@ export function RouteCard(props: {
     props.id, props.title, props.notes, props.on_remove
   );
   const stats = props.stats;
+
+  useEffect(() => {
+    route.title = props.title;
+    route.notes = props.notes;
+  }, [props.title, props.notes]);
 
   return (
     <Card className={styles.card}>

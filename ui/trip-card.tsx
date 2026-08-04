@@ -1,4 +1,9 @@
-import { useState, type Dispatch, type SetStateAction } from "react";
+import {
+  useEffect,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import {
   Card,
   Input,
@@ -86,6 +91,11 @@ export function TripCard(props: {
   const trip = new TripView(
     props.id, props.title, props.notes, props.on_title_change
   );
+
+  useEffect(() => {
+    trip.title = props.title;
+    trip.notes = props.notes;
+  }, [props.title, props.notes]);
 
   return (
     <Card className={styles.card}>

@@ -171,6 +171,21 @@ class DocView {
     this.title = title;
   }
 
+  set_trip_card(title: string, notes: string): void {
+    this.#set_cards((cards) => cards.map((card) =>
+      card.kind === "trip" ? { ...card, title, notes } : card
+    ));
+    this.title = title;
+  }
+
+  set_route_card(id: string, title: string, notes: string): void {
+    this.#set_cards((cards) => cards.map((card) =>
+      card.id === id && card.kind === "route"
+        ? { ...card, title, notes }
+        : card
+    ));
+  }
+
   add_route_card(
     id: string,
     title: string,
