@@ -301,6 +301,14 @@ class App:
                 track,
                 route.RouteStats.from_track(track) if track else None,
             )
+        elif isinstance(change, model.SetDocInfo):
+            if origin is not self.api:
+                self.ui.set_trip_card(self.doc.title, self.doc.notes)
+        elif isinstance(change, model.SetRouteInfo):
+            if origin is not self.api:
+                r = self.doc.route(change.route_id)
+                if r is not None:
+                    self.ui.set_route_card(r.id, r.title, r.notes)
         elif isinstance(change, model.RemoveRoute):
             if origin is not self.api:
                 self.ui.remove_card(change.route_id)
