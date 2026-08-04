@@ -3,7 +3,7 @@ from typing import Callable, TYPE_CHECKING
 import pydantic_ai
 import pydantic_ai.capabilities
 
-from . import provider
+from . import prompts, provider, tools
 from .deps import Deps
 from .errors import AiError
 
@@ -47,11 +47,19 @@ class Agent:
         self.storage = storage
         self.agent = pydantic_ai.Agent[Deps, str](
             deps_type=Deps,
+            instructions=prompts.SYSTEM,
             capabilities=[
                 pydantic_ai.capabilities.Thinking(effort="medium"),
                 pydantic_ai.capabilities.WebSearch(),
             ],
         )
+
+        self.agent.instructions(self._get_chat_title)
+        self.agent.tool(tools.get_trip_info)
+        self.agent.tool(tools.google_maps)
+        self.agent.tool(tools.set_chat_title)
+        self.agent.tool(tools.set_route_info)
+        self.agent.tool(tools.set_trip_info)
 
     async def ask(
         self,
@@ -124,3 +132,14 @@ class Agent:
                 on_think(text)
             case pydantic_ai.FunctionToolCallEvent(part=part):
                 on_tool(part.tool_name)
+
+    def _get_chat_title(
+        self, ctx: pydantic_ai.RunContext[Deps]
+    ) -> str:
+        chat = ctx.deps.doc.chat(ctx.deps.chat_id)
+        if chat is None or not chat.title:
+            return (
+                "Chat title is empty. Before you finish the first turn, call"
+                "set_chat_title to update the chat topic."
+            )
+        return f'Chat title is "{chat.title!r}".'
