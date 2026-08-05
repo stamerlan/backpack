@@ -32,6 +32,7 @@ interface Api {
   open_doc(filename?: string): Promise<unknown>;
   save_doc(filename?: string | null, save_as?: boolean): Promise<unknown>;
   open_settings(): Promise<unknown>;
+  set_theme(mode: string): Promise<unknown>;
   set_trip_info(
     card_id: string, title: string, notes: string
   ): Promise<unknown>;
