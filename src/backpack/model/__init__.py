@@ -94,7 +94,7 @@ from .document import Document
 from .editor import Editor, Origin
 from .data import (
     ChatCard, ChatCardAction, ChatData, ChatItem, ChatReply, ChatThinking,
-    ChatTurn, RouteData, TrackPoint,
+    ChatTurn, Poi, RouteData, TrackPoint,
 )
 from .change import (
     AddChat,
@@ -108,6 +108,7 @@ from .change import (
     SetChatTitle,
     SetDocInfo,
     SetRouteInfo,
+    SetRoutePoi,
     SetRouteTrack,
 )
 
@@ -127,6 +128,7 @@ __all__ = [
     "Editor",
     "MoveRoute",
     "Origin",
+    "Poi",
     "RemoveChat",
     "RemoveChatTurn",
     "RemoveRoute",
@@ -134,6 +136,7 @@ __all__ = [
     "SetChatTitle",
     "SetDocInfo",
     "SetRouteInfo",
+    "SetRoutePoi",
     "SetRouteTrack",
     "TrackPoint",
 ]

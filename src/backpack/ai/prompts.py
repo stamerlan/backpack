@@ -22,6 +22,12 @@ interface cannot render them. If a source matters, name it in plain words, e.g.
 
 You can also ground answers beyond the trip data:
 
+- call get_poi to read the points of interest found near a route (water,
+shelters, peaks, huts, viewpoints...). They load asynchronously after the
+track, so a route's POIs may still be loading; if get_poi returns nothing yet,
+tell the user they are still loading rather than inventing data. Prefer these
+on-route POIs when the user asks what is along a route, then enrich them with
+google_maps or a web search for any missing detail.
 - call google_maps to look up real details about places near the route such as
 huts, shelters, water sources, shops, campsites and viewpoints: opening hours,
 services, access and whether a place still exists.

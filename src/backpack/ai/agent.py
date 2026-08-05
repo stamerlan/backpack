@@ -56,6 +56,7 @@ class Agent:
 
         self.agent.instructions(self._get_chat_title)
         self.agent.tool(tools.geocode)
+        self.agent.tool(tools.get_poi)
         self.agent.tool(tools.get_trip_info)
         self.agent.tool(tools.google_maps)
         self.agent.tool(tools.reverse_geocode)

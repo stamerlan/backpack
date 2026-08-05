@@ -1,4 +1,5 @@
 from .geocode import geocode
+from .get_poi import get_poi
 from .get_trip_info import get_trip_info
 from .google_maps import google_maps
 from .reverse_geocode import reverse_geocode
@@ -8,6 +9,7 @@ from .set_trip_info import set_trip_info
 
 __all__ = [
     "geocode",
+    "get_poi",
     "get_trip_info",
     "google_maps",
     "reverse_geocode",

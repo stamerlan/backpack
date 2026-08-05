@@ -11,8 +11,9 @@ from backpack import ai, model, route
 from backpack.api import Api
 from backpack.js_worker import JsWorker
 from backpack.nominatim import Nominatim
+from backpack.route_details import RouteDetails
 from backpack.storage import Storage
-from backpack.ui import UI
+from backpack.ui import UI, NotifyAction
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ class App:
         self.ui = UI(self.js)
         self.storage = storage
         self.nominatim = Nominatim()
+        self.route_details = RouteDetails()
         self.ai = ai.Agent(storage, self.nominatim)
         self.ai_models: asyncio.Future[tuple[ai.AiModel, ...]] = (
             mainloop.create_future()
@@ -45,6 +47,7 @@ class App:
         self.api.shutdown()
         self.js.shutdown()
         self.nominatim.cancel()
+        self.route_details.cancel()
 
     async def on_loaded(self) -> None:
         # enumerate models in the background; it might take a while
@@ -81,6 +84,9 @@ class App:
             with doc.edit(self.api) as ed:
                 ed.apply(model.AddChat(chat))
             self.ui.assist.set_active_chat(chat.id)
+        for r in doc.routes():
+            if r.poi is None:
+                self._load_route_details(doc, r.id, r.track)
         doc.mark_saved()
 
     def _reset_ui(
@@ -264,6 +270,7 @@ class App:
                     )
                     with self.doc.edit(self) as ed:
                         ed.apply(model.AddRoute(r))
+                    self._load_route_details(self.doc, r.id, r.track)
                 except Exception as e:
                     logger.exception(f'Failed to load "{filepath}"')
                     name = pathlib.Path(filepath).name
@@ -293,6 +300,48 @@ class App:
         logger.debug(f"card_id:{card_id} after_id:{after_id}")
         with self.doc.edit(self.api) as ed:
             ed.apply(model.MoveRoute(card_id, after_id))
+
+    def _load_route_details(
+        self, doc: model.Document, route_id: str,
+        track: tuple[model.TrackPoint, ...]
+    ) -> None:
+        """Start loading a route's details and reflect it in the UI."""
+        if not track:
+            return
+        self.ui.set_route_loading(route_id, True)
+        fut = self.route_details.load_poi(track)
+
+        def on_loaded(fut: Future[tuple[model.Poi, ...]]) -> None:
+            try:
+                if fut.cancelled():
+                    return
+                poi = fut.result()
+                if doc is self.doc and doc.route(route_id):
+                    with doc.edit(self) as ed:
+                        ed.apply(model.SetRoutePoi(route_id, poi))
+            except CancelledError:
+                return # aborted while shutting down
+            except Exception as e:
+                logger.exception(f"route_id:{route_id} POI load failed")
+                route = doc.route(route_id)
+                name = route.title if route else route_id
+                notify_fut = self.ui.notify(
+                    f"{name}: {e}",
+                    intent="error",
+                    title="Could not load route details",
+                    actions=[NotifyAction("Retry", result="retry")]
+                )
+
+                def retry(notify_fut: Future[Any]) -> None:
+                    if notify_fut.cancelled():
+                        return
+                    if notify_fut.result() == "retry":
+                        self._load_route_details(doc, route_id, track)
+                notify_fut.add_done_callback(retry)
+            finally:
+                self.ui.set_route_loading(route_id, False)
+
+        fut.add_done_callback(on_loaded)
 
     def on_change(self, change: model.Change, origin: model.Origin) -> None:
         if isinstance(change, model.AddRoute):
