@@ -20,9 +20,17 @@ import { TripCard } from "./trip-card";
 const use_styles = makeStyles({
   content: {
     flex: "1 1 auto",
+    /* Keep the document at least this wide so the assistant panel can never be
+     * dragged over it: at the smallest window (600px) each gets half.
+     */
+    minWidth: "300px",
     minHeight: 0,
     overflowY: "auto",
     padding: "12px",
+    /* Contain Leaflet's internal z-index (panes and controls reach ~1000) in a
+     * private stacking context so the map cannot paint over sibling UI.
+     */
+    isolation: "isolate",
   },
   stack: {
     display: "flex",
