@@ -8,6 +8,7 @@ dependencies = [
     "gpxpy>=1.6,<2",
     "geopy>=2.4,<3",
     "keyring>=25.7,<26",
+    "overpy>=0.7,<1",
     "pydantic-ai-slim[google]>=2.21,<3",
 ]
 readme = "README.rst"
@@ -52,6 +53,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "geopy.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "overpy.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

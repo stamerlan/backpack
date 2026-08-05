@@ -115,6 +115,46 @@ def parse_gpx(text: str) -> GpxRoute:
     )
 
 
+def sample(
+    track: Iterable[model.TrackPoint], step_m: float
+) -> tuple[tuple[float, float], ...]:
+    """Points spaced <= step_m along the track: dense parts are thinned, sparse
+    parts are densified by interpolation, resulting points are no more than
+    step_m meters away.
+    """
+    track = list(track)
+    if not track or step_m <= 0:
+        return tuple()
+    if len(track) == 1:
+        return ((track[0].lat, track[0].long),)
+
+    total = track[-1].dist_m
+    points: list[tuple[float, float]] = []
+    j, d = 0, 0.0
+    while d <= total:
+        while j + 1 < len(track) and track[j + 1].dist_m < d:
+            j += 1
+
+        a, b = track[j], track[min(j + 1, len(track) - 1)]
+        span = b.dist_m - a.dist_m
+        t = 0.0 if span <= 0 else (d - a.dist_m) / span
+        points.append(
+            (a.lat + (b.lat - a.lat) * t, a.long + (b.long - a.long) * t)
+        )
+        d += step_m
+    tail = (track[-1].lat, track[-1].long)
+    if points[-1] != tail:
+        points.append(tail)
+    return tuple(points)
+
+
+def nearest(
+    lat: float, lon: float, track: Iterable[model.TrackPoint]
+) -> model.TrackPoint:
+    """Return a track point nearest to lat/lon."""
+    return min(track, key=lambda p: distance_m((lat, lon), p))
+
+
 def distance_m(
     a: tuple[float, float] | model.TrackPoint | gpxpy.geo.Location,
     b: tuple[float, float] | model.TrackPoint | gpxpy.geo.Location,
