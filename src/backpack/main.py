@@ -41,6 +41,9 @@ def main() -> None:
     )
     logging.basicConfig(level=logging.DEBUG, handlers=[log_handler])
     logging.getLogger("pywebview").handlers.clear()
+    logging.getLogger("httpcore").setLevel(logging.INFO)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("google_genai").setLevel(logging.ERROR)
 
     url = args.dev or str(assets_dir() / "index.html")
     logger.debug(f"url:{url}")

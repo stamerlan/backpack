@@ -40,7 +40,9 @@ const use_styles = makeStyles({
 
 export function AppBar(props: {
   title: string;
+  assist_open: boolean;
   on_menu_click: () => void;
+  on_assist_toggle: () => void;
 }) {
   const styles = use_styles();
   const has_title = props.title.trim().length > 0;
@@ -63,10 +65,11 @@ export function AppBar(props: {
       </span>
       <ToggleButton
         appearance="subtle"
-        checked={false}
-        title="Show assistant"
-        aria-label="Show assistant"
+        checked={props.assist_open}
+        title={props.assist_open ? "Hide assistant" : "Show assistant"}
+        aria-label={props.assist_open ? "Hide assistant" : "Show assistant"}
         icon={icon("panel")}
+        onClick={props.on_assist_toggle}
       />
     </header>
   );
