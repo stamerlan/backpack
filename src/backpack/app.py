@@ -127,6 +127,7 @@ class App:
     async def on_loaded(self) -> None:
         # enumerate models in the background; it might take a while
         self.ai_models = asyncio.ensure_future(ai.enum_models())
+        await self.set_theme(self.storage.settings.theme)
         self._update_recent_items_view()
         await self.new_doc()
 
@@ -308,6 +309,16 @@ class App:
             RecentItem(r.title, r.meta, r.filepath)
             for r in self.storage.settings.recent
         )
+
+    async def set_theme(self, mode: str) -> None:
+        """Apply a theme mode to the live window without persisting it.
+
+        This is the single place the window theme is applied, so a preview can
+        follow a selection and later restore the original mode. Native window
+        chrome theming can hook in here too.
+        """
+        logger.debug(f"mode:{mode!r}")
+        self.ui.set_theme(mode)
 
     async def open_settings(self) -> None:
         logger.debug("")

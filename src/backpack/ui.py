@@ -97,6 +97,13 @@ class UI:
     ) -> "Future[Any]":
         return self.js.submit("show_dialog", (title, text, list(actions)))
 
+    def set_theme(self, mode: str) -> "Future[Any]":
+        """Apply a theme mode to the window.
+        
+        :param str mode: "light", "dark" or "system" to follow system settings.
+        """
+        return self.js.submit("set_theme_mode", (mode,))
+
     def set_recent(self, items: Iterable[RecentItem]) -> "Future[Any]":
         return self.js.submit("menu.set_recent", (list(items),))
 

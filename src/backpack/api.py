@@ -78,6 +78,10 @@ class Api:
         return self._app.open_settings()
 
     @api_method
+    def set_theme(self, mode: str) -> Coroutine[Any, Any, Any]:
+        return self._app.set_theme(mode)
+
+    @api_method
     def set_trip_info(
         self, card_id: str, title: str, notes: str
     ) -> Coroutine[Any, Any, Any]:
