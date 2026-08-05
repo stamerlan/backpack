@@ -9,6 +9,7 @@ import {
   Button,
   Card,
   Input,
+  Spinner,
   makeStyles,
   mergeClasses,
   tokens,
@@ -209,6 +210,7 @@ export function RouteCard(props: {
   stats: RouteStats | null;
   track: TrackPoint[];
   overlay: MapOverlay;
+  route_loading?: boolean;
   on_remove: (id: string) => void;
   on_grip_down?: () => void;
   on_grip_up?: () => void;
@@ -300,6 +302,12 @@ export function RouteCard(props: {
                 `\u2198${Math.round(stats.descent_m)} m`}
             </Badge>
           </div>
+        )}
+        {props.route_loading && (
+          <Spinner size="tiny"
+            title="Loading route details..."
+            aria-label="Loading route details"
+          />
         )}
         <Button
           appearance="subtle"
