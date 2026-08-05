@@ -24,8 +24,26 @@ class TrackPoint:
 
 
 @dataclass(frozen=True, slots=True)
+class Poi:
+    """A point of interest found near the track.
+
+    tags holds the raw OSM tags. The dataclass is frozen but the dict is not;
+    treat tags as read only.
+    """
+
+    lat: float
+    long: float
+    ofs_m: float            # distance from the track in meters
+    tags: dict[str, str]    # raw OSM tags; treat as read-only
+
+
+@dataclass(frozen=True, slots=True)
 class RouteData:
-    """One route: its description and its sampled track."""
+    """One route: its description, its sampled track and its POIs.
+
+    poi is None while it has not been loaded yet (fetched lazily after the
+    track); an empty tuple means loaded but nothing was found near the route.
+    """
 
     @staticmethod
     def unique_id() -> str: return f"route-{uuid4().hex}"
@@ -34,6 +52,7 @@ class RouteData:
     title: str = ""
     notes: str = ""
     track: tuple[TrackPoint, ...] = ()
+    poi: tuple[Poi, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)
