@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import pathlib
+import threading
 import webview
 from concurrent.futures import CancelledError, Future
 from typing import Any
@@ -37,19 +38,91 @@ class App:
         )
         self.doc = model.Document()
         self.filepath: str | None = None
+        self.running = threading.Event()
+        self._shutdown_lock = threading.Lock()
+        self._shutdown_fut: Future[bool] | None = None
 
     def start(self, window: webview.Window) -> None:
         """Bind the window and start application tasks."""
         self.window = window
         self.js.start(window)
+        self.running.set()
         logger.debug("app started")
 
-    def shutdown(self) -> None:
-        logger.debug("app shutting down")
-        self.api.shutdown()
-        self.js.shutdown()
-        self.nominatim.cancel()
-        self.route_details.cancel()
+    def shutdown(self, force: bool = False) -> "Future[bool]":
+        """Start shutting the app down. Safe to call from any thread.
+
+        The normal path schedules an async shutdown on the mainloop: it prompts
+        to save pending edits, then releases resources off the mainloop so the
+        join on the js worker never blocks the event loop. Concurrent calls
+        share the first call's future, so the save prompt is shown once and
+        every waiter wakes when it settles.
+
+        With force set, the app is torn down at once on the calling thread,
+        skipping the save prompt. This is the fallback for a forced or abnormal
+        exit, where no prompt can be shown.
+
+        Returns a future that resolves to True once the app has stopped, or
+        False if the user canceled at the save prompt, in which case the app
+        keeps running and a later call can retry. A forced shutdown always
+        resolves to True.
+        """
+
+        def teardown() -> None:
+            """Release resources"""
+            with self._shutdown_lock:
+                if not self.running.is_set():
+                    return
+                logger.debug("app shutting down")
+                self.api.shutdown()
+                self.js.shutdown()
+                self.nominatim.cancel()
+                self.route_details.cancel()
+                self.running.clear()
+
+        async def shutdown_task() -> bool:
+            if not self.running.is_set():
+                return True
+            if not await self._show_save_dialog():
+                return False
+            # teardown takes a _shutdown_lock and joins worker threads. Run it
+            # off the mainloop so the event loop stays responsive.
+            await asyncio.to_thread(teardown)
+            return True
+
+        # teardown locks internally, so the force path must stay out of the
+        # lock to avoid re-entering the non-reentrant shutdown lock.
+        if force:
+            teardown()
+            fut = Future[bool]()
+            fut.set_result(True)
+            return fut
+
+        with self._shutdown_lock:
+            if self._shutdown_fut is not None:
+                return self._shutdown_fut
+            if not self.running.is_set():
+                fut = Future[bool]()
+                fut.set_result(True)
+                return fut
+            task = asyncio.run_coroutine_threadsafe(
+                shutdown_task(), self.mainloop
+            )
+            self._shutdown_fut = task
+
+        def on_settled(fut: "Future[bool]") -> None:
+            # Drop the shared future when the user canceled, so a later close
+            # can start a fresh shutdown; keep it once actually stopped.
+            try:
+                stopped = fut.result()
+            except BaseException:
+                stopped = True  # give up the guard on an unexpected failure
+            if not stopped:
+                with self._shutdown_lock:
+                    self._shutdown_fut = None
+
+        task.add_done_callback(on_settled)
+        return task
 
     async def on_loaded(self) -> None:
         # enumerate models in the background; it might take a while
