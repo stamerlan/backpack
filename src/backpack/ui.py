@@ -135,6 +135,10 @@ class UI:
             "doc.set_route_card", (route_id, title, notes)
         )
 
+    def set_route_loading(self, route_id: str, loading: bool) -> "Future[Any]":
+        """Show or hide the route header spinner while details load."""
+        return self.js.submit("doc.set_route_loading", (route_id, loading))
+
     def add_route_card(
         self, card_id: str, title: str, notes: str,
         track: "Iterable[TrackPoint]", stats: "RouteStats | None"

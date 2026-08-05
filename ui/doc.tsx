@@ -87,6 +87,7 @@ interface RouteCardView {
   title: string;
   notes: string;
   stats: RouteStats | null;
+  route_loading: boolean;
 }
 
 type CardView = TripCardView | RouteCardView;
@@ -202,9 +203,21 @@ class DocView {
     stats: RouteStats | null,
   ): void {
     this.#set_cards((cards) => [
-      ...cards, { id, kind: "route", title, notes, stats },
+      ...cards, { id, kind: "route", title, notes, stats, route_loading: false }
     ]);
     this.#set_tracks((tracks) => ({ ...tracks, [id]: track }));
+  }
+
+  /* Toggle the route header spinner. The backend turns it on while it loads
+   * route details in the background (points of interest) and off once loading
+   * finishes.
+   */
+  set_route_loading(id: string, loading: boolean): void {
+    this.#set_cards((cards) => cards.map((card) =>
+      card.id === id && card.kind === "route"
+        ? { ...card, route_loading: loading }
+        : card
+    ));
   }
 
   remove_card(id: string): void {
@@ -358,6 +371,7 @@ export function Doc(props: {
                     stats={card.stats}
                     track={doc.track(card.id)}
                     overlay={doc.overlay(card.id)}
+                    route_loading={card.route_loading}
                     on_remove={(id) => doc.remove_card(id)}
                     on_grip_down={() => { grip_armed.current = card.id; }}
                     on_grip_up={() => { grip_armed.current = null; }}
