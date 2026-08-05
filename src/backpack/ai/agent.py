@@ -9,6 +9,7 @@ from .errors import AiError
 
 if TYPE_CHECKING:
     from .. import model
+    from ..nominatim import Nominatim
     from ..storage import Storage
 
 
@@ -41,8 +42,9 @@ def _build_history(
 
 
 class Agent:
-    def __init__(self, storage: "Storage") -> None:
+    def __init__(self, storage: "Storage", nominatim: "Nominatim") -> None:
         self.storage = storage
+        self.nominatim = nominatim
         self.agent = pydantic_ai.Agent[Deps, str](
             deps_type=Deps,
             instructions=prompts.SYSTEM,
@@ -53,8 +55,10 @@ class Agent:
         )
 
         self.agent.instructions(self._get_chat_title)
+        self.agent.tool(tools.geocode)
         self.agent.tool(tools.get_trip_info)
         self.agent.tool(tools.google_maps)
+        self.agent.tool(tools.reverse_geocode)
         self.agent.tool(tools.set_chat_title)
         self.agent.tool(tools.set_route_info)
         self.agent.tool(tools.set_trip_info)

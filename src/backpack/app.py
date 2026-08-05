@@ -10,6 +10,7 @@ from uuid import uuid4
 from backpack import ai, model, route
 from backpack.api import Api
 from backpack.js_worker import JsWorker
+from backpack.nominatim import Nominatim
 from backpack.storage import Storage
 from backpack.ui import UI
 
@@ -26,7 +27,8 @@ class App:
         self.js = JsWorker()
         self.ui = UI(self.js)
         self.storage = storage
-        self.ai = ai.Agent(storage)
+        self.nominatim = Nominatim()
+        self.ai = ai.Agent(storage, self.nominatim)
         self.ai_models: asyncio.Future[tuple[ai.AiModel, ...]] = (
             mainloop.create_future()
         )
@@ -42,6 +44,7 @@ class App:
         logger.debug("app shutting down")
         self.api.shutdown()
         self.js.shutdown()
+        self.nominatim.cancel()
 
     async def on_loaded(self) -> None:
         # enumerate models in the background; it might take a while
