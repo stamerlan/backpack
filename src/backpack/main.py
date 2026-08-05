@@ -4,6 +4,7 @@ import sys
 import threading
 import webview
 from argparse import ArgumentParser
+from concurrent.futures import Future
 from datetime import datetime
 
 from . import APP_NAME
@@ -79,9 +80,24 @@ def main() -> None:
         webview.settings['OPEN_DEVTOOLS_IN_DEBUG'] = False
 
         app.start(window)
-        # Finish app work before pywebview tears the window down; the event
-        # runs synchronously and defers the close until shutdown returns.
-        window.events.closing += app.shutdown
+
+        def on_closing() -> bool:
+            if not app.running.is_set():
+                return True  # already stopped, let the window close
+
+            def on_app_shutdown_finish(done: "Future[bool]") -> None:
+                try:
+                    stopped = done.result()
+                except Exception:
+                    logger.exception("shutdown failed")
+                    stopped = True  # close anyway on an unexpected error
+                if stopped:
+                    window.destroy()
+
+            app.shutdown().add_done_callback(on_app_shutdown_finish)
+            return False  # keep the window until shutdown completes
+
+        window.events.closing += on_closing
         window.events.loaded += lambda *_: asyncio.run_coroutine_threadsafe(
             app.on_loaded(), mainloop
         )
@@ -91,7 +107,7 @@ def main() -> None:
             icon=app_icon_path(),
         )
     finally:
-        app.shutdown()
+        app.shutdown(force=True)
         mainloop.call_soon_threadsafe(mainloop.stop)
         mainloop_th.join()
 
