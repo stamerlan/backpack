@@ -13,7 +13,8 @@ from backpack.js_worker import JsWorker
 from backpack.nominatim import Nominatim
 from backpack.route_details import RouteDetails
 from backpack.storage import Storage
-from backpack.ui import UI, NotifyAction
+from backpack.storage.settings import Settings
+from backpack.ui import UI, DialogAction, NotifyAction, RecentItem
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ class App:
             mainloop.create_future()
         )
         self.doc = model.Document()
+        self.filepath: str | None = None
 
     def start(self, window: webview.Window) -> None:
         """Bind the window and start application tasks."""
@@ -52,13 +54,17 @@ class App:
     async def on_loaded(self) -> None:
         # enumerate models in the background; it might take a while
         self.ai_models = asyncio.ensure_future(ai.enum_models())
+        self._update_recent_items_view()
         await self.new_doc()
 
     async def new_doc(self) -> None:
         logger.debug("")
+        if not await self._show_save_dialog():
+            return
         doc = model.Document()
         doc.subscribe(self.on_change)
         self.doc = doc
+        self.filepath = None
         models = await self.ai_models
         self._reset_ui(doc, models)
         chat = model.ChatData()
@@ -69,14 +75,39 @@ class App:
 
     async def open_doc(self, filepath: str | None = None) -> None:
         logger.debug(f"filepath:{filepath}")
-        if filepath is None:
+        if self.window is None:
             return
-        text = await asyncio.to_thread(
-            pathlib.Path(filepath).read_text, encoding="utf-8"
-        )
-        doc = model.Document.from_dict(json.loads(text))
+        if not await self._show_save_dialog():
+            return
+
+        if filepath is None:
+            files = await asyncio.to_thread(
+                self.window.create_file_dialog,
+                webview.FileDialog.OPEN,
+                file_types=("Json files (*.json)", "All files (*.*)"),
+            )
+            if not files:
+                return
+            filepath = files if isinstance(files, str) else files[0]
+
+        try:
+            text = await asyncio.to_thread(
+                pathlib.Path(filepath).read_text, encoding="utf-8"
+            )
+            doc = model.Document.from_dict(json.loads(text))
+        except (OSError, ValueError) as e:
+            logger.exception(f'Failed to open "{filepath}"')
+            self._remove_recent_item(filepath)
+            self.ui.notify(
+                str(e) or type(e).__name__,
+                intent="error",
+                title="Could not open trip"
+            )
+            return
+
         doc.subscribe(self.on_change)
         self.doc = doc
+        self.filepath = filepath
         models = await self.ai_models
         self._reset_ui(doc, models)
         if not doc.chats():
@@ -88,6 +119,7 @@ class App:
             if r.poi is None:
                 self._load_route_details(doc, r.id, r.track)
         doc.mark_saved()
+        self._add_recent_item(filepath, doc)
 
     def _reset_ui(
         self, doc: model.Document, models: tuple[ai.AiModel, ...]
@@ -122,8 +154,87 @@ class App:
 
     async def save_doc(
         self, filepath: str | None = None, show_dialog: bool = False
-    ) -> None:
+    ) -> bool:
+        """Save the document. Return True if saved, False if canceled."""
         logger.debug(f"filepath:{filepath} show_dialog:{show_dialog}")
+        if self.window is None:
+            return False
+
+        if filepath is None:
+            if show_dialog or self.filepath is None:
+                files = await asyncio.to_thread(
+                    self.window.create_file_dialog,
+                    webview.FileDialog.SAVE,
+                    save_filename="trip.json",
+                    file_types=("Json files (*.json)", "All files (*.*)"),
+                )
+                if not files:
+                    return False
+                filepath = files if isinstance(files, str) else files[0]
+            else:
+                filepath = self.filepath
+
+        doc = self.doc
+        try:
+            text = json.dumps(doc.to_dict(), ensure_ascii=False, indent=2)
+            await asyncio.to_thread(
+                pathlib.Path(filepath).write_text, text, encoding="utf-8"
+            )
+        except OSError as e:
+            logger.exception(f'Failed to save to "{filepath}"')
+            self.ui.notify(
+                str(e) or type(e).__name__,
+                intent="error", title="Could not save trip"
+            )
+            return False
+
+        self.filepath = filepath
+        doc.mark_saved()
+        self._add_recent_item(filepath, doc)
+        return True
+
+    async def _show_save_dialog(self) -> bool:
+        """Ask to save pending edits before replacing the document.
+
+        Returns True to proceed with the operation, False to cancel it.
+        """
+        if not self.doc.has_edits:
+            return True
+        result = await asyncio.wrap_future(self.ui.show_dialog(
+            "Save changes?",
+            "This trip has unsaved changes. Save them before continuing?",
+            actions=(
+                DialogAction("Cancel", result="cancel"),
+                DialogAction("Don't save", result="discard"),
+                DialogAction("Save", result="save", appearance="primary")
+            )
+        ))
+        if result == "save":
+            return await self.save_doc()
+        return bool(result == "discard")
+
+    def _add_recent_item(self, filepath: str, doc: model.Document) -> None:
+        match len(doc.routes()):
+            case 0:
+                meta = "no routes"
+            case 1:
+                meta = "one route"
+            case n:
+                meta = f"{n} routes"
+        self.storage.settings = self.storage.settings.add_recent(
+            Settings.RecentItem(title=doc.title, meta=meta, filepath=filepath)
+        )
+        self._update_recent_items_view()
+
+    def _remove_recent_item(self, filepath: str) -> None:
+        self.storage.settings = self.storage.settings.remove_recent(filepath)
+        self._update_recent_items_view()
+
+    def _update_recent_items_view(self) -> None:
+        self.ui.set_recent(
+            RecentItem(r.title, r.meta, r.filepath)
+            for r in self.storage.settings.recent
+        )
 
     async def open_settings(self) -> None:
         logger.debug("")
