@@ -5,6 +5,7 @@ import pathlib
 import threading
 import webview
 from concurrent.futures import CancelledError, Future
+from dataclasses import replace
 from typing import Any
 from uuid import uuid4
 
@@ -41,6 +42,7 @@ class App:
         self.running = threading.Event()
         self._shutdown_lock = threading.Lock()
         self._shutdown_fut: Future[bool] | None = None
+        self._settings_task: asyncio.Task[None] | None = None
 
     def start(self, window: webview.Window) -> None:
         """Bind the window and start application tasks."""
@@ -321,7 +323,53 @@ class App:
         self.ui.set_theme(mode)
 
     async def open_settings(self) -> None:
-        logger.debug("")
+        """Open the settings dialog without blocking the calling frontend.
+
+        The dialog flow runs as a detached task so this call returns at once,
+        leaving the frontend action chain free while the dialog is open. That
+        lets frontend reach the backend meanwhile. A second request is ignored
+        while a dialog is already open.
+        """
+        if self._settings_task is not None and not self._settings_task.done():
+            return
+
+        async def do_show_settings_dialog() -> None:
+            cur_settings = {
+                "theme": self.storage.settings.theme
+            }
+
+            new_settings = await asyncio.wrap_future(
+                self.ui.show_settings_dialog(cur_settings)
+            )
+            if not isinstance(new_settings, dict):
+                return
+
+            # apply new theme
+            theme = new_settings.get("theme", self.storage.settings.theme)
+            if theme != self.storage.settings.theme:
+                self.storage.settings = replace(
+                    self.storage.settings, theme=theme
+                )
+                self.ui.set_theme(theme)
+                await self.storage.save_settings()
+
+            # set new API key
+            api_key = new_settings.get("gemini_api_key")
+            if api_key:
+                await self.storage.store_key("gemini_api_key", api_key)
+
+        def on_settings_dialog_close(task: "asyncio.Task[None]") -> None:
+            self._settings_task = None
+            if not task.cancelled() and (exc := task.exception()) is not None:
+                logger.error("open settings failed", exc_info=exc)
+                self.ui.notify(
+                    str(exc) or type(exc).__name__,
+                    intent="error",
+                    title="Could not open settings"
+                )
+
+        self._settings_task = asyncio.ensure_future(do_show_settings_dialog())
+        self._settings_task.add_done_callback(on_settings_dialog_close)
 
     async def add_chat(self) -> None:
         logger.debug("")

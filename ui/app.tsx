@@ -12,6 +12,7 @@ import { Doc } from "./doc";
 import { DialogHost } from "./dialog-host";
 import { Menu } from "./menu";
 import { NotifyHost } from "./notify";
+import { SettingsDialog } from "./settings";
 
 type ThemeMode = "system" | "light" | "dark";
 
@@ -79,6 +80,7 @@ export function App() {
       </div>
       <Menu open={menu_open} show_menu={set_menu_open} />
       <DialogHost />
+      <SettingsDialog />
       <Busy />
     </FluentProvider>
   );
