@@ -104,6 +104,14 @@ class UI:
         """
         return self.js.submit("set_theme_mode", (mode,))
 
+    def show_settings_dialog(self, settings: dict[str, Any]) -> "Future[Any]":
+        """Open the settings dialog, resolving to the edited values or None.
+
+        The frontend fills each control from ``settings`` and returns a dict of
+        the same keys on save, or None when the dialog is dismissed.
+        """
+        return self.js.submit("show_settings_dialog", (settings,))
+
     def set_recent(self, items: Iterable[RecentItem]) -> "Future[Any]":
         return self.js.submit("menu.set_recent", (list(items),))
 
