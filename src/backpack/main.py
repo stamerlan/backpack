@@ -54,6 +54,17 @@ def main() -> None:
         # inheriting python.exe when running from source.
         import ctypes
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_NAME)
+    elif sys.platform == "darwin":
+        # Override the identity inherited from the embedded Python.app so the
+        # menu bar and cmd+tab switcher show Backpack, not Python, when running
+        # from source.
+        try:
+            from Foundation import NSBundle
+            bundle = NSBundle.mainBundle()
+            info = bundle.localizedInfoDictionary() or bundle.infoDictionary()
+            info["CFBundleName"] = "Backpack"
+        except Exception:
+            logger.exception("could not set macOS app name")
 
     storage = Storage()
     try:
