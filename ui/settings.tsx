@@ -16,6 +16,7 @@ import {
   makeStyles,
   tokens,
 } from "@fluentui/react-components";
+import api from "./api";
 import { icon } from "./icon";
 
 /* Values the dialog rounds back to Python. Every field maps to a key the
@@ -114,9 +115,10 @@ export function SettingsDialog() {
     set_cur_settings((s) => s && { ...s, [key]: value });
 
   /* Live preview: applying the theme as it is picked matches the original
-   * window. A dismissed dialog restores whatever was active on open.
+   * window. Routing through the backend themes the native title bar too, not
+   * just the web content. A dismissed dialog restores what was active on open.
    */
-  const apply_theme = (mode: string): void => window.set_theme_mode?.(mode);
+  const apply_theme = (mode: string): void => { void api.set_theme(mode); };
 
   const close = (new_settings: SettingsValues | null): void => {
     if (done.current)
