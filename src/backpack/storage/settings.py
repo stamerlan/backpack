@@ -26,6 +26,7 @@ class Settings:
 
     theme: str = "system"       # "system" | "light" | "dark"
     recent: tuple[RecentItem, ...] = ()
+    last_filepath: str | None = None  # restored on next launch
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "Settings":
@@ -46,9 +47,11 @@ class Settings:
                 ))
             except (KeyError, TypeError):
                 pass # drop a malformed entry, keep the rest
+        lf = d.get("last_filepath")
         return cls(
             theme=_get(d, "theme", defaults.theme),
             recent=tuple(recent[:MAX_RECENT_CNT]),
+            last_filepath=lf if isinstance(lf, str) else None,
         )
 
     def to_dict(self) -> dict[str, Any]:
