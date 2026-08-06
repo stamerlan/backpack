@@ -56,6 +56,10 @@ module = "AppKit.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+module = "Foundation.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = "PyObjCTools.*"
 ignore_missing_imports = true
 
