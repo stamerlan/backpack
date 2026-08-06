@@ -45,6 +45,7 @@ class App:
         self._shutdown_lock = threading.Lock()
         self._shutdown_fut: Future[bool] | None = None
         self._settings_task: asyncio.Task[None] | None = None
+        self._ask_tasks: set[asyncio.Task[None]] = set()
 
     def start(self, window: webview.Window) -> None:
         """Bind the window and start application tasks."""
@@ -81,6 +82,11 @@ class App:
                 logger.debug("app shutting down")
                 self.api.shutdown()
                 self.js.shutdown()
+
+                # cancel running agents
+                for task in list(self._ask_tasks):
+                    self.mainloop.call_soon_threadsafe(task.cancel)
+
                 self.nominatim.cancel()
                 self.route_details.cancel()
                 self.theme.close()
@@ -141,6 +147,11 @@ class App:
         logger.debug("")
         if not await self._show_save_dialog():
             return
+
+        # cancel running agents
+        for task in list(self._ask_tasks):
+            task.cancel()
+
         doc = model.Document()
         doc.subscribe(self.on_change)
         self.doc = doc
@@ -184,6 +195,10 @@ class App:
                 title="Could not open trip"
             )
             return
+
+        # cancel running agents
+        for task in list(self._ask_tasks):
+            task.cancel()
 
         doc.subscribe(self.on_change)
         self.doc = doc
@@ -448,41 +463,52 @@ class App:
                     await self.ask_assist(chat_id, model_id, prompt)
                 asyncio.run_coroutine_threadsafe(_retry(), self.mainloop)
 
-        card: model.ChatCard | None = None
-        try:
-            await self.ai.ask(
-                doc, chat_id, model_id, prompt,
-                on_text=on_text, on_think=on_think,
-            )
-        except ai.AiError as e:
-            logger.exception(e.message)
-            card = model.ChatCard(
-                card_kind="error",
-                text=e.message,
-                actions=(
-                    model.ChatCardAction(
-                        id="retry", label="Retry", appearance="primary"
-                    ),
-                ) if e.retryable else ()
-            )
-        except Exception as e:
-            logger.exception("assist run failed")
-            card = model.ChatCard(
-                card_kind="error",
-                text=str(e) or type(e).__name__
-            )
+        async def do_ask() -> None:
+            card: model.ChatCard | None = None
+            try:
+                await self.ai.ask(
+                    doc, chat_id, model_id, prompt,
+                    on_text=on_text, on_think=on_think,
+                )
+            except ai.AiError as e:
+                logger.exception(e.message)
+                card = model.ChatCard(
+                    card_kind="error",
+                    text=e.message,
+                    actions=(
+                        model.ChatCardAction(
+                            id="retry", label="Retry", appearance="primary"
+                        ),
+                    ) if e.retryable else ()
+                )
+            except CancelledError:
+                return
+            except Exception as e:
+                logger.exception("assist run failed")
+                card = model.ChatCard(
+                    card_kind="error",
+                    text=str(e) or type(e).__name__
+                )
 
-        if card is not None:
-            items.append(card)
+            if card is not None:
+                items.append(card)
 
-        turn = model.ChatTurn(id=turn_id, prompt=prompt, items=tuple(items))
-        with doc.edit(self.ai) as ed:
-            ed.apply(model.AppendChatTurn(chat_id, turn))
+            turn = model.ChatTurn(id=turn_id, prompt=prompt, items=tuple(items))
+            with doc.edit(self.ai) as ed:
+                ed.apply(model.AppendChatTurn(chat_id, turn))
 
-        if card is not None:
-            fut = self.ui.assist.add_card(chat_id, card)
-            fut.add_done_callback(card_action)
-        self.ui.assist.end_turn(chat_id)
+            if card is not None:
+                fut = self.ui.assist.add_card(chat_id, card)
+                fut.add_done_callback(card_action)
+            self.ui.assist.end_turn(chat_id)
+
+        # Run the agent detached so this call returns at once and the frontend
+        # action chain is freed while the run streams. Keep a reference so the
+        # task is not garbage-collected mid-run, and drop it (and log any
+        # escaping error) once it settles.
+        task = asyncio.ensure_future(do_ask())
+        self._ask_tasks.add(task)
+        task.add_done_callback(self._ask_tasks.discard)
 
     async def set_trip_info(
         self, card_id: str, title: str, notes: str
