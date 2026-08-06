@@ -16,6 +16,7 @@ from backpack.nominatim import Nominatim
 from backpack.route_details import RouteDetails
 from backpack.storage import Storage
 from backpack.storage.settings import Settings
+from backpack.theme import Theme
 from backpack.ui import UI, DialogAction, NotifyAction, RecentItem
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,7 @@ class App:
     ) -> None:
         self.mainloop = mainloop
         self.window: webview.Window | None = None
+        self.theme = Theme()
         self.api = Api(self)
         self.js = JsWorker()
         self.ui = UI(self.js)
@@ -47,6 +49,7 @@ class App:
     def start(self, window: webview.Window) -> None:
         """Bind the window and start application tasks."""
         self.window = window
+        self.theme = Theme(window)
         self.js.start(window)
         self.running.set()
         logger.debug("app started")
@@ -80,6 +83,7 @@ class App:
                 self.js.shutdown()
                 self.nominatim.cancel()
                 self.route_details.cancel()
+                self.theme.close()
                 self.running.clear()
 
         async def shutdown_task() -> bool:
@@ -316,11 +320,14 @@ class App:
         """Apply a theme mode to the live window without persisting it.
 
         This is the single place the window theme is applied, so a preview can
-        follow a selection and later restore the original mode. Native window
-        chrome theming can hook in here too.
+        follow a selection and later restore the original mode. The web content
+        is themed by the frontend, and the native window title bar is themed by
+        WindowTheme, since it is drawn by the OS outside the document and would
+        otherwise stay light.
         """
         logger.debug(f"mode:{mode!r}")
         self.ui.set_theme(mode)
+        self.theme.apply(mode)
 
     async def open_settings(self) -> None:
         """Open the settings dialog without blocking the calling frontend.
@@ -350,7 +357,7 @@ class App:
                 self.storage.settings = replace(
                     self.storage.settings, theme=theme
                 )
-                self.ui.set_theme(theme)
+                await self.set_theme(theme)
                 await self.storage.save_settings()
 
             # set new API key

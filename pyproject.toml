@@ -48,6 +48,18 @@ module = "webview.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+module = "Microsoft.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "AppKit.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "PyObjCTools.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = "gpxpy.*"
 ignore_missing_imports = true
 
