@@ -141,6 +141,9 @@ class App:
         self.ai_models = asyncio.ensure_future(ai.enum_models())
         await self.set_theme(self.storage.settings.theme)
         self._update_recent_items_view()
+        last = self.storage.settings.last_filepath
+        if last and pathlib.Path(last).exists() and await self.open_doc(last):
+            return
         await self.new_doc()
 
     async def new_doc(self) -> None:
@@ -164,12 +167,12 @@ class App:
         self.ui.assist.set_active_chat(chat.id)
         doc.mark_saved()
 
-    async def open_doc(self, filepath: str | None = None) -> None:
+    async def open_doc(self, filepath: str | None = None) -> bool:
         logger.debug(f"filepath:{filepath}")
         if self.window is None:
-            return
+            return False
         if not await self._show_save_dialog():
-            return
+            return False
 
         if filepath is None:
             files = await asyncio.to_thread(
@@ -178,7 +181,7 @@ class App:
                 file_types=("Json files (*.json)", "All files (*.*)"),
             )
             if not files:
-                return
+                return False
             filepath = files if isinstance(files, str) else files[0]
 
         try:
@@ -194,7 +197,7 @@ class App:
                 intent="error",
                 title="Could not open trip"
             )
-            return
+            return False
 
         # cancel running agents
         for task in list(self._ask_tasks):
@@ -215,6 +218,7 @@ class App:
                 self._load_route_details(doc, r.id, r.track)
         doc.mark_saved()
         self._add_recent_item(filepath, doc)
+        return True
 
     def _reset_ui(
         self, doc: model.Document, models: tuple[ai.AiModel, ...]

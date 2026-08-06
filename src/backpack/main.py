@@ -5,6 +5,7 @@ import threading
 import webview
 from argparse import ArgumentParser
 from concurrent.futures import Future
+from dataclasses import replace
 from datetime import datetime
 
 from . import APP_NAME
@@ -123,6 +124,11 @@ def main() -> None:
         mainloop_th.join()
 
         try:
+            # Save last opened filepath to continue on next start 
+            storage.settings = replace(
+                storage.settings, last_filepath=app.filepath
+            )
+
             settings_path = app_settings_path()
             logger.debug(f'Storing settings to "{settings_path}"')
             storage.write_settings_file(settings_path)
