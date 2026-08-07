@@ -1,12 +1,16 @@
+/* The app's slide-out menu: document actions, the recently opened trips and
+ * the way into settings. While mounted it publishes window.menu so the
+ * backend can refresh the recent list (see UI in src/backpack/ui.py).
+ *
+ * Properties:
+ *   - open: Whether the drawer is showing.
+ *   - show_menu: Opens or closes the drawer.
+ *
+ * State:
+ *   - recent: Recently opened trips, newest first, pushed by the backend.
+ */
+import { useEffect, useState } from "react";
 import {
-  useEffect,
-  useState,
-  type Dispatch,
-  type SetStateAction,
-} from "react";
-import {
-  makeStyles,
-  tokens,
   Button,
   Card,
   CardHeader,
@@ -19,47 +23,7 @@ import {
 } from "@fluentui/react-components";
 import api from "./api";
 import { icon } from "./icon";
-
-const use_styles = makeStyles({
-  actions: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "6px",
-    paddingBottom: "8px",
-  },
-  action_btn: {
-    width: "100%",
-    justifyContent: "flex-start",
-  },
-  section_label: {
-    padding: "4px 0",
-    fontSize: tokens.fontSizeBase200,
-    fontWeight: tokens.fontWeightSemibold,
-    color: tokens.colorNeutralForeground3,
-    textTransform: "uppercase",
-    letterSpacing: "0.03em",
-  },
-  recent: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "6px",
-  },
-  recent_card: {
-    padding: "8px 10px",
-    cursor: "pointer",
-  },
-  recent_meta: {
-    fontSize: tokens.fontSizeBase200,
-    color: tokens.colorNeutralForeground3,
-  },
-  footer: {
-    display: "block",
-  },
-  footer_btn: {
-    width: "100%",
-    justifyContent: "flex-start",
-  },
-});
+import "./menu.css";
 
 export interface RecentItem {
   title: string;
@@ -67,34 +31,16 @@ export interface RecentItem {
   filename: string;
 }
 
-class MenuView {
-  #recent: RecentItem[];
-  #set_recent: Dispatch<SetStateAction<RecentItem[]>>;
-
-  constructor() {
-    [this.#recent, this.#set_recent] = useState<RecentItem[]>([]);
-  }
-
-  get recent(): RecentItem[] {
-    return this.#recent;
-  }
-
-  set_recent(items: RecentItem[]): void {
-    this.#set_recent(items);
-  }
-}
-
 export function Menu(props: {
   open: boolean;
   show_menu: (open: boolean) => void;
 }) {
-  const styles = use_styles();
-  const menu = new MenuView();
+  const [recent, set_recent] = useState<RecentItem[]>([]);
 
   useEffect(() => {
-    window.menu = menu;
+    window.menu = { set_recent };
     return () => { window.menu = null; };
-  });
+  }, []);
 
   const hide_menu = (): void => props.show_menu(false);
 
@@ -122,9 +68,9 @@ export function Menu(props: {
       </DrawerHeader>
 
       <DrawerBody>
-        <div className={styles.actions}>
+        <div className="menu-actions">
           <Button
-            className={styles.action_btn}
+            className="menu-entry"
             appearance="subtle"
             icon={icon("doc-add")}
             onClick={() => { hide_menu(); api.new_doc(); }}
@@ -132,7 +78,7 @@ export function Menu(props: {
             New trip
           </Button>
           <Button
-            className={styles.action_btn}
+            className="menu-entry"
             appearance="subtle"
             icon={icon("folder-open")}
             onClick={() => { hide_menu(); api.open_doc(); }}
@@ -140,7 +86,7 @@ export function Menu(props: {
             Open trip...
           </Button>
           <Button
-            className={styles.action_btn}
+            className="menu-entry"
             appearance="subtle"
             icon={icon("save")}
             onClick={() => { hide_menu(); api.save_doc(); }}
@@ -148,7 +94,7 @@ export function Menu(props: {
             Save
           </Button>
           <Button
-            className={styles.action_btn}
+            className="menu-entry"
             appearance="subtle"
             icon={icon("save-as")}
             onClick={() => { hide_menu(); api.save_doc(null, true); }}
@@ -157,14 +103,14 @@ export function Menu(props: {
           </Button>
         </div>
 
-        {menu.recent.length > 0 && (
+        {recent.length > 0 && (
           <>
-            <div className={styles.section_label}>Recent</div>
-            <div className={styles.recent}>
-              {menu.recent.map((item) => (
+            <div className="menu-section">Recent</div>
+            <div className="menu-recent">
+              {recent.map((item) => (
                 <Card
                   key={item.filename}
-                  className={styles.recent_card}
+                  className="menu-recent-card"
                   appearance="subtle"
                   onClick={() => { hide_menu(); api.open_doc(item.filename); }}
                 >
@@ -175,7 +121,7 @@ export function Menu(props: {
                       </Text>
                     }
                     description={
-                      <span className={styles.recent_meta}>{item.meta}</span>
+                      <span className="menu-recent-meta">{item.meta}</span>
                     }
                   />
                 </Card>
@@ -185,9 +131,9 @@ export function Menu(props: {
         )}
       </DrawerBody>
 
-      <DrawerFooter className={styles.footer}>
+      <DrawerFooter className="menu-footer">
         <Button
-          className={styles.footer_btn}
+          className="menu-entry"
           appearance="subtle"
           icon={icon("settings")}
           onClick={() => { hide_menu(); api.open_settings(); }}
@@ -201,7 +147,7 @@ export function Menu(props: {
 
 declare global {
   interface Window {
-    menu: MenuView | null;
+    menu: { set_recent(items: RecentItem[]): void } | null;
   }
 }
 
