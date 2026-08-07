@@ -1,9 +1,23 @@
-import {
-  useEffect,
-  useState,
-  type Dispatch,
-  type SetStateAction,
-} from "react";
+/* The assistant panel: a resizable strip along the right edge holding one tab
+ * per chat with that chat's conversation below it. While mounted it publishes
+ * window.assist, the surface the backend streams turns through, so the
+ * methods of AssistApi mirror Assist in src/backpack/ui.py.
+ *
+ * Properties:
+ *   - open: Whether the panel is slid out.
+ *
+ * State:
+ *   - chats: One entry per chat, in tab order.
+ *   - active: Chat the user selected, empty until they pick one.
+ *   - models: Assistant models offered in the composer menu.
+ *   - selected_model: Model the user picked, empty meaning the first.
+ *   - turns: Turn log per chat id. Held here rather than in each Chat so a
+ *     restored chat has its history before that component mounts.
+ *   - busy: Whether a turn is still streaming, per chat id.
+ *   - width: Panel width in pixels, set by dragging the handle.
+ *   - resizing: Whether such a drag is running.
+ */
+import { useEffect, useMemo, useState } from "react";
 import { mergeClasses, Tab, TabList } from "@fluentui/react-components";
 import api from "./api";
 import { icon } from "./icon";
@@ -26,153 +40,24 @@ interface ChatMeta {
 
 const EMPTY_TURNS: Turn[] = [];
 
-/* Owns every chat's turn log and busy flag so restore does not depend on a
- * child Chat having mounted and registered itself first. Turns are keyed by
- * chat id in one state record; new_turn/append_* mutate that record directly,
- * so a call always lands on state that exists the moment the chat was added.
- */
-class AssistView {
-  #chats: ChatMeta[];
-  #set_chats: Dispatch<SetStateAction<ChatMeta[]>>;
-  #active: string;
-  #set_active: Dispatch<SetStateAction<string>>;
-  #models: AiModel[];
-  #set_models: Dispatch<SetStateAction<AiModel[]>>;
-  #selected_model: string;
-  #set_selected_model: Dispatch<SetStateAction<string>>;
-  #turns: Record<string, Turn[]>;
-  #set_turns: Dispatch<SetStateAction<Record<string, Turn[]>>>;
-  #busy: Record<string, boolean>;
-  #set_busy: Dispatch<SetStateAction<Record<string, boolean>>>;
-
-  constructor() {
-    [this.#chats, this.#set_chats]   = useState<ChatMeta[]>([]);
-    [this.#active, this.#set_active] = useState("");
-    [this.#models, this.#set_models] = useState<AiModel[]>([]);
-    [this.#selected_model, this.#set_selected_model] = useState("");
-    [this.#turns, this.#set_turns] = useState<Record<string, Turn[]>>({});
-    [this.#busy, this.#set_busy] = useState<Record<string, boolean>>({});
-  }
-
-  get chats(): ChatMeta[] { return this.#chats; }
-  get active(): string { return this.#active; }
-  get models(): AiModel[] { return this.#models; }
-
-  get selected_model(): string { return this.#selected_model; }
-  set selected_model(id: string) { this.#set_selected_model(id); }
-
-  turns_of(chat_id: string): Turn[] {
-    return this.#turns[chat_id] ?? EMPTY_TURNS;
-  }
-
-  busy_of(chat_id: string): boolean {
-    return this.#busy[chat_id] ?? false;
-  }
-
-  clear(): void {
-    this.#set_chats([]);
-    this.#set_active("");
-    this.#set_turns({});
-    this.#set_busy({});
-  }
-
-  set_models(models: AiModel[]): void {
-    this.#set_models(models);
-    if (models.length > 0 && !this.#selected_model)
-      this.#set_selected_model(models[0]!.id);
-  }
-
-  new_chat(chat_id: string, title: string): void {
-    this.#set_chats((c) => [...c, { id: chat_id, title: title || "New chat" }]);
-  }
-
-  del_chat(chat_id: string): void {
-    this.#set_chats((c) => c.filter((ch) => ch.id !== chat_id));
-    this.#set_turns((t) => drop_key(t, chat_id));
-    this.#set_busy((b) => drop_key(b, chat_id));
-    this.#set_active((a) => a === chat_id ? "" : a);
-  }
-
-  set_active_chat(chat_id: string): void {
-    this.#set_active(chat_id);
-  }
-
-  set_chat_title(chat_id: string, title: string): void {
-    this.#set_chats((c) =>
-      c.map((ch) => ch.id === chat_id ? { ...ch, title } : ch));
-  }
-
-  new_turn(chat_id: string, turn_id: string, prompt: string): void {
-    this.#set_turns((t) => ({
-      ...t,
-      [chat_id]: [...(t[chat_id] ?? []), { id: turn_id, prompt, items: [] }],
-    }));
-    this.#set_busy((b) => ({ ...b, [chat_id]: true }));
-  }
-
-  del_turn(chat_id: string, turn_id: string): void {
-    this.#set_turns((t) => {
-      const cur = t[chat_id];
-      if (cur === undefined)
-        return t;
-      return { ...t, [chat_id]: cur.filter((x) => x.id !== turn_id) };
-    });
-  }
-
-  append_thinking(chat_id: string, text: string): void {
-    this.#add_item(chat_id, { kind: "thinking", text });
-  }
-
-  append_reply(chat_id: string, text: string): void {
-    this.#add_item(chat_id, { kind: "reply", text });
-  }
-
-  /* Return a promise that settles when the user clicks a card action, so the
-   * backend future (add_done_callback) fires with the chosen action id. A card
-   * with no actions has nothing to click, so it resolves null right away.
+/* Everything the backend may call on window.assist. */
+interface AssistApi {
+  clear(): void;
+  set_models(models: AiModel[]): void;
+  new_chat(chat_id: string, title: string): void;
+  del_chat(chat_id: string): void;
+  set_active_chat(chat_id: string): void;
+  set_chat_title(chat_id: string, title: string): void;
+  new_turn(chat_id: string, turn_id: string, prompt: string): void;
+  del_turn(chat_id: string, turn_id: string): void;
+  append_thinking(chat_id: string, text: string): void;
+  append_reply(chat_id: string, text: string): void;
+  /* Settles when the user clicks a card action, so the backend future
+   * (add_done_callback) fires with the chosen action id. A card with no
+   * actions has nothing to click, so it resolves null right away.
    */
-  add_card(chat_id: string, card: ChatCardData): Promise<string | null> {
-    return new Promise<string | null>((resolve) => {
-      this.#add_item(chat_id, { kind: "card", data: card, resolve });
-      if (card.actions.length === 0)
-        resolve(null);
-    });
-  }
-
-  end_turn(chat_id: string): void {
-    this.#set_busy((b) => ({ ...b, [chat_id]: false }));
-  }
-
-  /* Append an item to the chat's last turn. Consecutive thinking or reply items
-   * are merged so a token stream coalesces into one block; cards always start a
-   * new item.
-   */
-  #add_item(chat_id: string, item: TurnItem): void {
-    this.#set_turns((t) => {
-      const turns = t[chat_id];
-      if (turns === undefined || turns.length === 0)
-        return t;
-      const last_turn = turns[turns.length - 1]!;
-      const last_turn_items = last_turn.items;
-      const last_item = last_turn_items[last_turn_items.length - 1];
-
-      let new_items: TurnItem[];
-
-      if ((last_item?.kind === "thinking" && item.kind === "thinking") ||
-          (last_item?.kind === "reply"    && item.kind === "reply"))
-        new_items = [
-          ...last_turn_items.slice(0, -1),
-          { kind: item.kind, text: last_item.text + item.text },
-        ];
-      else
-        new_items = [...last_turn_items, item];
-
-      return {
-        ...t,
-        [chat_id]: [...turns.slice(0, -1), { ...last_turn, items: new_items }],
-      };
-    });
-  }
+  add_card(chat_id: string, card: ChatCardData): Promise<string | null>;
+  end_turn(chat_id: string): void;
 }
 
 function drop_key<V>(
@@ -187,14 +72,114 @@ function drop_key<V>(
 export function Assist(props: {
   open: boolean;
 }) {
-  const assist = new AssistView();
+  const [chats, set_chats] = useState<ChatMeta[]>([]);
+  const [active, set_active] = useState("");
+  const [models, set_models] = useState<AiModel[]>([]);
+  const [selected_model, set_selected_model] = useState("");
+  const [turns, set_turns] = useState<Record<string, Turn[]>>({});
+  const [busy, set_busy] = useState<Record<string, boolean>>({});
   const [width, set_width] = useState(DEFAULT_WIDTH);
   const [resizing, set_resizing] = useState(false);
+
+  /* Built once: the state setters it closes over never change identity, so
+   * the backend always reaches the live panel through the same object.
+   */
+  const assist = useMemo<AssistApi>(() => {
+    /* Append an item to the chat's last turn. Consecutive thinking or reply
+     * items are merged so a token stream coalesces into one block; cards
+     * always start a new item.
+     */
+    const add_item = (chat_id: string, item: TurnItem): void => {
+      set_turns((all) => {
+        const chat_turns = all[chat_id];
+        if (chat_turns === undefined || chat_turns.length === 0)
+          return all;
+        const last_turn = chat_turns[chat_turns.length - 1]!;
+        const items = last_turn.items;
+        const last = items[items.length - 1];
+
+        const merged =
+          (last?.kind === "thinking" && item.kind === "thinking") ||
+          (last?.kind === "reply" && item.kind === "reply")
+            ? [...items.slice(0, -1),
+               { kind: item.kind, text: last.text + item.text }]
+            : [...items, item];
+
+        return {
+          ...all,
+          [chat_id]: [
+            ...chat_turns.slice(0, -1), { ...last_turn, items: merged },
+          ],
+        };
+      });
+    };
+
+    return {
+      set_models,
+      set_active_chat: set_active,
+      clear() {
+        set_chats([]);
+        set_active("");
+        set_turns({});
+        set_busy({});
+      },
+      new_chat(chat_id, title) {
+        set_chats((all) =>
+          [...all, { id: chat_id, title: title || "New chat" }]);
+      },
+      del_chat(chat_id) {
+        set_chats((all) => all.filter((c) => c.id !== chat_id));
+        set_turns((all) => drop_key(all, chat_id));
+        set_busy((all) => drop_key(all, chat_id));
+        set_active((cur) => cur === chat_id ? "" : cur);
+      },
+      set_chat_title(chat_id, title) {
+        set_chats((all) =>
+          all.map((c) => c.id === chat_id ? { ...c, title } : c));
+      },
+      new_turn(chat_id, turn_id, prompt) {
+        set_turns((all) => ({
+          ...all,
+          [chat_id]: [
+            ...(all[chat_id] ?? []), { id: turn_id, prompt, items: [] },
+          ],
+        }));
+        set_busy((all) => ({ ...all, [chat_id]: true }));
+      },
+      del_turn(chat_id, turn_id) {
+        set_turns((all) => {
+          const chat_turns = all[chat_id];
+          if (chat_turns === undefined)
+            return all;
+          return {
+            ...all,
+            [chat_id]: chat_turns.filter((t) => t.id !== turn_id),
+          };
+        });
+      },
+      append_thinking(chat_id, text) {
+        add_item(chat_id, { kind: "thinking", text });
+      },
+      append_reply(chat_id, text) {
+        add_item(chat_id, { kind: "reply", text });
+      },
+      add_card(chat_id, card) {
+        return new Promise<string | null>((resolve) => {
+          add_item(chat_id, { kind: "card", data: card, resolve });
+          if (card.actions.length === 0)
+            resolve(null);
+        });
+      },
+      end_turn(chat_id) {
+        set_busy((all) => ({ ...all, [chat_id]: false }));
+      },
+    };
+  }, []);
 
   useEffect(() => {
     window.assist = assist;
     return () => { window.assist = null; };
-  });
+  }, [assist]);
 
   /* Listening only while a drag runs keeps the handlers free of any flag
    * telling them whether this pointer belongs to a resize.
@@ -217,8 +202,12 @@ export function Assist(props: {
     };
   }, [resizing]);
 
-  const chat_ids = assist.chats.map((c) => c.id);
-  const active_id = assist.active || chat_ids[0] || "";
+  /* Both fall back to the first entry, so neither needs seeding when the
+   * chats or the models arrive.
+   */
+  const active_id = active || chats[0]?.id || "";
+  const model_id = selected_model || models[0]?.id || "";
+
   return (
     <aside
       className={mergeClasses(
@@ -246,11 +235,9 @@ export function Assist(props: {
               className="assist-tabs"
               size="small"
               selectedValue={active_id}
-              onTabSelect={(_e, d) => {
-                assist.set_active_chat(d.value as string);
-              }}
+              onTabSelect={(_e, d) => set_active(d.value as string)}
             >
-              {assist.chats.map((c) => {
+              {chats.map((c) => {
                 const label = c.title || "New chat";
                 return (
                   <Tab key={c.id} value={c.id} title={label}>
@@ -272,16 +259,16 @@ export function Assist(props: {
         </div>
 
         <div className="assist-chats">
-          {assist.chats.map((c) => (
+          {chats.map((c) => (
             <Chat
               key={c.id}
               chat_id={c.id}
               visible={c.id === active_id}
-              turns={assist.turns_of(c.id)}
-              busy={assist.busy_of(c.id)}
-              models={assist.models}
-              selected_model={assist.selected_model}
-              on_model_change={(m) => { assist.selected_model = m; }}
+              turns={turns[c.id] ?? EMPTY_TURNS}
+              busy={busy[c.id] ?? false}
+              models={models}
+              selected_model={model_id}
+              on_model_change={set_selected_model}
             />
           ))}
         </div>
@@ -292,7 +279,7 @@ export function Assist(props: {
 
 declare global {
   interface Window {
-    assist: AssistView | null;
+    assist: AssistApi | null;
   }
 }
 
