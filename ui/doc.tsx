@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type DragEvent as ReactDragEvent,
@@ -97,6 +98,12 @@ type CardView = TripCardView | RouteCardView;
  */
 type RouteTracks = Record<string, TrackPoint[]>;
 
+/* Shared stand-ins for a route the tracks do not cover. A fresh literal per
+ * render would look like new data to the map and profile effects below.
+ */
+const EMPTY_TRACK: TrackPoint[] = [];
+const EMPTY_OVERLAY: MapOverlay = { polylines: [], markers: [], fit: null };
+
 /* Turn one route and the trip's tracks into a map overlay. Every route map
  * shows the whole trip: the sibling routes as dim dashed context lines, then
  * this route's own track on top, colored and capped with start and end dots.
@@ -141,11 +148,20 @@ class DocView {
   #set_cards: Dispatch<SetStateAction<CardView[]>>;
   #tracks: RouteTracks;
   #set_tracks: Dispatch<SetStateAction<RouteTracks>>;
+  #overlays: Record<string, MapOverlay>;
   #on_title_change: (title: string) => void;
 
   constructor(on_title_change: (title: string) => void) {
     [this.#cards, this.#set_cards] = useState<CardView[]>([]);
     [this.#tracks, this.#set_tracks] = useState<RouteTracks>({});
+    /* RouteMap refits its bounds whenever the overlay it is given changes, so
+     * building one per render would throw away the user's pan and zoom on
+     * every keystroke. Cache them until a track actually moves.
+     */
+    const tracks = this.#tracks;
+    this.#overlays = useMemo(() => Object.fromEntries(
+      Object.keys(tracks).map((id) => [id, route_overlay(id, tracks)])
+    ), [tracks]);
     this.#on_title_change = on_title_change;
   }
 
@@ -158,11 +174,11 @@ class DocView {
   }
 
   overlay(route_id: string): MapOverlay {
-    return route_overlay(route_id, this.#tracks);
+    return this.#overlays[route_id] ?? EMPTY_OVERLAY;
   }
 
   track(route_id: string): TrackPoint[] {
-    return this.#tracks[route_id] ?? [];
+    return this.#tracks[route_id] ?? EMPTY_TRACK;
   }
 
   set title(title: string) {
