@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import {
   FluentProvider,
-  makeStyles,
   webDarkTheme,
   webLightTheme,
 } from "@fluentui/react-components";
@@ -13,26 +12,11 @@ import { DialogHost } from "./dialog-host";
 import { Menu } from "./menu";
 import { NotifyHost } from "./notify";
 import { SettingsDialog } from "./settings";
+import "./app.css";
 
 type ThemeMode = "system" | "light" | "dark";
 
-const use_styles = makeStyles({
-  app: {
-    height: "100%",
-    display: "flex",
-    flexDirection: "column",
-  },
-  doc: {
-    flex: "1 1 auto",
-    minHeight: 0,
-    display: "flex",
-    flexDirection: "row",
-    position: "relative",
-  },
-});
-
 export function App() {
-  const styles = use_styles();
   const [menu_open, set_menu_open] = useState(false);
   const [title, set_title] = useState("");
   const [assist_open, set_assist_open] = useState(false);
@@ -64,7 +48,7 @@ export function App() {
   return (
     <FluentProvider
       theme={is_dark_theme ? webDarkTheme : webLightTheme}
-      className={styles.app}
+      className="app"
     >
       <AppBar
         title={title}
@@ -73,7 +57,7 @@ export function App() {
         on_assist_toggle={() => set_assist_open((o) => !o) }
       />
       <NotifyHost />
-      <div className={styles.doc}>
+      <div className="app-body">
         <Doc on_title_change={set_title} />
         <Assist open={assist_open} />
       </div>

@@ -1,0 +1,27 @@
+.app-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 8px;
+  background-color: var(--colorNeutralBackground1);
+  border-bottom: 1px solid var(--colorNeutralStroke2);
+}
+
+.app-bar-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--fontWeightSemibold);
+  color: var(--colorNeutralForeground2);
+}
+
+/* The placeholder standing in for a trip with no name yet. */
+.app-bar-title.untitled {
+  font-weight: var(--fontWeightRegular);
+  color: var(--colorNeutralForeground3);
+}

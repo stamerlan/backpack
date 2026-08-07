@@ -6,6 +6,7 @@ import {
   MessageBarTitle,
   type MessageBarIntent,
 } from "@fluentui/react-components";
+import "./card.css";
 
 export interface ChatCardAction {
   id: string;
@@ -37,7 +38,7 @@ export function ChatCardView(props: {
     <MessageBar intent={card_intent[card.card_kind]} layout="multiline">
       <MessageBarBody>
         {card.title && <MessageBarTitle>{card.title}</MessageBarTitle>}
-        <span style={{ whiteSpace: "pre-wrap" }}>{card.text}</span>
+        <span className="chat-card-text">{card.text}</span>
       </MessageBarBody>
       {card.actions.length > 0 && (
         <MessageBarActions>
