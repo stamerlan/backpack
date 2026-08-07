@@ -76,7 +76,7 @@ export function App() {
       <NotifyHost />
       <div className={styles.doc}>
         <Doc on_title_change={set_title} />
-        <Assist open={assist_open} on_close={() => set_assist_open(false)} />
+        <Assist open={assist_open} />
       </div>
       <Menu open={menu_open} show_menu={set_menu_open} />
       <DialogHost />
