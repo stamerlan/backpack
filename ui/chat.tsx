@@ -18,6 +18,7 @@
  *     busy flag only reflects once the backend has answered.
  */
 import {
+  memo,
   useEffect,
   useRef,
   useState,
@@ -45,9 +46,28 @@ import "./chat.css";
 
 marked.use({ breaks: true });
 
-function render_md(raw: string): string {
-  return DOMPurify.sanitize(marked.parse(raw, { async: false }));
-}
+/* A block of rendered markdown. Every chat stays mounted so it keeps its
+ * draft and its scroll position, and each streamed token re-renders all of
+ * them, so the memo is what stops that from re-parsing and re-sanitizing
+ * every block in every chat on every token.
+ *
+ * Properties:
+ *   - text: The raw markdown.
+ *   - className: Class for the element holding the rendered HTML.
+ */
+const Markdown = memo(function Markdown(props: {
+  text: string;
+  className: string;
+}) {
+  return (
+    <div
+      className={props.className}
+      dangerouslySetInnerHTML={{
+        __html: DOMPurify.sanitize(marked.parse(props.text, { async: false })),
+      }}
+    />
+  );
+});
 
 export interface AiModel {
   id: string;
@@ -169,12 +189,7 @@ function ThinkingBlock(props: {
         <span>Thinking</span>
       </button>
       <div className={mergeClasses("chat-thought-body", folded && "folded")}>
-        <div
-          className="chat-thought-text"
-          dangerouslySetInnerHTML={{
-            __html: render_md(props.text),
-          }}
-        />
+        <Markdown className="chat-thought-text" text={props.text} />
       </div>
     </div>
   );
@@ -190,9 +205,10 @@ export function Chat(props: {
   on_model_change: (id: string) => void;
 }) {
   const [prompt, set_prompt] = useState("");
+  const [sending, set_sending] = useState(false);
   const log_ref = useRef<HTMLDivElement>(null);
   const input_ref = useRef<HTMLTextAreaElement>(null);
-  const sending = useRef(false);
+  const idle = !props.busy && !sending;
 
   const model_label = props.models.find(
     (m) => m.id === props.selected_model
@@ -239,12 +255,12 @@ export function Chat(props: {
 
   function submit(): void {
     const text = prompt.trim();
-    if (!text || props.busy || sending.current)
+    if (!text || !idle)
       return;
-    sending.current = true;
+    set_sending(true);
     set_prompt("");
     void api.ask_assist(props.chat_id, props.selected_model, text)
-      .finally(() => { sending.current = false; });
+      .finally(() => set_sending(false));
   }
 
   function on_keydown(e: ReactKeyboardEvent<HTMLTextAreaElement>): void {
@@ -298,12 +314,10 @@ export function Chat(props: {
                       );
                     case "reply":
                       return (
-                        <div
+                        <Markdown
                           key={ni}
                           className="chat-reply"
-                          dangerouslySetInnerHTML={{
-                            __html: render_md(node.text),
-                          }}
+                          text={node.text}
                         />
                       );
                     case "card":
@@ -336,7 +350,7 @@ export function Chat(props: {
               value={prompt}
               onChange={(e) => set_prompt(e.target.value)}
               onKeyDown={on_keydown}
-              disabled={props.busy}
+              disabled={!idle}
             />
             <Button
               className="chat-send"
@@ -344,7 +358,7 @@ export function Chat(props: {
               size="small"
               shape="circular"
               icon={icon("send", 18)}
-              disabled={prompt.trim().length == 0 || props.busy}
+              disabled={prompt.trim().length == 0 || !idle}
               title="Send"
               aria-label="Send message"
               onClick={submit}
