@@ -1,0 +1,88 @@
+/* Fluent injects its own styles after this file, so overriding one of its
+ * components needs the extra specificity its fui-* class provides.
+ */
+
+.fui-Card.route-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px 12px;
+}
+
+.route-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.route-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.route-card-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 22px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--colorNeutralForeground4);
+  cursor: grab;
+  border-radius: var(--borderRadiusSmall);
+  touch-action: none;
+}
+
+.route-card-grip:hover {
+  color: var(--colorNeutralForeground2);
+  background: var(--colorNeutralBackground3);
+}
+
+.route-card-grip:active {
+  cursor: grabbing;
+}
+
+.route-card-chevron {
+  display: inline-flex;
+  transition: transform 0.15s ease;
+}
+
+.route-card-chevron.folded {
+  transform: rotate(-90deg);
+}
+
+.fui-Input.route-card-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  border-radius: 0;
+  padding-left: 0;
+  padding-right: 0;
+  background-color: transparent;
+}
+
+.fui-Input.route-card-title::before,
+.fui-Input.route-card-title::after {
+  display: none;
+}
+
+.route-card-title .fui-Input__input {
+  padding-left: 0;
+  padding-right: 0;
+  font-family: var(--fontFamilyBase);
+  font-size: 17px;
+  line-height: 1.3;
+  font-weight: var(--fontWeightSemibold);
+}
+
+.route-card-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
