@@ -1,0 +1,257 @@
+.chat {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat.hidden {
+  display: none;
+}
+
+/* A centered reading column holding both the log and the composer so the
+ * input lines up under the messages. Its width fits three suggestion buttons
+ * (min 190px, 4px gap) in a row but never four: three need 578px, four would
+ * need 772px, so a width in between locks the grid to three.
+ */
+.chat-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: 700px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-log {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* An empty chat shrinks the log to its content so the welcome text and the
+ * composer sit together near the top instead of spread across the panel.
+ */
+.chat-log.empty {
+  flex: 0 1 auto;
+}
+
+.chat-welcome {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--colorNeutralForeground3);
+}
+
+.chat-suggest {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 4px;
+}
+
+.chat-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 12px;
+}
+
+.chat-prompt {
+  padding: 8px 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  cursor: text;
+  font-size: var(--fontSizeBase400);
+  line-height: var(--lineHeightBase400);
+  color: var(--colorNeutralForeground1);
+  background-color: var(--colorNeutralBackground1);
+  border: 1px solid var(--colorNeutralStroke1);
+  border-radius: var(--borderRadiusMedium);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.14),
+    0 0 2px rgba(0, 0, 0, 0.12);
+}
+
+.chat-thought {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--fontSizeBase300);
+  line-height: var(--lineHeightBase300);
+  color: var(--colorNeutralForeground3);
+}
+
+.chat-thought-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 2px 4px;
+  border: none;
+  background: transparent;
+  color: var(--colorNeutralForeground3);
+  cursor: pointer;
+  border-radius: var(--borderRadiusSmall);
+}
+
+.chat-thought-header:hover {
+  color: var(--colorNeutralForeground2);
+  background-color: var(--colorNeutralBackground3);
+}
+
+.chat-thought-chevron {
+  display: inline-flex;
+  transition: transform 0.15s ease;
+}
+
+.chat-thought-chevron.folded {
+  transform: rotate(-90deg);
+}
+
+/* Folding animates the row track rather than the height, so the block
+ * collapses smoothly without measuring its content.
+ */
+.chat-thought-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.18s ease;
+}
+
+.chat-thought-body.folded {
+  grid-template-rows: 0fr;
+}
+
+.chat-thought-text {
+  min-height: 0;
+  overflow: hidden;
+  padding-left: 2px;
+}
+
+.chat-thought-text p {
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+}
+
+.chat-reply {
+  padding: 0 2px;
+  overflow-wrap: anywhere;
+  user-select: text;
+  cursor: text;
+  font-size: var(--fontSizeBase400);
+  line-height: var(--lineHeightBase400);
+}
+
+.chat-reply p {
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+}
+
+.chat-reply pre {
+  background-color: var(--colorNeutralBackground3);
+  padding: 8px;
+  border-radius: var(--borderRadiusMedium);
+  overflow-x: auto;
+}
+
+.chat-reply code {
+  font-family: var(--fontFamilyMonospace);
+  font-size: var(--fontSizeBase200);
+}
+
+.chat-reply ul,
+.chat-reply ol {
+  padding-left: 1.5em;
+}
+
+.chat-composer {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px 12px;
+}
+
+.chat-input-row {
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.chat-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  resize: none;
+  border: 1px solid var(--colorNeutralStroke1);
+  border-radius: var(--borderRadiusMedium);
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+  background-color: var(--colorNeutralBackground1);
+  outline: none;
+  min-height: 56px;
+  max-height: 160px;
+  overflow-y: auto;
+  field-sizing: content;
+}
+
+.chat-composer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.chat-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--colorNeutralForeground3);
+  cursor: pointer;
+  border-radius: var(--borderRadiusSmall);
+}
+
+.chat-delete-btn:hover {
+  color: var(--colorNeutralForeground2);
+  background-color: var(--colorNeutralBackground3);
+}
+
+/* Fluent injects its own styles after this file, so overriding one of its
+ * components needs the extra specificity its fui-* class provides.
+ */
+.fui-CompoundButton.chat-suggest-item {
+  justify-content: flex-start;
+}
+
+.fui-Spinner.chat-spinner {
+  align-self: center;
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+
+.fui-Button.chat-send {
+  flex: none;
+  width: 26px;
+  min-width: 26px;
+  max-width: 26px;
+  height: 26px;
+  padding: 0;
+}
+
+.fui-MenuButton.chat-model-btn {
+  font-size: var(--fontSizeBase200);
+  color: var(--colorNeutralForeground3);
+}
