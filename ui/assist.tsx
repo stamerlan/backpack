@@ -1,121 +1,23 @@
 import {
   useEffect,
-  useRef,
   useState,
   type Dispatch,
   type SetStateAction,
 } from "react";
-import {
-  makeStyles,
-  mergeClasses,
-  Tab,
-  TabList,
-  tokens,
-} from "@fluentui/react-components";
+import { mergeClasses, Tab, TabList } from "@fluentui/react-components";
 import api from "./api";
 import { icon } from "./icon";
 import { Chat, type AiModel, type Turn, type TurnItem } from "./chat";
 import type { ChatCardData } from "./card";
+import "./assist.css";
 
 const ASSIST_MIN = 300;
 const DEFAULT_WIDTH = 500;
 /* The document keeps at least this width, so at the smallest window (600px)
- * the panel and the document each get half.
+ * the panel and the document each get half. assist.css caps the panel with
+ * the same number.
  */
 const DOC_MIN = 300;
-
-const use_styles = makeStyles({
-  panel: {
-    flex: "none",
-    width: 0,
-    height: "100%",
-    position: "relative",
-    overflow: "hidden",
-    backgroundColor: tokens.colorNeutralBackground2,
-    transform: "translateX(100%)",
-    transitionProperty: "width",
-    transitionDuration: "0.2s",
-    transitionTimingFunction: "ease",
-  },
-  open: {
-    transform: "none",
-    borderLeft: `1px solid ${tokens.colorNeutralStroke1}`,
-  },
-  resizing: { transitionProperty: "none" },
-  inner: {
-    height: "100%",
-    display: "flex",
-    flexDirection: "column",
-    minHeight: 0,
-  },
-  handle: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: "6px",
-    height: "100%",
-    cursor: "col-resize",
-    zIndex: 2,
-    touchAction: "none",
-    ":hover": {
-      backgroundColor: tokens.colorCompoundBrandStroke,
-      opacity: 0.45,
-    },
-  },
-  handle_active: {
-    backgroundColor: tokens.colorCompoundBrandStroke,
-    opacity: 0.45,
-  },
-  header: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "6px",
-    padding: "8px 12px",
-    flex: "none",
-  },
-  tabs_row: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-  },
-  tabs: {
-    flex: "1 1 auto",
-    minWidth: 0,
-    overflowX: "auto",
-    overflowY: "hidden",
-    /* A fixed height reserves room for the horizontal scrollbar: when tabs
-     * overflow on a new chat the bar eats into this height instead of growing
-     * the strip, so the content below never jumps.
-     */
-    height: "40px",
-    boxSizing: "border-box",
-    scrollbarWidth: "thin",
-  },
-  icon_btn: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "28px",
-    height: "28px",
-    flex: "none",
-    padding: 0,
-    border: "none",
-    background: "transparent",
-    color: tokens.colorNeutralForeground3,
-    cursor: "pointer",
-    borderRadius: tokens.borderRadiusSmall,
-    ":hover": {
-      color: tokens.colorNeutralForeground2,
-      backgroundColor: tokens.colorNeutralBackground3,
-    },
-  },
-  chats: {
-    flex: "1 1 auto",
-    minHeight: 0,
-    display: "flex",
-    flexDirection: "column",
-  },
-});
 
 interface ChatMeta {
   id: string;
@@ -284,84 +186,64 @@ function drop_key<V>(
 
 export function Assist(props: {
   open: boolean;
-  on_close: () => void;
 }) {
-  const styles = use_styles();
   const assist = new AssistView();
   const [width, set_width] = useState(DEFAULT_WIDTH);
-  const dragging = useRef(false);
   const [resizing, set_resizing] = useState(false);
-  const [win_width, set_win_width] = useState(window.innerWidth);
 
   useEffect(() => {
     window.assist = assist;
     return () => { window.assist = null; };
   });
 
+  /* Listening only while a drag runs keeps the handlers free of any flag
+   * telling them whether this pointer belongs to a resize.
+   */
   useEffect(() => {
-    const on_resize = () => set_win_width(window.innerWidth);
-    window.addEventListener("resize", on_resize);
-    return () => window.removeEventListener("resize", on_resize);
-  }, []);
-
-  const open_width = Math.min(width, win_width - DOC_MIN);
-
-  useEffect(() => {
-    function on_move(e: PointerEvent): void {
-      if (!dragging.current)
-        return;
-      let w = window.innerWidth - e.clientX;
-      w = Math.max(ASSIST_MIN, Math.min(window.innerWidth - DOC_MIN, w));
-      set_width(w);
-    }
-    function on_up(): void {
-      if (!dragging.current)
-        return;
-      dragging.current = false;
-      set_resizing(false);
-    }
+    if (!resizing)
+      return;
+    const on_move = (e: PointerEvent): void => {
+      const w = window.innerWidth - e.clientX;
+      set_width(
+        Math.max(ASSIST_MIN, Math.min(window.innerWidth - DOC_MIN, w))
+      );
+    };
+    const on_up = (): void => set_resizing(false);
     window.addEventListener("pointermove", on_move);
     window.addEventListener("pointerup", on_up);
     return () => {
       window.removeEventListener("pointermove", on_move);
       window.removeEventListener("pointerup", on_up);
     };
-  }, []);
+  }, [resizing]);
 
   const chat_ids = assist.chats.map((c) => c.id);
   const active_id = assist.active || chat_ids[0] || "";
   return (
     <aside
       className={mergeClasses(
-        styles.panel,
-        props.open && styles.open,
-        resizing && styles.resizing,
+        "assist-panel",
+        props.open && "open",
+        resizing && "resizing",
       )}
-      style={props.open ? { width: `${open_width}px` } : undefined}
+      style={props.open ? { width: `${width}px` } : undefined}
       aria-label="AI assistant"
       inert={!props.open ? true : undefined}
     >
       <div
-        className={mergeClasses(
-          styles.handle,
-          resizing && styles.handle_active,
-        )}
+        className={mergeClasses("assist-handle", resizing && "active")}
         title="Drag to resize"
         onPointerDown={(e) => {
           e.preventDefault();
-          dragging.current = true;
           set_resizing(true);
         }}
       />
 
-      <div
-        className={styles.inner}
-        style={{ width: `${open_width}px` }}
-      >
-        <div className={styles.header}>
-          <div className={styles.tabs_row}>
+      <div className="assist-inner" style={{ width: `${width}px` }}>
+        <div className="assist-header">
+          <div className="assist-tabs-row">
             <TabList
-              className={styles.tabs}
+              className="assist-tabs"
               size="small"
               selectedValue={active_id}
               onTabSelect={(_e, d) => {
@@ -379,7 +261,7 @@ export function Assist(props: {
             </TabList>
             <button
               type="button"
-              className={styles.icon_btn}
+              className="assist-icon-btn"
               title="New chat"
               aria-label="New chat"
               onClick={() => { void api.add_chat(); }}
@@ -389,7 +271,7 @@ export function Assist(props: {
           </div>
         </div>
 
-        <div className={styles.chats}>
+        <div className="assist-chats">
           {assist.chats.map((c) => (
             <Chat
               key={c.id}
