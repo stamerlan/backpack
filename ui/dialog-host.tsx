@@ -1,4 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+/* Hosts every dialog the backend opens through window.show_dialog. Dialogs
+ * are independent and stack, an error over a save prompt for instance;
+ * sequencing them is the backend's concern.
+ *
+ * Properties:
+ *   - (none): The backend drives the host through the global above.
+ *
+ * State:
+ *   - items: The open requests, oldest first. A closed one stays in the
+ *     list until its exit animation has run.
+ */
+import { useEffect, useState } from "react";
 import {
   Button,
   Dialog,
@@ -19,7 +30,7 @@ export interface DialogAction {
   appearance?: NonNullable<ButtonProps["appearance"]>;
 }
 
-interface DialogModel {
+interface DialogRequest {
   id: string;
   title: string;
   text: string;
@@ -27,6 +38,18 @@ interface DialogModel {
   resolve: (value: unknown) => void;
 }
 
+/* One dialog.
+ *
+ * Properties:
+ *   - title: Heading text.
+ *   - text: Body text.
+ *   - actions: Footer buttons, none at all for a message-only dialog.
+ *   - on_close: Reports the chosen value, or null when dismissed.
+ *
+ * State:
+ *   - open: Whether the dialog is showing. It goes false before the host
+ *     drops the request, which is what plays the exit animation.
+ */
 function DialogView(props: {
   title: string;
   text: string;
@@ -34,12 +57,11 @@ function DialogView(props: {
   on_close: (value: unknown) => void;
 }) {
   const [open, set_open] = useState(true);
-  const done = useRef(false);
 
+  /* Settling a promise twice is a no-op, so the close paths need no guard
+   * against one another.
+   */
   const close = (value: unknown): void => {
-    if (done.current)
-      return;
-    done.current = true;
     set_open(false);
     props.on_close(value);
   };
@@ -62,7 +84,7 @@ function DialogView(props: {
   return (
     <Dialog open={open} modalType="modal" onOpenChange={(_event, data) => {
       /* Close button and Escape land here; action buttons deliver their own
-       * value below.
+       * value above.
        */
       if (!data.open)
         close(null);
@@ -88,43 +110,34 @@ function DialogView(props: {
   );
 }
 
-/* A single host owns every open dialog as React state. show_dialog() adds a
- * request; closing removes it. Dialogs are independent and can stack (e.g. an
- * error over a save prompt). Sequencing is the backend's concern.
- */
-let add_dialog: ((request: DialogModel) => void) | null = null;
+let add_dialog: ((request: DialogRequest) => void) | null = null;
 
 export function DialogHost() {
-  const [items, set_items] = useState<Set<DialogModel>>(new Set());
+  const [items, set_items] = useState<DialogRequest[]>([]);
 
   useEffect(() => {
-    add_dialog = (request) => set_items((s) => new Set(s).add(request));
-      return () => { add_dialog = null; };
-    }, []
-  );
+    add_dialog = (request) => set_items((all) => [...all, request]);
+    return () => { add_dialog = null; };
+  }, []);
 
-  const close = (request: DialogModel, value: unknown): void => {
+  const close = (request: DialogRequest, value: unknown): void => {
     request.resolve(value);
     /* Let the exit animation finish before dropping the dialog. */
     setTimeout(() => {
-      set_items((s) => {
-        const next = new Set(s);
-        next.delete(request);
-        return next;
-      });
+      set_items((all) => all.filter((item) => item !== request));
     }, 300);
   };
 
   return (
     <>
-      {[...items].map((request) => (
+      {items.map((request) => (
         <DialogView
           key={request.id}
           title={request.title}
           text={request.text}
           actions={request.actions}
           on_close={(value) => close(request, value)}
-         />
+        />
       ))}
     </>
   );

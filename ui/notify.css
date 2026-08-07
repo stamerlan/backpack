@@ -1,0 +1,11 @@
+/* Fluent injects its own styles after this file, so overriding one of its
+ * components needs the extra specificity its fui-* class provides.
+ */
+.fui-MessageBarGroup.notify-group {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--colorNeutralStroke2);
+}

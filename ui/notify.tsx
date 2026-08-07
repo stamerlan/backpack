@@ -1,7 +1,15 @@
+/* Hosts every banner the backend raises through window.notify. Banners are
+ * independent and stack under the app bar; what to react to is the backend's
+ * concern. window.clear_notify takes them all down at once.
+ *
+ * Properties:
+ *   - (none): The backend drives the host through the globals above.
+ *
+ * State:
+ *   - items: The live requests, oldest first.
+ */
 import { useEffect, useState } from "react";
 import {
-  makeStyles,
-  tokens,
   Button,
   MessageBar,
   MessageBarActions,
@@ -11,6 +19,7 @@ import {
 } from "@fluentui/react-components";
 import type { ButtonProps } from "@fluentui/react-components";
 import { icon } from "./icon";
+import "./notify.css";
 
 export type NotifyIntent = "info" | "success" | "warning" | "error";
 
@@ -20,7 +29,7 @@ export interface NotifyAction {
   appearance?: NonNullable<ButtonProps["appearance"]>;
 }
 
-interface NotifyView {
+interface NotifyRequest {
   id: string;
   message: string;
   title: string;
@@ -29,41 +38,25 @@ interface NotifyView {
   resolve: (value: unknown) => void;
 }
 
-const use_styles = makeStyles({
-  group: {
-    flex: "none",
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
-    padding: "4px 8px",
-    borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
-  },
-});
-
-/* A single host owns every live banner as React state. notify() adds a
- * request; the close button or an action removes it. Banners are independent
- * and stack under the app bar; the backend decides what to react to.
- */
-let add_msg: ((request: NotifyView) => void) | null = null;
+let add_msg: ((request: NotifyRequest) => void) | null = null;
 let clear_msg: (() => void) | null = null;
 
 export function NotifyHost() {
-  const styles = use_styles();
-  const [items, set_items] = useState<NotifyView[]>([]);
+  const [items, set_items] = useState<NotifyRequest[]>([]);
 
   useEffect(() => {
-    add_msg = (request) => set_items((s) => [...s, request]);
-    clear_msg = () => set_items((s) => {
-      for (const item of s)
+    add_msg = (request) => set_items((all) => [...all, request]);
+    clear_msg = () => set_items((all) => {
+      for (const item of all)
         item.resolve(null);
       return [];
     });
     return () => { add_msg = null; clear_msg = null; };
   }, []);
 
-  const close = (request: NotifyView, value: unknown): void => {
+  const close = (request: NotifyRequest, value: unknown): void => {
     request.resolve(value);
-    set_items((s) => s.filter((item) => item !== request));
+    set_items((all) => all.filter((item) => item !== request));
   };
 
   /* Collapse to nothing when empty so no border shows under the app bar. */
@@ -71,7 +64,7 @@ export function NotifyHost() {
     return null;
 
   return (
-    <MessageBarGroup className={styles.group} animate="both">
+    <MessageBarGroup className="notify-group" animate="both">
       {items.map((msg) => (
         <MessageBar key={msg.id} intent={msg.intent}>
           <MessageBarBody>
