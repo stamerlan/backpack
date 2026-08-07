@@ -1,0 +1,43 @@
+.menu-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 8px;
+}
+
+.menu-section {
+  padding: 4px 0;
+  font-size: var(--fontSizeBase200);
+  font-weight: var(--fontWeightSemibold);
+  color: var(--colorNeutralForeground3);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.menu-recent {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.menu-recent-meta {
+  font-size: var(--fontSizeBase200);
+  color: var(--colorNeutralForeground3);
+}
+
+/* Fluent injects its own styles after this file, so overriding one of its
+ * components needs the extra specificity its fui-* class provides.
+ */
+.fui-Button.menu-entry {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.fui-Card.menu-recent-card {
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.fui-DrawerFooter.menu-footer {
+  display: block;
+}
