@@ -1,18 +1,31 @@
-import {
-  useEffect,
-  useState,
-  type Dispatch,
-  type SetStateAction,
-} from "react";
+/* One route of the trip: a header with the title, the distance and elevation
+ * badges, then the map, the elevation profile and the route notes. Edits are
+ * reported upwards on every keystroke and sent to the backend on blur.
+ *
+ * Properties:
+ *   - id: Model id of the route, quoted back on every commit.
+ *   - title: Route title, owned by the document view.
+ *   - notes: Route notes as markdown, owned by the document view.
+ *   - stats: Distance, duration and elevation totals, null while unknown.
+ *   - track: The route's own sampled points, drawn by the profile chart.
+ *   - overlay: What the map paints: this route over its dimmed siblings.
+ *   - route_loading: Shows the header spinner while details load.
+ *   - on_change: Reports the edited title and notes on every keystroke.
+ *   - on_remove: Drops the card once the backend has been told.
+ *   - on_grip_down: Arms the grip so the document may lift this card.
+ *   - on_grip_up: Disarms the grip.
+ *
+ * State:
+ *   - folded: Hides the map, profile and notes, leaving only the header.
+ *   - hover: Point the profile is hovering, echoed as a dot on the map.
+ */
+import { useState } from "react";
 import {
   Badge,
   Button,
   Card,
   Input,
   Spinner,
-  makeStyles,
-  mergeClasses,
-  tokens,
 } from "@fluentui/react-components";
 import api from "./api";
 import { icon } from "./icon";
@@ -24,6 +37,7 @@ import {
   type TrackPoint,
 } from "./route-map";
 import { RouteProfile } from "./route-profile";
+import "./route-card.css";
 
 export interface RouteStats {
   dist_m: number;
@@ -61,148 +75,6 @@ function elev_title(stats: RouteStats): string {
   );
 }
 
-const use_styles = makeStyles({
-  card: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-    padding: "8px 12px 12px",
-  },
-  body: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-    minWidth: 0,
-  },
-  header: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-  },
-  grip: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flex: "none",
-    width: "22px",
-    height: "28px",
-    padding: 0,
-    border: "none",
-    background: "transparent",
-    color: tokens.colorNeutralForeground4,
-    cursor: "grab",
-    borderRadius: tokens.borderRadiusSmall,
-    touchAction: "none",
-    ":hover": {
-      color: tokens.colorNeutralForeground2,
-      background: tokens.colorNeutralBackground3,
-    },
-    ":active": {
-      cursor: "grabbing",
-    },
-  },
-  chevron: {
-    display: "inline-flex",
-    transition: "transform 0.15s ease",
-  },
-  chevron_folded: {
-    transform: "rotate(-90deg)",
-  },
-  title: {
-    flex: "1 1 auto",
-    minWidth: 0,
-    border: "none",
-    borderRadius: 0,
-    paddingLeft: 0,
-    paddingRight: 0,
-    backgroundColor: "transparent",
-    "::after": { display: "none" },
-    "::before": { display: "none" },
-  },
-  title_input: {
-    paddingLeft: 0,
-    paddingRight: 0,
-    fontFamily: tokens.fontFamilyBase,
-    fontSize: "17px",
-    lineHeight: "1.3",
-    fontWeight: tokens.fontWeightSemibold,
-  },
-  summary: {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-    flex: "none",
-  },
-});
-
-class RouteView {
-  #id: string;
-  #title: string;
-  #set_title: Dispatch<SetStateAction<string>>;
-  #notes: string;
-  #set_notes: Dispatch<SetStateAction<string>>;
-  #folded: boolean;
-  #set_folded: Dispatch<SetStateAction<boolean>>;
-  #hover: Coord | null;
-  #set_hover: Dispatch<SetStateAction<Coord | null>>;
-  #on_remove: (id: string) => void;
-
-  constructor(
-    id: string,
-    title: string,
-    notes: string,
-    on_remove: (id: string) => void,
-  ) {
-    this.#id = id;
-    [this.#title, this.#set_title] = useState(title);
-    [this.#notes, this.#set_notes] = useState(notes);
-    [this.#folded, this.#set_folded] = useState(false);
-    [this.#hover, this.#set_hover] = useState<Coord | null>(null);
-    this.#on_remove = on_remove;
-  }
-
-  get title(): string {
-    return this.#title;
-  }
-
-  set title(title: string) {
-    this.#set_title(title);
-  }
-
-  get notes(): string {
-    return this.#notes;
-  }
-
-  set notes(notes: string) {
-    this.#set_notes(notes);
-  }
-
-  get folded(): boolean {
-    return this.#folded;
-  }
-
-  toggle_fold(): void {
-    this.#set_folded((folded) => !folded);
-  }
-
-  get hover(): Coord | null {
-    return this.#hover;
-  }
-
-  set hover(point: Coord | null) {
-    this.#set_hover(point);
-  }
-
-  commit(): void {
-    void api.set_route_info(this.#id, this.#title, this.#notes);
-  }
-
-  remove(): void {
-    void api.remove_route(this.#id);
-    this.#on_remove(this.#id);
-  }
-}
-
 export function RouteCard(props: {
   id: string;
   title: string;
@@ -211,27 +83,25 @@ export function RouteCard(props: {
   track: TrackPoint[];
   overlay: MapOverlay;
   route_loading?: boolean;
+  on_change: (title: string, notes: string) => void;
   on_remove: (id: string) => void;
   on_grip_down?: () => void;
   on_grip_up?: () => void;
 }) {
-  const styles = use_styles();
-  const route = new RouteView(
-    props.id, props.title, props.notes, props.on_remove
-  );
+  const [folded, set_folded] = useState(false);
+  const [hover, set_hover] = useState<Coord | null>(null);
   const stats = props.stats;
 
-  useEffect(() => {
-    route.title = props.title;
-    route.notes = props.notes;
-  }, [props.title, props.notes]);
+  const commit = (): void => {
+    void api.set_route_info(props.id, props.title, props.notes);
+  };
 
   return (
-    <Card className={styles.card}>
-      <div className={styles.header}>
+    <Card className="route-card">
+      <div className="route-card-header">
         <button
           type="button"
-          className={styles.grip}
+          className="route-card-grip"
           title="Drag to reorder"
           aria-label="Drag to reorder"
           onPointerDown={() => props.on_grip_down?.()}
@@ -242,36 +112,31 @@ export function RouteCard(props: {
         <Button
           appearance="subtle"
           size="small"
-          title={route.folded ? "Unfold route" : "Fold route"}
-          aria-label={route.folded ? "Unfold route" : "Fold route"}
-          aria-expanded={!route.folded}
+          title={folded ? "Unfold route" : "Fold route"}
+          aria-label={folded ? "Unfold route" : "Fold route"}
+          aria-expanded={!folded}
           icon={
-            <span
-              className={mergeClasses(
-                styles.chevron, route.folded && styles.chevron_folded
-              )}
-            >
+            <span className={"route-card-chevron" + (folded ? " folded" : "")}>
               {icon("chevron", 12)}
             </span>
           }
-          onClick={() => route.toggle_fold()}
+          onClick={() => set_folded((f) => !f)}
         />
         <Input
-          className={styles.title}
+          className="route-card-title"
           appearance="underline"
           placeholder="Untitled route"
-          value={route.title}
-          input={{ className: styles.title_input }}
-          onChange={(_event, data) => { route.title = data.value; }}
+          value={props.title}
+          onChange={(_event, data) => props.on_change(data.value, props.notes)}
           onKeyDown={(event) => {
             /* Enter commits the same way leaving the field does. */
             if (event.key === "Enter")
               event.currentTarget.blur();
           }}
-          onBlur={() => route.commit()}
+          onBlur={commit}
         />
         {stats && (
-          <div className={styles.summary}>
+          <div className="route-card-summary">
             <Badge
               appearance="tint"
               color="informative"
@@ -314,25 +179,28 @@ export function RouteCard(props: {
           title="Delete route"
           aria-label="Delete route"
           icon={icon("trash", 16)}
-          onClick={() => route.remove()}
+          onClick={() => {
+            void api.remove_route(props.id);
+            props.on_remove(props.id);
+          }}
         />
       </div>
-      {!route.folded && (
-        <div className={styles.body}>
-          <RouteMap overlay={props.overlay} hover={route.hover} />
+      {!folded && (
+        <div className="route-card-body">
+          <RouteMap overlay={props.overlay} hover={hover} />
           {props.track.length > 0 && (
             <RouteProfile
               track={props.track}
-              onHover={(point) => { route.hover = point; }}
-              onLeave={() => { route.hover = null; }}
+              onHover={(point) => set_hover(point)}
+              onLeave={() => set_hover(null)}
             />
           )}
           <MdInput
             placeholder="Notes for this route..."
-            value={route.notes}
+            value={props.notes}
             min_height={120}
-            on_change={(value) => { route.notes = value; }}
-            on_commit={() => route.commit()}
+            on_change={(value) => props.on_change(props.title, value)}
+            on_commit={commit}
           />
         </div>
       )}

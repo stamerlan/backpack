@@ -388,6 +388,8 @@ export function Doc(props: {
                     track={doc.track(card.id)}
                     overlay={doc.overlay(card.id)}
                     route_loading={card.route_loading}
+                    on_change={(title, notes) =>
+                      doc.set_route_card(card.id, title, notes)}
                     on_remove={(id) => doc.remove_card(id)}
                     on_grip_down={() => { grip_armed.current = card.id; }}
                     on_grip_up={() => { grip_armed.current = null; }}
