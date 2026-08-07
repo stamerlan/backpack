@@ -1,79 +1,33 @@
+/* The trip document: a scrolling stack of cards, the trip card first and one
+ * route card per leg below it. While mounted the view publishes itself as
+ * window.doc, the surface the backend pushes every change through, so the
+ * methods below mirror UI in src/backpack/ui.py.
+ *
+ * Properties:
+ *   - on_title_change: Reports the trip title so the app bar can show it.
+ *
+ * State:
+ *   - cards: The trip card and the route cards, in display order.
+ *   - tracks: Sampled points per route id, held apart from the cards so
+ *     every map can draw the whole trip rather than just its own leg.
+ *   - drag_id: Route card being dragged, null when nothing is in flight.
+ *   - drop_after: Route the dragged card would land after, null for first.
+ *   - grip_armed: Card whose grip is held. Only that card may be lifted, so
+ *     a pointer drag starting in a text field never moves anything.
+ */
 import {
   useEffect,
   useMemo,
   useRef,
   useState,
   type DragEvent as ReactDragEvent,
-  type Dispatch,
-  type SetStateAction,
 } from "react";
-import {
-  Button,
-  makeStyles,
-  mergeClasses,
-  tokens,
-} from "@fluentui/react-components";
+import { Button, mergeClasses } from "@fluentui/react-components";
 import api from "./api";
 import { RouteCard, type RouteStats } from "./route-card";
 import type { MapOverlay, TrackPoint } from "./route-map";
 import { TripCard } from "./trip-card";
-
-const use_styles = makeStyles({
-  content: {
-    flex: "1 1 auto",
-    /* Keep the document at least this wide so the assistant panel can never be
-     * dragged over it: at the smallest window (600px) each gets half.
-     */
-    minWidth: "300px",
-    minHeight: 0,
-    overflowY: "auto",
-    padding: "12px",
-    /* Contain Leaflet's internal z-index (panes and controls reach ~1000) in a
-     * private stacking context so the map cannot paint over sibling UI.
-     */
-    isolation: "isolate",
-  },
-  stack: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-    maxWidth: "800px",
-    margin: "0 auto",
-  },
-  add_route: {
-    alignSelf: "flex-start",
-  },
-  route_wrap: {
-    position: "relative",
-  },
-  dragging: {
-    opacity: 0.5,
-  },
-  drop_before: {
-    "::before": {
-      content: '""',
-      position: "absolute",
-      left: 0,
-      right: 0,
-      top: "-6px",
-      height: "2px",
-      background: tokens.colorBrandStroke1,
-      borderRadius: "2px",
-    },
-  },
-  drop_after_last: {
-    "::after": {
-      content: '""',
-      position: "absolute",
-      left: 0,
-      right: 0,
-      bottom: "-6px",
-      height: "2px",
-      background: tokens.colorBrandStroke1,
-      borderRadius: "2px",
-    },
-  },
-});
+import "./doc.css";
 
 interface TripCardView {
   id: string;
@@ -93,10 +47,34 @@ interface RouteCardView {
 
 type CardView = TripCardView | RouteCardView;
 
-/* Tracks live apart from the cards, keyed by route id, so a map can be handed
- * the whole trip while a card only carries its description.
- */
 type RouteTracks = Record<string, TrackPoint[]>;
+
+/* Everything the backend may call on window.doc. */
+interface DocApi {
+  clear(): void;
+  add_trip_card(id: string, title: string, notes: string): void;
+  set_trip_card(title: string, notes: string): void;
+  set_route_card(id: string, title: string, notes: string): void;
+  add_route_card(
+    id: string,
+    title: string,
+    notes: string,
+    track: TrackPoint[],
+    stats: RouteStats | null,
+  ): void;
+  /* Toggle the route header spinner. The backend turns it on while it loads
+   * route details in the background (points of interest) and off once
+   * loading finishes.
+   */
+  set_route_loading(id: string, loading: boolean): void;
+  remove_card(id: string): void;
+  /* Reorder a route card to sit just after after_id, or at the front of the
+   * route list when after_id is null. The trip card always leads, so a front
+   * drop lands right below it. Non-route ids and unknown targets are ignored,
+   * mirroring the model, so a stale drop cannot scramble the list.
+   */
+  move_card(id: string, after_id: string | null): void;
+}
 
 /* Shared stand-ins for a route the tracks do not cover. A fresh literal per
  * render would look like new data to the map and profile effects below.
@@ -143,157 +121,102 @@ function route_overlay(route_id: string, tracks: RouteTracks): MapOverlay {
   return overlay;
 }
 
-class DocView {
-  #cards: CardView[];
-  #set_cards: Dispatch<SetStateAction<CardView[]>>;
-  #tracks: RouteTracks;
-  #set_tracks: Dispatch<SetStateAction<RouteTracks>>;
-  #overlays: Record<string, MapOverlay>;
-  #on_title_change: (title: string) => void;
-
-  constructor(on_title_change: (title: string) => void) {
-    [this.#cards, this.#set_cards] = useState<CardView[]>([]);
-    [this.#tracks, this.#set_tracks] = useState<RouteTracks>({});
-    /* RouteMap refits its bounds whenever the overlay it is given changes, so
-     * building one per render would throw away the user's pan and zoom on
-     * every keystroke. Cache them until a track actually moves.
-     */
-    const tracks = this.#tracks;
-    this.#overlays = useMemo(() => Object.fromEntries(
-      Object.keys(tracks).map((id) => [id, route_overlay(id, tracks)])
-    ), [tracks]);
-    this.#on_title_change = on_title_change;
-  }
-
-  get cards(): CardView[] {
-    return this.#cards;
-  }
-
-  set cards(cards: CardView[]) {
-    this.#set_cards(cards);
-  }
-
-  overlay(route_id: string): MapOverlay {
-    return this.#overlays[route_id] ?? EMPTY_OVERLAY;
-  }
-
-  track(route_id: string): TrackPoint[] {
-    return this.#tracks[route_id] ?? EMPTY_TRACK;
-  }
-
-  set title(title: string) {
-    this.#on_title_change(title);
-  }
-
-  clear(): void {
-    this.#set_cards([]);
-    this.#set_tracks({});
-    this.title = "";
-  }
-
-  add_trip_card(id: string, title: string, notes: string): void {
-    this.#set_cards((cards) => [...cards, { id, kind: "trip", title, notes }]);
-    this.title = title;
-  }
-
-  set_trip_card(title: string, notes: string): void {
-    this.#set_cards((cards) => cards.map((card) =>
-      card.kind === "trip" ? { ...card, title, notes } : card
-    ));
-    this.title = title;
-  }
-
-  set_route_card(id: string, title: string, notes: string): void {
-    this.#set_cards((cards) => cards.map((card) =>
-      card.id === id && card.kind === "route"
-        ? { ...card, title, notes }
-        : card
-    ));
-  }
-
-  add_route_card(
-    id: string,
-    title: string,
-    notes: string,
-    track: TrackPoint[],
-    stats: RouteStats | null,
-  ): void {
-    this.#set_cards((cards) => [
-      ...cards, { id, kind: "route", title, notes, stats, route_loading: false }
-    ]);
-    this.#set_tracks((tracks) => ({ ...tracks, [id]: track }));
-  }
-
-  /* Toggle the route header spinner. The backend turns it on while it loads
-   * route details in the background (points of interest) and off once loading
-   * finishes.
-   */
-  set_route_loading(id: string, loading: boolean): void {
-    this.#set_cards((cards) => cards.map((card) =>
-      card.id === id && card.kind === "route"
-        ? { ...card, route_loading: loading }
-        : card
-    ));
-  }
-
-  remove_card(id: string): void {
-    this.#set_cards((cards) => cards.filter((card) => card.id !== id));
-    this.#set_tracks((tracks) => {
-      const next = { ...tracks };
-      delete next[id];
-      return next;
-    });
-  }
-
-  /* Reorder a route card to sit just after after_id, or at the front of the
-   * route list when after_id is null. The trip card always leads, so a front
-   * drop lands right below it. Non-route ids and unknown targets are ignored,
-   * mirroring the model, so a stale drop cannot scramble the list.
-   */
-  move_card(id: string, after_id: string | null): void {
-    this.#set_cards((cards) => {
-      const moving = cards.find((card) => card.id === id);
-      if (moving === undefined || moving.kind !== "route")
-        return cards;
-      const rest = cards.filter((card) => card.id !== id);
-      if (after_id === null) {
-        const at = rest.findIndex((card) => card.kind === "route");
-        const cut = at === -1 ? rest.length : at;
-        return [...rest.slice(0, cut), moving, ...rest.slice(cut)];
-      }
-      const at = rest.findIndex((card) => card.id === after_id);
-      if (at === -1)
-        return cards;
-      return [...rest.slice(0, at + 1), moving, ...rest.slice(at + 1)];
-    });
-  }
-}
-
-/* One DocView instance is the document view's whole backend surface: while
- * mounted it is published as the global `doc`, so the backend pushes changes
- * with doc.add_route_card(...), doc.clear() and the like.
- */
 export function Doc(props: {
   on_title_change: (title: string) => void;
 }) {
-  const styles = use_styles();
-  const doc = new DocView(props.on_title_change);
-
-  /* Drag-to-reorder state. grip_armed gates which card the browser may lift:
-   * a card is only draggable once its grip is pressed, so pointer drags that
-   * start inside a text field never move the card. drag_id is the card in
-   * flight; drop_after is where it would land (null = front of the routes).
-   */
+  const [cards, set_cards] = useState<CardView[]>([]);
+  const [tracks, set_tracks] = useState<RouteTracks>({});
   const grip_armed = useRef<string | null>(null);
   const [drag_id, set_drag_id] = useState<string | null>(null);
   const [drop_after, set_drop_after] = useState<string | null>(null);
 
+  /* Built once: the state setters it closes over never change identity, so
+   * the backend always reaches the live document through the same object.
+   */
+  const doc = useMemo<DocApi>(() => ({
+    clear() {
+      set_cards([]);
+      set_tracks({});
+    },
+    add_trip_card(id, title, notes) {
+      set_cards((all) => [...all, { id, kind: "trip", title, notes }]);
+    },
+    set_trip_card(title, notes) {
+      set_cards((all) => all.map((card) =>
+        card.kind === "trip" ? { ...card, title, notes } : card
+      ));
+    },
+    set_route_card(id, title, notes) {
+      set_cards((all) => all.map((card) =>
+        card.id === id && card.kind === "route"
+          ? { ...card, title, notes }
+          : card
+      ));
+    },
+    add_route_card(id, title, notes, track, stats) {
+      set_cards((all) => [
+        ...all,
+        { id, kind: "route", title, notes, stats, route_loading: false },
+      ]);
+      set_tracks((all) => ({ ...all, [id]: track }));
+    },
+    set_route_loading(id, loading) {
+      set_cards((all) => all.map((card) =>
+        card.id === id && card.kind === "route"
+          ? { ...card, route_loading: loading }
+          : card
+      ));
+    },
+    remove_card(id) {
+      set_cards((all) => all.filter((card) => card.id !== id));
+      set_tracks((all) => {
+        const { [id]: _removed, ...rest } = all;
+        return rest;
+      });
+    },
+    move_card(id, after_id) {
+      set_cards((all) => {
+        const moving = all.find((card) => card.id === id);
+        if (moving === undefined || moving.kind !== "route")
+          return all;
+        const rest = all.filter((card) => card.id !== id);
+        if (after_id === null) {
+          const at = rest.findIndex((card) => card.kind === "route");
+          const cut = at === -1 ? rest.length : at;
+          return [...rest.slice(0, cut), moving, ...rest.slice(cut)];
+        }
+        const at = rest.findIndex((card) => card.id === after_id);
+        if (at === -1)
+          return all;
+        return [...rest.slice(0, at + 1), moving, ...rest.slice(at + 1)];
+      });
+    },
+  }), []);
+
   useEffect(() => {
     window.doc = doc;
     return () => { window.doc = null; };
-  });
+  }, [doc]);
 
-  const route_ids = doc.cards
+  /* The app bar shows whatever the trip card holds, so read it back out of
+   * the cards instead of announcing it from each mutator.
+   */
+  const { on_title_change } = props;
+  const trip_title =
+    cards.find((card) => card.kind === "trip")?.title ?? "";
+  useEffect(() => {
+    on_title_change(trip_title);
+  }, [on_title_change, trip_title]);
+
+  /* RouteMap refits its bounds whenever the overlay it is given changes, so
+   * building one per render would throw away the user's pan and zoom on every
+   * keystroke. Cache them until a track actually moves.
+   */
+  const overlays = useMemo(() => Object.fromEntries(
+    Object.keys(tracks).map((id) => [id, route_overlay(id, tracks)])
+  ), [tracks]);
+
+  const route_ids = cards
     .filter((card) => card.kind === "route")
     .map((card) => card.id);
   const last_route = route_ids[route_ids.length - 1] ?? null;
@@ -344,9 +267,9 @@ export function Doc(props: {
   }
 
   return (
-    <main className={styles.content}>
-      <div className={styles.stack}>
-        {doc.cards.map((card) => {
+    <main className="doc-content">
+      <div className="doc-stack">
+        {cards.map((card) => {
           switch (card.kind) {
             case "trip":
               return (
@@ -360,19 +283,18 @@ export function Doc(props: {
               );
             case "route": {
               const ri = route_ids.indexOf(card.id);
-              const line_before = drag_id !== null && (
-                ri === 0 ? drop_after === null : drop_after === route_ids[ri - 1]
-              );
-              const line_after_last = drag_id !== null &&
-                card.id === last_route && drop_after === card.id;
+              const before = ri === 0
+                ? drop_after === null
+                : drop_after === route_ids[ri - 1];
               return (
                 <div
                   key={card.id}
                   className={mergeClasses(
-                    styles.route_wrap,
-                    card.id === drag_id && styles.dragging,
-                    line_before && styles.drop_before,
-                    line_after_last && styles.drop_after_last,
+                    "doc-route",
+                    card.id === drag_id && "dragging",
+                    drag_id !== null && before && "drop-before",
+                    drag_id !== null && card.id === last_route &&
+                      drop_after === card.id && "drop-after",
                   )}
                   draggable
                   onDragStart={(event) => on_drag_start(event, card.id)}
@@ -385,8 +307,8 @@ export function Doc(props: {
                     title={card.title}
                     notes={card.notes}
                     stats={card.stats}
-                    track={doc.track(card.id)}
-                    overlay={doc.overlay(card.id)}
+                    track={tracks[card.id] ?? EMPTY_TRACK}
+                    overlay={overlays[card.id] ?? EMPTY_OVERLAY}
                     route_loading={card.route_loading}
                     on_change={(title, notes) =>
                       doc.set_route_card(card.id, title, notes)}
@@ -402,7 +324,7 @@ export function Doc(props: {
           }
         })}
         <Button
-          className={styles.add_route}
+          className="doc-add-route"
           appearance="subtle"
           onClick={() => { void api.add_route(); }}
         >
@@ -415,7 +337,7 @@ export function Doc(props: {
 
 declare global {
   interface Window {
-    doc: DocView | null;
+    doc: DocApi | null;
   }
 }
 
