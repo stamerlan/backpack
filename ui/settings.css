@@ -1,0 +1,40 @@
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: min(520px, 80vw);
+  padding: 4px 0;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.settings-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-hint {
+  font-size: var(--fontSizeBase200);
+  color: var(--colorNeutralForeground3);
+}
+
+/* Fluent injects its own styles after this file, so overriding one of its
+ * components needs the extra specificity its fui-* class provides. The
+ * dropdown in particular carries a wider min-width of its own.
+ */
+.fui-Label.settings-label {
+  font-weight: var(--fontWeightSemibold);
+}
+
+.fui-Input.settings-control,
+.fui-Dropdown.settings-control {
+  flex: 0 0 auto;
+  min-width: 220px;
+}
