@@ -1,119 +1,43 @@
-import {
-  useEffect,
-  useState,
-  type Dispatch,
-  type SetStateAction,
-} from "react";
-import {
-  Card,
-  Input,
-  makeStyles,
-  tokens,
-} from "@fluentui/react-components";
+/* The document's lead card, carrying the trip title and its notes. Edits are
+ * reported upwards on every keystroke and sent to the backend on blur.
+ *
+ * Properties:
+ *   - id: Model id of the trip card, quoted back on every commit.
+ *   - title: Trip title, owned by the document view.
+ *   - notes: Trip notes as markdown, owned by the document view.
+ *   - on_change: Reports the edited title and notes on every keystroke.
+ */
+import { Card, Input } from "@fluentui/react-components";
 import api from "./api";
 import { MdInput } from "./md-input";
-
-const use_styles = makeStyles({
-  card: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-    padding: "16px",
-  },
-  title_root: {
-    border: "none",
-    borderRadius: 0,
-    paddingLeft: 0,
-    paddingRight: 0,
-    backgroundColor: "transparent",
-    "::after": { display: "none" },
-    "::before": { display: "none" },
-  },
-  title_input: {
-    paddingLeft: 0,
-    paddingRight: 0,
-    fontFamily: tokens.fontFamilyBase,
-    fontSize: tokens.fontSizeHero800,
-    lineHeight: tokens.lineHeightHero800,
-    fontWeight: tokens.fontWeightSemibold,
-  },
-});
-
-class TripView {
-  #id: string;
-  #title: string;
-  #set_title: Dispatch<SetStateAction<string>>;
-  #notes: string;
-  #set_notes: Dispatch<SetStateAction<string>>;
-  #on_title_change: (title: string) => void;
-
-  constructor(
-    id: string,
-    title: string,
-    notes: string,
-    on_title_change: (title: string) => void,
-  ) {
-    this.#id = id;
-    [this.#title, this.#set_title] = useState(title);
-    [this.#notes, this.#set_notes] = useState(notes);
-    this.#on_title_change = on_title_change;
-  }
-
-  get title(): string {
-    return this.#title;
-  }
-
-  set title(title: string) {
-    this.#set_title(title);
-    this.#on_title_change(title);
-  }
-
-  get notes(): string {
-    return this.#notes;
-  }
-
-  set notes(notes: string) {
-    this.#set_notes(notes);
-  }
-
-  commit(): void {
-    void api.set_trip_info(this.#id, this.#title, this.#notes);
-  }
-}
+import "./trip-card.css";
 
 export function TripCard(props: {
   id: string;
   title: string;
   notes: string;
-  on_title_change: (title: string) => void;
+  on_change: (title: string, notes: string) => void;
 }) {
-  const styles = use_styles();
-  const trip = new TripView(
-    props.id, props.title, props.notes, props.on_title_change
-  );
-
-  useEffect(() => {
-    trip.title = props.title;
-    trip.notes = props.notes;
-  }, [props.title, props.notes]);
+  const commit = (): void => {
+    void api.set_trip_info(props.id, props.title, props.notes);
+  };
 
   return (
-    <Card className={styles.card}>
+    <Card className="trip-card">
       <Input
-        className={styles.title_root}
+        className="trip-card-title"
         appearance="underline"
         placeholder="Untitled trip"
-        value={trip.title}
-        input={{ className: styles.title_input }}
-        onChange={(_event, data) => { trip.title = data.value; }}
-        onBlur={() => trip.commit()}
+        value={props.title}
+        onChange={(_event, data) => props.on_change(data.value, props.notes)}
+        onBlur={commit}
       />
       <MdInput
         placeholder="Add trip notes..."
-        value={trip.notes}
+        value={props.notes}
         min_height={160}
-        on_change={(value) => { trip.notes = value; }}
-        on_commit={() => trip.commit()}
+        on_change={(value) => props.on_change(props.title, value)}
+        on_commit={commit}
       />
     </Card>
   );

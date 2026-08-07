@@ -355,7 +355,7 @@ export function Doc(props: {
                   id={card.id}
                   title={card.title}
                   notes={card.notes}
-                  on_title_change={props.on_title_change}
+                  on_change={(title, notes) => doc.set_trip_card(title, notes)}
                 />
               );
             case "route": {
