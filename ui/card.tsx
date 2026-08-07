@@ -1,3 +1,13 @@
+/* One card the assistant put in the turn log: an error, a plain message, a
+ * suggestion or a request for input. The kind picks the message bar's colour
+ * and nothing else, so a new kind only needs a row in card_intent.
+ *
+ * Properties:
+ *   - card: The card as the backend sent it: kind, title, text and the
+ *     actions to offer.
+ *   - on_action: Reports the id of the action the user chose, which is all
+ *     the card knows about what it does.
+ */
 import {
   Button,
   MessageBar,

@@ -1,6 +1,13 @@
 /* Slim toolbar spanning the window above the work area. It is the home for
  * window-level chrome: the menu button, the open document title and the
  * assistant toggle, so nothing floats over the content any more.
+ *
+ * Properties:
+ *   - title: The open trip's title, empty for one not named yet.
+ *   - assist_open: Whether the assistant panel is out, which the toggle
+ *     shows as its pressed state.
+ *   - on_menu_click: Opens the slide-out menu.
+ *   - on_assist_toggle: Shows or hides the assistant panel.
  */
 import {
   mergeClasses,
