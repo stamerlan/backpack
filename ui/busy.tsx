@@ -1,17 +1,6 @@
 import { useEffect, useState } from "react";
-import { makeStyles, tokens, Spinner } from "@fluentui/react-components";
-
-const use_styles = makeStyles({
-  overlay: {
-    position: "fixed",
-    inset: 0,
-    zIndex: 1000,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: tokens.colorBackgroundOverlay,
-  },
-});
+import { Spinner } from "@fluentui/react-components";
+import "./busy.css";
 
 interface BusyState {
   busy: boolean;
@@ -19,7 +8,6 @@ interface BusyState {
 }
 
 export function Busy() {
-  const styles = use_styles();
   const [state, set_state] = useState<BusyState>({ busy: false, label: "" });
 
   useEffect(() => {
@@ -31,7 +19,7 @@ export function Busy() {
     return null;
 
   return (
-    <div className={styles.overlay} aria-busy="true">
+    <div className="busy-overlay" aria-busy="true">
       <Spinner label={state.label || undefined} />
     </div>
   );
