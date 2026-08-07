@@ -3,7 +3,7 @@
  * the dialog is dismissed.
  *
  * Properties:
- *   - (none): The backend drives the dialog through the global above.
+ *   - (none): Driven by the backend through ui-api.ts, not by a parent.
  *
  * State:
  *   - req: The open request, holding the values being edited, the promise
@@ -29,6 +29,7 @@ import {
   Option,
 } from "@fluentui/react-components";
 import api from "./api";
+import { not_mounted } from "./ui-api";
 import { icon } from "./icon";
 import "./settings.css";
 
@@ -40,14 +41,12 @@ export interface SettingsValues {
   theme: string;
 }
 
-/* Resolves the show_settings_dialog() promise with the edited values, or null
- * when the dialog is dismissed.
- */
-type SendCpl = (value: SettingsValues | null) => void;
-
 interface Request {
   values: SettingsValues;
-  resolve: SendCpl;
+  /* Settles show_settings_dialog() with the edited values, or null when the
+   * dialog is dismissed.
+   */
+  resolve: (value: SettingsValues | null) => void;
   /* Applying a theme as it is picked previews it, so a dismissed dialog has
    * to put back whatever was active when it opened.
    */
@@ -65,28 +64,26 @@ function get_str(value: unknown, fallback: string): string {
   return typeof value === "string" ? value : fallback;
 }
 
-let open_dialog:
-  | ((settings: Record<string, unknown>, send_cpl: SendCpl) => void)
-  | null = null;
-
 export function SettingsDialog() {
   const [req, set_req] = useState<Request | null>(null);
   const [open, set_open] = useState(false);
 
   useEffect(() => {
-    open_dialog = (settings, send_cpl) => {
-      const theme = get_str(settings.theme, "system");
+    window.show_settings_dialog = (settings) => new Promise((resolve) => {
+      const theme = get_str(settings?.theme, "system");
       set_req({
         values: {
-          gemini_api_key: get_str(settings.gemini_api_key, ""),
+          gemini_api_key: get_str(settings?.gemini_api_key, ""),
           theme,
         },
-        resolve: send_cpl,
+        resolve,
         initial_theme: theme,
       });
       set_open(true);
+    });
+    return () => {
+      window.show_settings_dialog = not_mounted("settings dialog");
     };
-    return () => { open_dialog = null; };
   }, []);
 
   if (req === null)
@@ -203,22 +200,3 @@ export function SettingsDialog() {
     </Dialog>
   );
 }
-
-function show_settings_dialog(
-  settings: Record<string, unknown>
-): Promise<SettingsValues | null> {
-  const open = open_dialog;
-  if (open === null)
-    throw new Error("settings dialog is not mounted");
-  return new Promise<SettingsValues | null>((resolve) => {
-    open(settings ?? {}, resolve);
-  });
-}
-
-declare global {
-  interface Window {
-    show_settings_dialog: typeof show_settings_dialog;
-  }
-}
-
-window.show_settings_dialog = show_settings_dialog;

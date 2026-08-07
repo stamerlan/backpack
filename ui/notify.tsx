@@ -3,7 +3,7 @@
  * concern. window.clear_notify takes them all down at once.
  *
  * Properties:
- *   - (none): The backend drives the host through the globals above.
+ *   - (none): Driven by the backend through ui-api.ts, not by a parent.
  *
  * State:
  *   - items: The live requests, oldest first.
@@ -18,6 +18,7 @@ import {
   MessageBarTitle,
 } from "@fluentui/react-components";
 import type { ButtonProps } from "@fluentui/react-components";
+import { not_mounted } from "./ui-api";
 import { icon } from "./icon";
 import "./notify.css";
 
@@ -38,20 +39,28 @@ interface NotifyRequest {
   resolve: (value: unknown) => void;
 }
 
-let add_msg: ((request: NotifyRequest) => void) | null = null;
-let clear_msg: (() => void) | null = null;
-
 export function NotifyHost() {
   const [items, set_items] = useState<NotifyRequest[]>([]);
 
   useEffect(() => {
-    add_msg = (request) => set_items((all) => [...all, request]);
-    clear_msg = () => set_items((all) => {
+    window.notify = (message, intent = "info", title = "", actions) =>
+      new Promise((resolve) => set_items((all) => [...all, {
+        id: `note-${crypto.randomUUID()}`,
+        message,
+        title,
+        intent,
+        actions: actions ? Array.from(actions) : [],
+        resolve,
+      }]));
+    window.clear_notify = () => set_items((all) => {
       for (const item of all)
         item.resolve(null);
       return [];
     });
-    return () => { add_msg = null; clear_msg = null; };
+    return () => {
+      window.notify = not_mounted("notify host");
+      window.clear_notify = () => {};
+    };
   }, []);
 
   const close = (request: NotifyRequest, value: unknown): void => {
@@ -98,38 +107,3 @@ export function NotifyHost() {
     </MessageBarGroup>
   );
 }
-
-function notify(
-  message: string,
-  intent: NotifyIntent = "info",
-  title = "",
-  actions?: Iterable<NotifyAction>,
-): Promise<unknown> {
-  const add = add_msg;
-  if (add === null)
-    throw new Error("notify host is not mounted");
-  return new Promise<unknown>((resolve) => {
-    add({
-      id: `note-${crypto.randomUUID()}`,
-      message,
-      title,
-      intent,
-      actions: actions ? Array.from(actions) : [],
-      resolve,
-    });
-  });
-}
-
-function clear_notify(): void {
-  clear_msg?.();
-}
-
-declare global {
-  interface Window {
-    notify: typeof notify;
-    clear_notify: typeof clear_notify;
-  }
-}
-
-window.notify = notify;
-window.clear_notify = clear_notify;

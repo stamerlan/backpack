@@ -18,15 +18,13 @@ interface BusyState {
   label: string;
 }
 
-let apply_busy: ((state: BusyState) => void) | null = null;
-
 export function Busy() {
   const styles = use_styles();
   const [state, set_state] = useState<BusyState>({ busy: false, label: "" });
 
   useEffect(() => {
-    apply_busy = set_state;
-    return () => { apply_busy = null; };
+    window.set_busy = (busy, label = "") => set_state({ busy, label });
+    return () => { window.set_busy = () => {}; };
   }, []);
 
   if (!state.busy)
@@ -38,15 +36,3 @@ export function Busy() {
     </div>
   );
 }
-
-function set_busy(busy: boolean, label = ""): void {
-  apply_busy?.({ busy, label });
-}
-
-declare global {
-  interface Window {
-    set_busy: typeof set_busy;
-  }
-}
-
-window.set_busy = set_busy;

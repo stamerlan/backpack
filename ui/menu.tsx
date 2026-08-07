@@ -144,11 +144,3 @@ export function Menu(props: {
     </OverlayDrawer>
   );
 }
-
-declare global {
-  interface Window {
-    menu: { set_recent(items: RecentItem[]): void } | null;
-  }
-}
-
-window.menu = null;

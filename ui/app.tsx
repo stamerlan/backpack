@@ -49,13 +49,12 @@ export function App() {
     return () => query.removeEventListener("change", on_change);
   }, []);
 
-  /* Backend sets the theme through this global. */
   useEffect(() => {
-    window.set_theme_mode = (mode: string) =>
+    window.set_theme_mode = (mode) =>
       set_theme_mode(mode === "system" || mode === "light" || mode === "dark"
         ? mode : "system"
       );
-    return () => { window.set_theme_mode = undefined; };
+    return () => { window.set_theme_mode = () => {}; };
   }, []);
 
   const is_dark_theme = (
@@ -84,10 +83,4 @@ export function App() {
       <Busy />
     </FluentProvider>
   );
-}
-
-declare global {
-  interface Window {
-    set_theme_mode?: (mode: string) => void;
-  }
 }
