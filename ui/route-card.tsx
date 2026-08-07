@@ -191,8 +191,8 @@ export function RouteCard(props: {
           {props.track.length > 0 && (
             <RouteProfile
               track={props.track}
-              onHover={(point) => set_hover(point)}
-              onLeave={() => set_hover(null)}
+              on_hover={set_hover}
+              on_leave={() => set_hover(null)}
             />
           )}
           <MdInput
