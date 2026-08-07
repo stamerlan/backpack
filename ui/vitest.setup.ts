@@ -2,7 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach } from "vitest";
 import { cleanup } from "@testing-library/react";
 
-/* unmount between tests resets the module-level add_dialog to null */
+/* unmount between tests hands the ui-api entries back to their defaults */
 afterEach(cleanup);
 
 /* Fluent UI queries these APIs; jsdom does not implement them. */

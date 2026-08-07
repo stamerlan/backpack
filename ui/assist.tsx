@@ -41,7 +41,7 @@ interface ChatMeta {
 const EMPTY_TURNS: Turn[] = [];
 
 /* Everything the backend may call on window.assist. */
-interface AssistApi {
+export interface AssistApi {
   clear(): void;
   set_models(models: AiModel[]): void;
   new_chat(chat_id: string, title: string): void;
@@ -276,11 +276,3 @@ export function Assist(props: {
     </aside>
   );
 }
-
-declare global {
-  interface Window {
-    assist: AssistApi | null;
-  }
-}
-
-window.assist = null;

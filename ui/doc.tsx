@@ -50,7 +50,7 @@ type CardView = TripCardView | RouteCardView;
 type RouteTracks = Record<string, TrackPoint[]>;
 
 /* Everything the backend may call on window.doc. */
-interface DocApi {
+export interface DocApi {
   clear(): void;
   add_trip_card(id: string, title: string, notes: string): void;
   set_trip_card(title: string, notes: string): void;
@@ -334,11 +334,3 @@ export function Doc(props: {
     </main>
   );
 }
-
-declare global {
-  interface Window {
-    doc: DocApi | null;
-  }
-}
-
-window.doc = null;

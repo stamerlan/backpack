@@ -3,7 +3,7 @@
  * sequencing them is the backend's concern.
  *
  * Properties:
- *   - (none): The backend drives the host through the global above.
+ *   - (none): Driven by the backend through ui-api.ts, not by a parent.
  *
  * State:
  *   - items: The open requests, oldest first. A closed one stays in the
@@ -21,6 +21,7 @@ import {
   DialogTrigger,
 } from "@fluentui/react-components";
 import type { ButtonProps } from "@fluentui/react-components";
+import { not_mounted } from "./ui-api";
 import { icon } from "./icon";
 
 export interface DialogAction {
@@ -110,14 +111,19 @@ function DialogView(props: {
   );
 }
 
-let add_dialog: ((request: DialogRequest) => void) | null = null;
-
 export function DialogHost() {
   const [items, set_items] = useState<DialogRequest[]>([]);
 
   useEffect(() => {
-    add_dialog = (request) => set_items((all) => [...all, request]);
-    return () => { add_dialog = null; };
+    window.show_dialog = (title, text, actions) =>
+      new Promise((resolve) => set_items((all) => [...all, {
+        id: `dialog-${crypto.randomUUID()}`,
+        title,
+        text,
+        actions: actions ? Array.from(actions) : [],
+        resolve,
+      }]));
+    return () => { window.show_dialog = not_mounted("dialog host"); };
   }, []);
 
   const close = (request: DialogRequest, value: unknown): void => {
@@ -142,30 +148,3 @@ export function DialogHost() {
     </>
   );
 }
-
-function show_dialog(
-  title: string,
-  text: string,
-  actions?: Iterable<DialogAction>,
-): Promise<unknown> {
-  const add = add_dialog;
-  if (add === null)
-    throw new Error("dialog host is not mounted");
-  return new Promise<unknown>((resolve) => {
-    add({
-      id: `dialog-${crypto.randomUUID()}`,
-      title,
-      text,
-      actions: actions ? Array.from(actions) : [],
-      resolve,
-    });
-  });
-}
-
-declare global {
-  interface Window {
-    show_dialog: typeof show_dialog;
-  }
-}
-
-window.show_dialog = show_dialog;
