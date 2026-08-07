@@ -22,38 +22,18 @@
   min-width: 0;
 }
 
+/* Narrower than a plain icon button, and dimmer until the pointer is on it,
+ * so it reads as a handle beside the title rather than a third action.
+ */
 .route-card-grip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
   width: 22px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  background: transparent;
   color: var(--colorNeutralForeground4);
   cursor: grab;
-  border-radius: var(--borderRadiusSmall);
   touch-action: none;
-}
-
-.route-card-grip:hover {
-  color: var(--colorNeutralForeground2);
-  background: var(--colorNeutralBackground3);
 }
 
 .route-card-grip:active {
   cursor: grabbing;
-}
-
-.route-card-chevron {
-  display: inline-flex;
-  transition: transform 0.15s ease;
-}
-
-.route-card-chevron.folded {
-  transform: rotate(-90deg);
 }
 
 .fui-Input.route-card-title {

@@ -87,30 +87,9 @@
 }
 
 .chat-thought-header {
-  display: inline-flex;
-  align-items: center;
   gap: 6px;
   align-self: flex-start;
   padding: 2px 4px;
-  border: none;
-  background: transparent;
-  color: var(--colorNeutralForeground3);
-  cursor: pointer;
-  border-radius: var(--borderRadiusSmall);
-}
-
-.chat-thought-header:hover {
-  color: var(--colorNeutralForeground2);
-  background-color: var(--colorNeutralBackground3);
-}
-
-.chat-thought-chevron {
-  display: inline-flex;
-  transition: transform 0.15s ease;
-}
-
-.chat-thought-chevron.folded {
-  transform: rotate(-90deg);
 }
 
 /* Folding animates the row track rather than the height, so the block
@@ -207,26 +186,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-}
-
-.chat-delete-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  flex: none;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--colorNeutralForeground3);
-  cursor: pointer;
-  border-radius: var(--borderRadiusSmall);
-}
-
-.chat-delete-btn:hover {
-  color: var(--colorNeutralForeground2);
-  background-color: var(--colorNeutralBackground3);
 }
 
 /* Fluent injects its own styles after this file, so overriding one of its

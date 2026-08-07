@@ -101,7 +101,7 @@ export function RouteCard(props: {
       <div className="route-card-header">
         <button
           type="button"
-          className="route-card-grip"
+          className="icon-btn route-card-grip"
           title="Drag to reorder"
           aria-label="Drag to reorder"
           onPointerDown={() => props.on_grip_down?.()}
@@ -116,7 +116,7 @@ export function RouteCard(props: {
           aria-label={folded ? "Unfold route" : "Fold route"}
           aria-expanded={!folded}
           icon={
-            <span className={"route-card-chevron" + (folded ? " folded" : "")}>
+            <span className={"chevron" + (folded ? " folded" : "")}>
               {icon("chevron", 12)}
             </span>
           }

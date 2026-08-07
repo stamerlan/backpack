@@ -248,7 +248,7 @@ export function Assist(props: {
             </TabList>
             <button
               type="button"
-              className="assist-icon-btn"
+              className="icon-btn"
               title="New chat"
               aria-label="New chat"
               onClick={() => { void api.add_chat(); }}

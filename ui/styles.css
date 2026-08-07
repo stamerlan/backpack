@@ -1,0 +1,45 @@
+/* Styles more than one component needs. Loaded from index.tsx ahead of the
+ * per-component sheets, so a component can override anything here.
+ */
+
+/* Buttons carrying no chrome of their own until hovered: the grips, folds
+ * and dismiss buttons around the cards and panels. icon-btn adds the square
+ * box a lone glyph sits in; flat-btn leaves the box to its content, for a
+ * row of glyph and label.
+ */
+.flat-btn,
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--colorNeutralForeground3);
+  cursor: pointer;
+  border-radius: var(--borderRadiusSmall);
+}
+
+.flat-btn:hover,
+.icon-btn:hover {
+  color: var(--colorNeutralForeground2);
+  background-color: var(--colorNeutralBackground3);
+}
+
+.icon-btn {
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+}
+
+/* The fold marker on a collapsible header: points down while open, left once
+ * folded away.
+ */
+.chevron {
+  display: inline-flex;
+  transition: transform 0.15s ease;
+}
+
+.chevron.folded {
+  transform: rotate(-90deg);
+}
