@@ -1,4 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+/* The settings dialog. The backend opens it through window.show_settings_
+ * dialog with the current values and awaits the edited ones, or null when
+ * the dialog is dismissed.
+ *
+ * Properties:
+ *   - (none): The backend drives the dialog through the global above.
+ *
+ * State:
+ *   - req: The open request, holding the values being edited, the promise
+ *     to settle and the theme to restore if the dialog is dismissed. Null
+ *     when no dialog is up.
+ *   - open: Whether the dialog is showing. Separate from req, which
+ *     outlives it by the length of the exit animation.
+ */
+import { useEffect, useState } from "react";
 import {
   Button,
   Card,
@@ -13,11 +27,10 @@ import {
   Input,
   Label,
   Option,
-  makeStyles,
-  tokens,
 } from "@fluentui/react-components";
 import api from "./api";
 import { icon } from "./icon";
+import "./settings.css";
 
 /* Values the dialog rounds back to Python. Every field maps to a key the
  * backend reads under the same name, so a new setting only needs a new row.
@@ -32,6 +45,15 @@ export interface SettingsValues {
  */
 type SendCpl = (value: SettingsValues | null) => void;
 
+interface Request {
+  values: SettingsValues;
+  resolve: SendCpl;
+  /* Applying a theme as it is picked previews it, so a dismissed dialog has
+   * to put back whatever was active when it opened.
+   */
+  initial_theme: string;
+}
+
 const THEME_OPTIONS = [
   { value: "system", label: "Follow system" },
   { value: "light", label: "Light" },
@@ -43,99 +65,51 @@ function get_str(value: unknown, fallback: string): string {
   return typeof value === "string" ? value : fallback;
 }
 
-const use_styles = makeStyles({
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-    minWidth: "min(520px, 80vw)",
-    padding: "4px 0"
-  },
-  row: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "24px"
-  },
-  text: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "2px",
-    minWidth: 0
-  },
-  label: {
-    fontWeight: tokens.fontWeightSemibold
-  },
-  hint: {
-    fontSize: tokens.fontSizeBase200,
-    color: tokens.colorNeutralForeground3
-  },
-  control: {
-    flex: "0 0 auto",
-    minWidth: "220px"
-  }
-});
-
 let open_dialog:
   | ((settings: Record<string, unknown>, send_cpl: SendCpl) => void)
   | null = null;
 
 export function SettingsDialog() {
-  const styles = use_styles();
-  const [cur_settings, set_cur_settings] =
-    useState<Record<string, unknown> | null>(null);
-  const [cpl_cb, set_cpl_cb] = useState<SendCpl | null>(null);
+  const [req, set_req] = useState<Request | null>(null);
   const [open, set_open] = useState(false);
-  const cur_theme = useRef("system");
-  const done = useRef(true);
 
   useEffect(() => {
     open_dialog = (settings, send_cpl) => {
-      cur_theme.current = get_str(settings.theme, "system");
-      done.current = false;
-      set_cur_settings(settings);
-      set_cpl_cb(() => send_cpl);
+      const theme = get_str(settings.theme, "system");
+      set_req({
+        values: {
+          gemini_api_key: get_str(settings.gemini_api_key, ""),
+          theme,
+        },
+        resolve: send_cpl,
+        initial_theme: theme,
+      });
       set_open(true);
     };
     return () => { open_dialog = null; };
   }, []);
 
-  if (cur_settings === null)
+  if (req === null)
     return null;
 
-  /* cur_settings is the working copy: each control reads its value from it and
-   * writes edits straight back under the same key.
-   */
-  const api_key = get_str(cur_settings.gemini_api_key, "");
-  const theme = get_str(cur_settings.theme, "system");
+  const { gemini_api_key, theme } = req.values;
   const selected_theme =
     THEME_OPTIONS.find((o) => o.value === theme) ?? THEME_OPTIONS[0];
 
-  const set_setting = (key: string, value: string): void =>
-    set_cur_settings((s) => s && { ...s, [key]: value });
+  const set_value = (patch: Partial<SettingsValues>): void =>
+    set_req((cur) => cur && { ...cur, values: { ...cur.values, ...patch } });
 
-  /* Live preview: applying the theme as it is picked matches the original
-   * window. Routing through the backend themes the native title bar too, not
-   * just the web content. A dismissed dialog restores what was active on open.
+  /* Resolving twice is a no-op on a promise, and putting the theme back is
+   * idempotent, so the close paths need no guard against each other.
    */
-  const apply_theme = (mode: string): void => { void api.set_theme(mode); };
-
-  const close = (new_settings: SettingsValues | null): void => {
-    if (done.current)
-      return;
-    done.current = true;
-    if (new_settings === null)
-      apply_theme(cur_theme.current);
+  const close = (values: SettingsValues | null): void => {
+    if (values === null)
+      void api.set_theme(req.initial_theme);
     set_open(false);
-    cpl_cb?.(new_settings);
+    req.resolve(values);
     /* Let the exit animation finish before dropping the dialog. */
-    setTimeout(() => {
-      set_cur_settings(null);
-      set_cpl_cb(null);
-    }, 300);
+    setTimeout(() => set_req(null), 300);
   };
-
-  const save = (): void => close({ gemini_api_key: api_key, theme });
 
   return (
     <Dialog open={open} modalType="alert" onOpenChange={(_event, data) => {
@@ -158,51 +132,54 @@ export function SettingsDialog() {
             Settings
           </DialogTitle>
           <DialogContent>
-            <div className={styles.form}>
+            <div className="settings-form">
               <Card>
-                <div className={styles.row}>
-                  <div className={styles.text}>
-                    <Label className={styles.label}
+                <div className="settings-row">
+                  <div className="settings-text">
+                    <Label className="settings-label"
                       htmlFor="settings-gemini-api-key">Gemini API key</Label>
-                    <span className={styles.hint}>
+                    <span className="settings-hint">
                       Used by the AI assistant. Stored in the operating
                       system credential manager.
                     </span>
                   </div>
                   <Input
                     id="settings-gemini-api-key"
-                    className={styles.control}
+                    className="settings-control"
                     type="password"
                     autoComplete="off"
                     spellCheck={false}
                     placeholder="AIza..."
-                    value={api_key}
+                    value={gemini_api_key}
                     onChange={(_event, data) =>
-                      set_setting("gemini_api_key", data.value)}
+                      set_value({ gemini_api_key: data.value })}
                   />
                 </div>
               </Card>
 
               <Card>
-                <div className={styles.row}>
-                  <div className={styles.text}>
-                    <Label className={styles.label}
+                <div className="settings-row">
+                  <div className="settings-text">
+                    <Label className="settings-label"
                       htmlFor="settings-theme">Theme</Label>
-                    <span className={styles.hint}>
+                    <span className="settings-hint">
                       Choose how Backpack looks.
                     </span>
                   </div>
                   <Dropdown
                     id="settings-theme"
-                    className={styles.control}
+                    className="settings-control"
                     inlinePopup
                     positioning={{ strategy: "fixed" }}
                     value={selected_theme.label}
                     selectedOptions={[selected_theme.value]}
                     onOptionSelect={(_event, data) => {
                       const mode = data.optionValue ?? "system";
-                      set_setting("theme", mode);
-                      apply_theme(mode);
+                      set_value({ theme: mode });
+                      /* Preview it, through the backend so the native title
+                       * bar is themed too, not just the web content.
+                       */
+                      void api.set_theme(mode);
                     }}
                   >
                     {THEME_OPTIONS.map((option) => (
@@ -216,7 +193,9 @@ export function SettingsDialog() {
             </div>
           </DialogContent>
           <DialogActions>
-            <Button appearance="primary" onClick={save}>Save</Button>
+            <Button appearance="primary" onClick={() => close(req.values)}>
+              Save
+            </Button>
             <Button onClick={() => close(null)}>Cancel</Button>
           </DialogActions>
         </DialogBody>
