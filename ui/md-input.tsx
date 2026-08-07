@@ -1,3 +1,24 @@
+/* Inline markdown field. It shows rendered markdown until a double click,
+ * or Enter on the focused preview, swaps in a raw-text editor; blur renders
+ * it again. Both halves stay mounted and take turns being hidden, so the
+ * field keeps its place in the layout across the swap.
+ *
+ * Properties:
+ *   - value: Raw markdown text, owned by the caller.
+ *   - on_change: Fired on every keystroke with the new raw text.
+ *   - on_commit: Fired on blur, once the preview is back, mirroring how a
+ *     plain textarea reports a finished edit.
+ *   - placeholder: Stands in for the text while it is empty, in both halves.
+ *   - rows: How many lines tall the editor opens.
+ *   - min_height: Floor under both halves, in pixels, so a short field does
+ *     not shrink as it swaps.
+ *   - className: Extra class for the host element.
+ *
+ * State:
+ *   - editing: Which half is showing, the editor or the preview.
+ *   - textarea and preview: The two halves, in refs so focus can hop
+ *     between them and the editor can be grown to fit its text.
+ */
 import {
   useLayoutEffect,
   useRef,
@@ -9,14 +30,6 @@ import { marked } from "marked";
 import DOMPurify from "dompurify";
 import "./md-input.css";
 
-/* Inline markdown field. Shows rendered markdown; on focus it swaps to a
- * raw-text editor, and on blur it re-renders.
- *
- * value: Raw markdown text, owned by the caller.
- * on_change: Fired on every keystroke with the new raw text.
- * on_commit: Fired on blur, once the preview is back, mirroring how a plain
- *  textarea reports a finished edit.
- */
 marked.use({
   breaks: true,
   tokenizer: {

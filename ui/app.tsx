@@ -1,3 +1,19 @@
+/* The window shell: the app bar over the notification strip, the document
+ * with the assistant beside it, and the menu, dialogs and busy overlay that
+ * lie on top. It owns the theme every one of them is drawn in.
+ *
+ * Properties:
+ *   - (none): index.tsx mounts it.
+ *
+ * State:
+ *   - menu_open: Whether the slide-out menu is showing.
+ *   - title: Trip title for the app bar, as the document reports it.
+ *   - assist_open: Whether the assistant panel is slid out.
+ *   - theme_mode: The theme the user picked, which the backend sets through
+ *     the bridge: system, light or dark.
+ *   - sys_theme_dark: Whether the OS asks for a dark theme, tracked so
+ *     "system" follows it without a restart.
+ */
 import { useEffect, useState } from "react";
 import {
   FluentProvider,
