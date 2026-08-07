@@ -177,13 +177,11 @@ function ThinkingBlock(props: {
     <div className="chat-thought">
       <button
         type="button"
-        className="chat-thought-header"
+        className="flat-btn chat-thought-header"
         aria-expanded={!folded}
         onClick={() => set_folded((f) => !f)}
       >
-        <span
-          className={mergeClasses("chat-thought-chevron", folded && "folded")}
-        >
+        <span className={mergeClasses("chevron", folded && "folded")}>
           {icon("chevron", 12)}
         </span>
         <span>Thinking</span>
@@ -390,7 +388,7 @@ export function Chat(props: {
             </Menu>
             <button
               type="button"
-              className="chat-delete-btn"
+              className="icon-btn"
               title="Delete chat"
               aria-label="Delete current chat"
               onClick={() => void api.del_chat(props.chat_id)}

@@ -77,26 +77,6 @@
   flex-direction: column;
 }
 
-.assist-icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  flex: none;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--colorNeutralForeground3);
-  cursor: pointer;
-  border-radius: var(--borderRadiusSmall);
-}
-
-.assist-icon-btn:hover {
-  color: var(--colorNeutralForeground2);
-  background-color: var(--colorNeutralBackground3);
-}
-
 /* Fluent injects its own styles after this file, so overriding one of its
  * components needs the extra specificity its fui-* class provides.
  *
