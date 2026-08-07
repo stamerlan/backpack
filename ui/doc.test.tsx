@@ -90,7 +90,7 @@ describe("document view", () => {
     mount_host(on_title_change);
     window.doc!.add_route_card("route-1", "Day 1", "", [], null);
     await screen.findByDisplayValue("Day 1");
-    expect(on_title_change).not.toHaveBeenCalled();
+    expect(on_title_change).toHaveBeenLastCalledWith("");
   });
 
   it("shows the map for an unfolded route card", async () => {

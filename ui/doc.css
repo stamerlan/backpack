@@ -1,0 +1,57 @@
+.doc-content {
+  flex: 1 1 auto;
+  /* Keep the document at least this wide so the assistant panel can never be
+   * dragged over it: at the smallest window (600px) each gets half.
+   */
+  min-width: 300px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+  /* Contain Leaflet's internal z-index (panes and controls reach ~1000) in a
+   * private stacking context so the map cannot paint over sibling UI.
+   */
+  isolation: isolate;
+}
+
+.doc-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* Fluent injects its own styles after this file, so overriding one of its
+ * components needs the extra specificity its fui-* class provides.
+ */
+.fui-Button.doc-add-route {
+  align-self: flex-start;
+}
+
+.doc-route {
+  position: relative;
+}
+
+.doc-route.dragging {
+  opacity: 0.5;
+}
+
+/* The line marking where the dragged card would land. */
+.doc-route.drop-before::before,
+.doc-route.drop-after::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--colorBrandStroke1);
+  border-radius: 2px;
+}
+
+.doc-route.drop-before::before {
+  top: -6px;
+}
+
+.doc-route.drop-after::after {
+  bottom: -6px;
+}
