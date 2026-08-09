@@ -140,12 +140,22 @@ class App:
     async def on_loaded(self) -> None:
         # enumerate models in the background; it might take a while
         self.ai_models = asyncio.ensure_future(ai.enum_models())
+        asyncio.ensure_future(self._evict_poi_cache())
         await self.set_theme(self.storage.settings.theme)
         self._update_recent_items_view()
         last = self.storage.settings.last_filepath
         if last and pathlib.Path(last).exists() and await self.open_doc(last):
             return
         await self.new_doc()
+
+    async def _evict_poi_cache(self) -> None:
+        """Run POI cache eviction on a worker thread."""
+        try:
+            deleted = await asyncio.to_thread(self.storage.poi_cache.evict)
+            if deleted:
+                logger.debug(f"poi cache startup eviction: {deleted} tiles")
+        except Exception:
+            logger.exception("poi cache eviction failed")
 
     async def new_doc(self) -> None:
         logger.debug("")
