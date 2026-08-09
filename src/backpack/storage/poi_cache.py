@@ -227,12 +227,32 @@ class PoiCache:
             logger.info(f"poi cache evicted {deleted} tiles")
         return deleted
 
+    def clear(self) -> None:
+        """Delete all cached data and reopen an empty database."""
+        with self._lock:
+            if self._conn is not None:
+                self._conn.close()
+                self._conn = None
+            self.path.unlink(missing_ok=True)
+            self._open()
+
+    def size_bytes(self) -> int:
+        """On-disk file size in bytes (0 if the file is missing)."""
+        with self._lock:
+            return self._file_size_locked()
+
     def _file_size_locked(self) -> int:
-        """File size in bytes; caller must hold self._lock."""
-        try:
-            return self.path.stat().st_size
-        except OSError:
-            return 0
+        """Total on-disk size including WAL and SHM files.
+
+        Caller must hold self._lock.
+        """
+        total = 0
+        for suffix in ("", "-wal", "-shm"):
+            try:
+                total += Path(str(self.path) + suffix).stat().st_size
+            except OSError:
+                pass
+        return total
 
     def get(
         self, tiles: frozenset[PoiTile], current_filters: int

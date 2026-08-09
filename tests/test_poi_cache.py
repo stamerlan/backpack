@@ -523,3 +523,117 @@ class TestEvict:
         deleted = cache.evict()
         assert deleted == 0
         cache.close()
+
+
+class TestClear:
+    def test_clear_removes_all_data(
+        self, tmp_path: Path
+    ) -> None:
+        db = tmp_path / "poi.sqlite3"
+        cache = PoiCache(db)
+        cache.put(_TILE_A, _sample_pois(), _FHASH)
+        cache.put(_TILE_B, _sample_pois(), _FHASH)
+        cache.clear()
+        hits, missing, _ = cache.get(
+            frozenset([_TILE_A, _TILE_B]), _FHASH
+        )
+        assert hits == {}
+        assert missing == frozenset([_TILE_A, _TILE_B])
+        cache.close()
+
+    def test_clear_leaves_usable_cache(
+        self, tmp_path: Path
+    ) -> None:
+        """After clear, put/get still work."""
+        db = tmp_path / "poi.sqlite3"
+        cache = PoiCache(db)
+        cache.put(_TILE_A, _sample_pois(), _FHASH)
+        cache.clear()
+        pois = [CachedPoi("n", 1, 48.0, 11.0, {"x": "y"})]
+        cache.put(_TILE_A, pois, _FHASH)
+        hits, _, _ = cache.get(
+            frozenset([_TILE_A]), _FHASH
+        )
+        assert len(hits[_TILE_A]) == 1
+        assert hits[_TILE_A][0].osm_id == 1
+        cache.close()
+
+    def test_clear_on_empty_cache(
+        self, tmp_path: Path
+    ) -> None:
+        cache = PoiCache(tmp_path / "poi.sqlite3")
+        cache.clear()
+        cache.close()
+
+    def test_clear_schema_intact(
+        self, tmp_path: Path
+    ) -> None:
+        db = tmp_path / "poi.sqlite3"
+        cache = PoiCache(db)
+        cache.clear()
+        tables = _tables(db)
+        assert "tile" in tables
+        assert "poi" in tables
+        assert _pragma(db, "user_version") == _SCHEMA_VERSION
+        cache.close()
+
+
+class TestSizeBytes:
+    def test_nonzero_after_put(
+        self, tmp_path: Path
+    ) -> None:
+        cache = PoiCache(tmp_path / "poi.sqlite3")
+        cache.put(_TILE_A, _sample_pois(), _FHASH)
+        assert cache.size_bytes() > 0
+        cache.close()
+
+    def test_empty_cache_has_size(
+        self, tmp_path: Path
+    ) -> None:
+        """Even an empty database file has nonzero size."""
+        cache = PoiCache(tmp_path / "poi.sqlite3")
+        assert cache.size_bytes() > 0
+        cache.close()
+
+    def test_size_grows_with_data(
+        self, tmp_path: Path
+    ) -> None:
+        cache = PoiCache(tmp_path / "poi.sqlite3")
+        size_empty = cache.size_bytes()
+        for i in range(20):
+            cache.put(
+                PoiTile(i, 0),
+                [
+                    CachedPoi(
+                        "n", i * 10 + j,
+                        48.0, 11.0,
+                        {"name": "x" * 100},
+                    )
+                    for j in range(10)
+                ],
+                _FHASH,
+            )
+        assert cache.size_bytes() > size_empty
+        cache.close()
+
+    def test_size_after_clear(
+        self, tmp_path: Path
+    ) -> None:
+        cache = PoiCache(tmp_path / "poi.sqlite3")
+        for i in range(20):
+            cache.put(
+                PoiTile(i, 0),
+                [
+                    CachedPoi(
+                        "n", i * 10 + j,
+                        48.0, 11.0,
+                        {"name": "x" * 100},
+                    )
+                    for j in range(10)
+                ],
+                _FHASH,
+            )
+        size_before = cache.size_bytes()
+        cache.clear()
+        assert cache.size_bytes() < size_before
+        cache.close()
