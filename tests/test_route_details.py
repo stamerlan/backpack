@@ -290,24 +290,86 @@ def test_cache_hit_skips_overpass(tmp_path: "Path") -> None:
     cache.close()
 
 
-def test_cache_failure_degrades_to_uncached(
+class _BrokenCache:
+    """Cache stand-in where every method raises."""
+
+    def get(self, *a: object, **kw: object) -> object:
+        raise RuntimeError("cache broken")
+
+    def put(self, *a: object, **kw: object) -> None:
+        raise RuntimeError("cache broken")
+
+    def touch(self, *a: object, **kw: object) -> None:
+        raise RuntimeError("cache broken")
+
+    def close(self) -> None:
+        pass
+
+
+def test_cache_failure_degrades_to_uncached() -> None:
+    """If every cache operation raises, fetching still
+    works via Overpass.
+    """
+    rd, captured = make_rd_cached(
+        result_from(
+            node(1, 48.0005, 24.00, natural="peak")
+        ),
+        _BrokenCache(),  # type: ignore[arg-type]
+    )
+    pois = rd._fetch_poi(TRACK)
+
+    assert len(captured["qls"]) >= 1
+    assert len(pois) >= 1
+    assert pois[0].osm_tags == {"natural": "peak"}
+
+
+def test_cache_put_failure_still_returns_pois(
     tmp_path: "Path",
 ) -> None:
-    """If the cache raises, fetching still works via Overpass."""
+    """A put() failure is swallowed; POIs are still returned."""
     cache = PoiCache(tmp_path / "poi.sqlite3")
-    # Break the cache's get method
-    cache.get = (  # type: ignore[method-assign]
-        lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("boom"))
+    cache.put = (  # type: ignore[method-assign]
+        lambda *a, **kw: (_ for _ in ()).throw(
+            RuntimeError("disk full")
+        )
     )
-
     rd, captured = make_rd_cached(
-        result_from(node(1, 48.0005, 24.00, natural="peak")),
+        result_from(
+            node(1, 48.0005, 24.00, natural="peak")
+        ),
         cache,
     )
     pois = rd._fetch_poi(TRACK)
 
     assert len(captured["qls"]) >= 1
     assert len(pois) >= 1
+    assert pois[0].osm_tags == {"natural": "peak"}
+    cache.close()
+
+
+def test_cache_touch_failure_still_returns_pois(
+    tmp_path: "Path",
+) -> None:
+    """A touch() failure is swallowed; POIs are still
+    returned.
+    """
+    cache = PoiCache(tmp_path / "poi.sqlite3")
+    cache.touch = (  # type: ignore[method-assign]
+        lambda *a, **kw: (_ for _ in ()).throw(
+            RuntimeError("disk full")
+        )
+    )
+    rd, captured = make_rd_cached(
+        result_from(
+            node(1, 48.0005, 24.00, natural="peak")
+        ),
+        cache,
+    )
+    pois = rd._fetch_poi(TRACK)
+
+    assert len(captured["qls"]) >= 1
+    assert len(pois) >= 1
+    assert pois[0].osm_tags == {"natural": "peak"}
     cache.close()
 
 
