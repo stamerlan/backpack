@@ -43,6 +43,7 @@ export interface SettingsValues {
    */
   gemini_api_key: string | null;
   theme: string;
+  clear_poi_cache: boolean;
 }
 
 interface Request {
@@ -59,6 +60,8 @@ interface Request {
    * to replace or remove.
    */
   key_set: boolean;
+  /* Size of the POI tile cache file in bytes, or 0 when empty. */
+  poi_cache_bytes: number;
 }
 
 const THEME_OPTIONS = [
@@ -72,6 +75,13 @@ function get_str(value: unknown, fallback: string): string {
   return typeof value === "string" ? value : fallback;
 }
 
+function format_bytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024)
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function SettingsDialog() {
   const [req, set_req] = useState<Request | null>(null);
   const [open, set_open] = useState(false);
@@ -79,11 +89,15 @@ export function SettingsDialog() {
   useEffect(() => {
     window.show_settings_dialog = (settings) => new Promise((resolve) => {
       const theme = get_str(settings?.theme, "system");
+      const poi_cache_bytes =
+        typeof settings?.poi_cache_bytes === "number"
+          ? settings.poi_cache_bytes : 0;
       set_req({
-        values: { gemini_api_key: "", theme },
+        values: { gemini_api_key: "", theme, clear_poi_cache: false },
         resolve,
         initial_theme: theme,
         key_set: settings?.gemini_api_key_set === true,
+        poi_cache_bytes,
       });
       set_open(true);
     });
@@ -95,7 +109,7 @@ export function SettingsDialog() {
   if (req === null)
     return null;
 
-  const { gemini_api_key, theme } = req.values;
+  const { gemini_api_key, theme, clear_poi_cache } = req.values;
   const selected_theme =
     THEME_OPTIONS.find((o) => o.value === theme) ?? THEME_OPTIONS[0];
   /* The remove button doubles as its own undo, so the removal stays pending
@@ -213,6 +227,33 @@ export function SettingsDialog() {
                         </Option>
                       ))}
                     </Dropdown>
+                  </div>
+                </div>
+              </Card>
+
+              <Card>
+                <div className="settings-row">
+                  <div className="settings-text">
+                    <Label className="settings-label">
+                      Cached points of interest
+                    </Label>
+                    <span className="settings-hint">
+                      {clear_poi_cache
+                        ? "Will be cleared when you save."
+                        : format_bytes(req.poi_cache_bytes)}
+                    </span>
+                  </div>
+                  <div className="settings-control-group">
+                    <Button
+                      appearance="subtle"
+                      disabled={req.poi_cache_bytes === 0}
+                      icon={icon(clear_poi_cache ? "close" : "trash")}
+                      onClick={() => set_value({
+                        clear_poi_cache: !clear_poi_cache,
+                      })}
+                    >
+                      {clear_poi_cache ? "Keep" : "Clear"}
+                    </Button>
                   </div>
                 </div>
               </Card>
