@@ -360,13 +360,20 @@ class App:
         leaving the frontend action chain free while the dialog is open. That
         lets frontend reach the backend meanwhile. A second request is ignored
         while a dialog is already open.
+
+        A stored API key is never sent to the frontend, only whether one exists,
+        so the dialog can offer to replace or remove it.
         """
         if self._settings_task is not None and not self._settings_task.done():
             return
 
         async def do_show_settings_dialog() -> None:
+            key = self.storage.vault.get("gemini_api_key")
+            if not key:
+                key = await self.storage.load_key("gemini_api_key")
             cur_settings = {
-                "theme": self.storage.settings.theme
+                "theme": self.storage.settings.theme,
+                "gemini_api_key_set": bool(key),
             }
 
             new_settings = await asyncio.wrap_future(
@@ -382,11 +389,14 @@ class App:
                     self.storage.settings, theme=theme
                 )
                 await self.set_theme(theme)
-                await self.storage.save_settings()
 
-            # set new API key
-            api_key = new_settings.get("gemini_api_key")
-            if api_key:
+            await self.storage.save_settings()
+
+            # store, replace or remove the API key: the dialog sends "" to
+            # leave the stored key alone, a string to replace it and None to
+            # remove it
+            api_key = new_settings.get("gemini_api_key", "")
+            if api_key != "":
                 await self.storage.store_key("gemini_api_key", api_key)
 
         def on_settings_dialog_close(task: "asyncio.Task[None]") -> None:

@@ -37,7 +37,11 @@ import "./settings.css";
  * backend reads under the same name, so a new setting only needs a new row.
  */
 export interface SettingsValues {
-  gemini_api_key: string;
+  /* A stored key never reaches the frontend, so the field cannot show it and
+   * an empty one cannot mean "remove". Instead "" leaves the stored key
+   * alone, a string replaces it and null removes it.
+   */
+  gemini_api_key: string | null;
   theme: string;
 }
 
@@ -51,6 +55,10 @@ interface Request {
    * to put back whatever was active when it opened.
    */
   initial_theme: string;
+  /* Whether the credential store holds a key. Only then is there something
+   * to replace or remove.
+   */
+  key_set: boolean;
 }
 
 const THEME_OPTIONS = [
@@ -72,12 +80,10 @@ export function SettingsDialog() {
     window.show_settings_dialog = (settings) => new Promise((resolve) => {
       const theme = get_str(settings?.theme, "system");
       set_req({
-        values: {
-          gemini_api_key: get_str(settings?.gemini_api_key, ""),
-          theme,
-        },
+        values: { gemini_api_key: "", theme },
         resolve,
         initial_theme: theme,
+        key_set: settings?.gemini_api_key_set === true,
       });
       set_open(true);
     });
@@ -92,6 +98,16 @@ export function SettingsDialog() {
   const { gemini_api_key, theme } = req.values;
   const selected_theme =
     THEME_OPTIONS.find((o) => o.value === theme) ?? THEME_OPTIONS[0];
+  /* The remove button doubles as its own undo, so the removal stays pending
+   * until the dialog is saved and Cancel needs no special handling.
+   */
+  const removing = gemini_api_key === null;
+  const key_action = removing
+    ? "Keep the stored key" : "Remove the stored key";
+  const key_hint = removing
+    ? "Removed from the credential manager when you save."
+    : "Used by the AI assistant. Stored in the operating system"
+      + " credential manager.";
 
   const set_value = (patch: Partial<SettingsValues>): void =>
     set_req((cur) => cur && { ...cur, values: { ...cur.values, ...patch } });
@@ -135,22 +151,33 @@ export function SettingsDialog() {
                   <div className="settings-text">
                     <Label className="settings-label"
                       htmlFor="settings-gemini-api-key">Gemini API key</Label>
-                    <span className="settings-hint">
-                      Used by the AI assistant. Stored in the operating
-                      system credential manager.
-                    </span>
+                    <span className="settings-hint">{key_hint}</span>
                   </div>
-                  <Input
-                    id="settings-gemini-api-key"
-                    className="settings-control"
-                    type="password"
-                    autoComplete="off"
-                    spellCheck={false}
-                    placeholder="AIza..."
-                    value={gemini_api_key}
-                    onChange={(_event, data) =>
-                      set_value({ gemini_api_key: data.value })}
-                  />
+                  <div className="settings-control-group">
+                    <Input
+                      id="settings-gemini-api-key"
+                      className="settings-control"
+                      type="password"
+                      autoComplete="off"
+                      spellCheck={false}
+                      disabled={removing}
+                      placeholder={
+                        req.key_set ? "Stored, type to replace" : "AIza..."}
+                      value={gemini_api_key ?? ""}
+                      onChange={(_event, data) =>
+                        set_value({ gemini_api_key: data.value })}
+                    />
+                    {req.key_set && (
+                      <Button
+                        appearance="subtle"
+                        aria-label={key_action}
+                        title={key_action}
+                        icon={icon(removing ? "close" : "trash")}
+                        onClick={() =>
+                          set_value({ gemini_api_key: removing ? "" : null })}
+                      />
+                    )}
+                  </div>
                 </div>
               </Card>
 
@@ -163,28 +190,30 @@ export function SettingsDialog() {
                       Choose how Backpack looks.
                     </span>
                   </div>
-                  <Dropdown
-                    id="settings-theme"
-                    className="settings-control"
-                    inlinePopup
-                    positioning={{ strategy: "fixed" }}
-                    value={selected_theme.label}
-                    selectedOptions={[selected_theme.value]}
-                    onOptionSelect={(_event, data) => {
-                      const mode = data.optionValue ?? "system";
-                      set_value({ theme: mode });
-                      /* Preview it, through the backend so the native title
-                       * bar is themed too, not just the web content.
-                       */
-                      void api.set_theme(mode);
-                    }}
-                  >
-                    {THEME_OPTIONS.map((option) => (
-                      <Option key={option.value} value={option.value}>
-                        {option.label}
-                      </Option>
-                    ))}
-                  </Dropdown>
+                  <div className="settings-control-group">
+                    <Dropdown
+                      id="settings-theme"
+                      className="settings-control"
+                      inlinePopup
+                      positioning={{ strategy: "fixed" }}
+                      value={selected_theme.label}
+                      selectedOptions={[selected_theme.value]}
+                      onOptionSelect={(_event, data) => {
+                        const mode = data.optionValue ?? "system";
+                        set_value({ theme: mode });
+                        /* Preview it, through the backend so the native title
+                         * bar is themed too, not just the web content.
+                         */
+                        void api.set_theme(mode);
+                      }}
+                    >
+                      {THEME_OPTIONS.map((option) => (
+                        <Option key={option.value} value={option.value}>
+                          {option.label}
+                        </Option>
+                      ))}
+                    </Dropdown>
+                  </div>
                 </div>
               </Card>
             </div>

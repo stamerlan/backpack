@@ -4,6 +4,11 @@
   gap: 12px;
   min-width: min(520px, 80vw);
   padding: 4px 0;
+  /* Width of a whole control block, buttons included. Rows are laid out
+   * independently inside their own card, so a shared width is what keeps the
+   * controls on one vertical line.
+   */
+  --settings-control-width: 256px;
 }
 
 .settings-row {
@@ -25,6 +30,21 @@
   color: var(--colorNeutralForeground3);
 }
 
+/* Holds a control together with the buttons acting on it, so the row still
+ * sees one block to push against the label. A row without buttons spends the
+ * whole width on its control.
+ */
+.settings-control-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 var(--settings-control-width);
+}
+
+.settings-control-group > .fui-Button {
+  flex: 0 0 auto;
+}
+
 /* Fluent injects its own styles after this file, so overriding one of its
  * components needs the extra specificity its fui-* class provides. The
  * dropdown in particular carries a wider min-width of its own.
@@ -35,6 +55,6 @@
 
 .fui-Input.settings-control,
 .fui-Dropdown.settings-control {
-  flex: 0 0 auto;
-  min-width: 220px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
