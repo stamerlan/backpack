@@ -7,8 +7,11 @@ from unittest.mock import patch
 from backpack.poi_tiles import PoiTile
 from backpack.storage.poi_cache import (
     CachedPoi,
+    MAX_AGE_S,
+    MAX_BYTES,
     PoiCache,
     TILE_TTL_S,
+    TOUCH_MIN_INTERVAL_S,
     _SCHEMA_VERSION,
     filters_hash,
 )
@@ -345,4 +348,178 @@ class TestGet:
         assert hits == {}
         assert missing == frozenset()
         assert stale == frozenset()
+        cache.close()
+
+
+class TestTouch:
+    def test_touch_updates_used_at(
+        self, tmp_path: Path
+    ) -> None:
+        db = tmp_path / "poi.sqlite3"
+        cache = PoiCache(db)
+        old_time = time.time() - 2 * TOUCH_MIN_INTERVAL_S
+        with patch(
+            "backpack.storage.poi_cache.time.time",
+            return_value=old_time,
+        ):
+            cache.put(_TILE_A, _sample_pois(), _FHASH)
+        cache.touch(frozenset([_TILE_A]))
+        conn = sqlite3.connect(str(db))
+        used_at = conn.execute(
+            "SELECT used_at FROM tile WHERE x=? AND y=?",
+            (_TILE_A.x, _TILE_A.y),
+        ).fetchone()[0]
+        conn.close()
+        assert used_at > old_time
+        cache.close()
+
+    def test_touch_throttled_within_interval(
+        self, tmp_path: Path
+    ) -> None:
+        """Touch does not update if used_at is recent."""
+        db = tmp_path / "poi.sqlite3"
+        cache = PoiCache(db)
+        cache.put(_TILE_A, _sample_pois(), _FHASH)
+        conn = sqlite3.connect(str(db))
+        original = conn.execute(
+            "SELECT used_at FROM tile WHERE x=? AND y=?",
+            (_TILE_A.x, _TILE_A.y),
+        ).fetchone()[0]
+        conn.close()
+        cache.touch(frozenset([_TILE_A]))
+        conn = sqlite3.connect(str(db))
+        after = conn.execute(
+            "SELECT used_at FROM tile WHERE x=? AND y=?",
+            (_TILE_A.x, _TILE_A.y),
+        ).fetchone()[0]
+        conn.close()
+        assert after == original
+        cache.close()
+
+    def test_touch_empty_set(
+        self, tmp_path: Path
+    ) -> None:
+        cache = PoiCache(tmp_path / "poi.sqlite3")
+        cache.touch(frozenset())
+        cache.close()
+
+    def test_touch_nonexistent_tile(
+        self, tmp_path: Path
+    ) -> None:
+        """Touching a tile not in the cache is a no-op."""
+        cache = PoiCache(tmp_path / "poi.sqlite3")
+        cache.touch(frozenset([_TILE_A]))
+        cache.close()
+
+
+class TestEvict:
+    def test_evict_removes_old_tiles(
+        self, tmp_path: Path
+    ) -> None:
+        db = tmp_path / "poi.sqlite3"
+        cache = PoiCache(db)
+        old_time = time.time() - MAX_AGE_S - 1
+        with patch(
+            "backpack.storage.poi_cache.time.time",
+            return_value=old_time,
+        ):
+            cache.put(_TILE_A, _sample_pois(), _FHASH)
+        cache.put(_TILE_B, _sample_pois(), _FHASH)
+        deleted = cache.evict()
+        assert deleted == 1
+        hits, missing, _ = cache.get(
+            frozenset([_TILE_A, _TILE_B]), _FHASH
+        )
+        assert _TILE_A in missing
+        assert _TILE_B in hits
+        cache.close()
+
+    def test_evict_respects_size_cap(
+        self, tmp_path: Path
+    ) -> None:
+        db = tmp_path / "poi.sqlite3"
+        cache = PoiCache(db)
+        for i in range(50):
+            tile = PoiTile(i, 0)
+            pois = [
+                CachedPoi(
+                    "n", i * 100 + j,
+                    48.0 + j * 0.01, 11.0 + j * 0.01,
+                    {"name": f"poi_{i}_{j}" * 20},
+                )
+                for j in range(20)
+            ]
+            cache.put(tile, pois, _FHASH)
+        with patch(
+            "backpack.storage.poi_cache.MAX_BYTES", 1
+        ):
+            deleted = cache.evict()
+        assert deleted > 0
+        cache.close()
+
+    def test_evict_lru_order(
+        self, tmp_path: Path
+    ) -> None:
+        """Eviction removes least recently used tiles first."""
+        db = tmp_path / "poi.sqlite3"
+        cache = PoiCache(db)
+        t_old = time.time() - 2 * TOUCH_MIN_INTERVAL_S
+        t_new = time.time()
+        with patch(
+            "backpack.storage.poi_cache.time.time",
+            return_value=t_old,
+        ):
+            cache.put(_TILE_A, _sample_pois(), _FHASH)
+        with patch(
+            "backpack.storage.poi_cache.time.time",
+            return_value=t_new,
+        ):
+            cache.put(_TILE_B, _sample_pois(), _FHASH)
+        with patch(
+            "backpack.storage.poi_cache.MAX_BYTES", 1
+        ):
+            cache.evict()
+        hits, missing, _ = cache.get(
+            frozenset([_TILE_A, _TILE_B]), _FHASH
+        )
+        assert _TILE_A in missing
+        cache.close()
+
+    def test_evict_returns_zero_when_nothing_to_do(
+        self, tmp_path: Path
+    ) -> None:
+        cache = PoiCache(tmp_path / "poi.sqlite3")
+        cache.put(_TILE_A, _sample_pois(), _FHASH)
+        deleted = cache.evict()
+        assert deleted == 0
+        cache.close()
+
+    def test_evict_cascades_poi_rows(
+        self, tmp_path: Path
+    ) -> None:
+        """Evicting a tile also removes its POI rows."""
+        db = tmp_path / "poi.sqlite3"
+        cache = PoiCache(db)
+        old_time = time.time() - MAX_AGE_S - 1
+        with patch(
+            "backpack.storage.poi_cache.time.time",
+            return_value=old_time,
+        ):
+            cache.put(_TILE_A, _sample_pois(), _FHASH)
+        cache.evict()
+        conn = sqlite3.connect(str(db))
+        cnt = conn.execute(
+            "SELECT count(*) FROM poi WHERE x=? AND y=?",
+            (_TILE_A.x, _TILE_A.y),
+        ).fetchone()[0]
+        conn.close()
+        assert cnt == 0
+        cache.close()
+
+    def test_evict_empty_cache(
+        self, tmp_path: Path
+    ) -> None:
+        cache = PoiCache(tmp_path / "poi.sqlite3")
+        deleted = cache.evict()
+        assert deleted == 0
         cache.close()

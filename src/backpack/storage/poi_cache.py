@@ -168,6 +168,72 @@ class PoiCache:
                     ]
                 )
 
+    def touch(self, tiles: frozenset[PoiTile]) -> None:
+        """Bump used_at for tiles, throttled to once per day.
+
+        Only updates tiles whose stored used_at is more than
+        TOUCH_MIN_INTERVAL_S old, so opening a trip repeatedly does not cause a
+        write storm.
+        """
+        if not tiles:
+            return
+        now = int(time.time())
+        threshold = now - TOUCH_MIN_INTERVAL_S
+        with self._lock:
+            assert self._conn is not None
+            conn = self._conn
+            with conn:
+                for tile in tiles:
+                    conn.execute(
+                        "UPDATE tile SET used_at=?"
+                        " WHERE x=? AND y=? AND used_at<?",
+                        (now, tile.x, tile.y, threshold),
+                    )
+
+    def evict(self) -> int:
+        """Remove old and excess tiles, then vacuum freed pages.
+
+        Eviction order:
+        1. Delete tiles with used_at older than MAX_AGE_S.
+        2. While file size exceeds MAX_BYTES, delete the least recently used
+           tile until under budget.
+        3. Run incremental vacuum to release freed pages to the OS.
+
+        Returns the number of tiles deleted.
+        """
+        now = int(time.time())
+        cutoff = now - MAX_AGE_S
+        deleted = 0
+        with self._lock:
+            assert self._conn is not None
+            conn = self._conn
+            with conn:
+                cur = conn.execute(
+                    "DELETE FROM tile WHERE used_at<?", (cutoff,)
+                )
+                deleted += cur.rowcount
+            while self._file_size_locked() > MAX_BYTES:
+                with conn:
+                    cur = conn.execute(
+                        "DELETE FROM tile WHERE rowid IN"
+                        " (SELECT rowid FROM tile"
+                        " ORDER BY used_at ASC LIMIT 1)"
+                    )
+                    if cur.rowcount == 0:
+                        break
+                    deleted += cur.rowcount
+            conn.execute("PRAGMA incremental_vacuum")
+        if deleted:
+            logger.info(f"poi cache evicted {deleted} tiles")
+        return deleted
+
+    def _file_size_locked(self) -> int:
+        """File size in bytes; caller must hold self._lock."""
+        try:
+            return self.path.stat().st_size
+        except OSError:
+            return 0
+
     def get(
         self, tiles: frozenset[PoiTile], current_filters: int
     ) -> tuple[
