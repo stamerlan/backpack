@@ -34,7 +34,7 @@ class App:
         self.ui = UI(self.js)
         self.storage = storage
         self.nominatim = Nominatim()
-        self.route_details = RouteDetails()
+        self.route_details = RouteDetails(storage.poi_cache)
         self.ai = ai.Agent(storage, self.nominatim)
         self.ai_models: asyncio.Future[tuple[ai.AiModel, ...]] = (
             mainloop.create_future()
@@ -89,6 +89,7 @@ class App:
 
                 self.nominatim.cancel()
                 self.route_details.cancel()
+                self.storage.poi_cache.close()
                 self.theme.close()
                 self.running.clear()
 

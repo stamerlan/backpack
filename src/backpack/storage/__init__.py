@@ -6,6 +6,7 @@ from pathlib import Path
 
 from backpack import paths
 from .. import APP_NAME
+from .poi_cache import PoiCache
 from .settings import Settings
 from .vault import Vault
 
@@ -16,6 +17,7 @@ class Storage:
     def __init__(self) -> None:
         self.settings = Settings()
         self.vault = Vault()
+        self.poi_cache = PoiCache()
 
     async def load_settings(
         self, filepath: str | os.PathLike[str] | None = None
@@ -88,3 +90,9 @@ class Storage:
                 keyring.delete_password(APP_NAME, key)
         except keyring.errors.PasswordDeleteError:
             pass
+
+    async def clear_poi_cache(self) -> None:
+        await asyncio.to_thread(self.poi_cache.clear)
+
+    async def poi_cache_size(self) -> int:
+        return await asyncio.to_thread(self.poi_cache.size_bytes)
