@@ -382,9 +382,11 @@ class App:
             key = self.storage.vault.get("gemini_api_key")
             if not key:
                 key = await self.storage.load_key("gemini_api_key")
+            poi_cache_bytes = await self.storage.poi_cache_size()
             cur_settings = {
                 "theme": self.storage.settings.theme,
                 "gemini_api_key_set": bool(key),
+                "poi_cache_bytes": poi_cache_bytes,
             }
 
             new_settings = await asyncio.wrap_future(
@@ -409,6 +411,9 @@ class App:
             api_key = new_settings.get("gemini_api_key", "")
             if api_key != "":
                 await self.storage.store_key("gemini_api_key", api_key)
+
+            if new_settings.get("clear_poi_cache"):
+                await self.storage.clear_poi_cache()
 
         def on_settings_dialog_close(task: "asyncio.Task[None]") -> None:
             self._settings_task = None
