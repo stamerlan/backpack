@@ -335,6 +335,11 @@ class App:
             for r in self.storage.settings.recent
         )
 
+    async def remove_recent(self, filepath: str) -> None:
+        """Drop a trip from the recent list without opening it."""
+        logger.debug(f"filepath:{filepath}")
+        self._remove_recent_item(filepath)
+
     async def set_theme(self, mode: str) -> None:
         """Apply a theme mode to the live window without persisting it.
 

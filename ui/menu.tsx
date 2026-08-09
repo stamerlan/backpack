@@ -123,6 +123,20 @@ export function Menu(props: {
                     description={
                       <span className="menu-recent-meta">{item.meta}</span>
                     }
+                    action={
+                      <button
+                        type="button"
+                        className="icon-btn menu-recent-remove"
+                        title="Remove from recent"
+                        aria-label="Remove from recent"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void api.remove_recent(item.filename);
+                        }}
+                      >
+                        {icon("close", 14)}
+                      </button>
+                    }
                   />
                 </Card>
               ))}

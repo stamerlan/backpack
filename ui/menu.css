@@ -38,6 +38,15 @@
   cursor: pointer;
 }
 
+.menu-recent-card .menu-recent-remove {
+  opacity: 0;
+}
+
+.menu-recent-card:hover .menu-recent-remove,
+.menu-recent-card:focus-within .menu-recent-remove {
+  opacity: 1;
+}
+
 .fui-DrawerFooter.menu-footer {
   display: block;
 }
