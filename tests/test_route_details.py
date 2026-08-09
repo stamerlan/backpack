@@ -5,7 +5,9 @@ the query string is captured and a canned overpy result is returned. The
 transport itself is covered by test_overpass.
 """
 import json
+import threading
 from concurrent.futures import CancelledError
+from pathlib import Path
 
 import overpy
 import pytest
@@ -15,6 +17,9 @@ from backpack.overpass import Overpass
 from backpack.poi_tiles import tile_bbox, tile_of, tiles_for_track
 from backpack.route_details import (
     POI_FILTERS, POI_SAMPLE_M, TILE_BATCH, RouteDetails,
+)
+from backpack.storage.poi_cache import (
+    CachedPoi, PoiCache, filters_hash,
 )
 
 
@@ -207,3 +212,146 @@ def test_fetch_poi_batches_tiles() -> None:
     rd._fetch_poi(long_track)
 
     assert len(captured["qls"]) == expected_batches
+
+
+# ---------------------------------------------------------------
+# Cache integration tests
+# ---------------------------------------------------------------
+
+
+def make_rd_cached(
+    result: overpy.Result | Exception,
+    cache: PoiCache,
+) -> tuple[RouteDetails, dict[str, list[str]]]:
+    """A RouteDetails backed by a real PoiCache and stubbed Overpass."""
+    rd = RouteDetails(cache=cache)
+    captured: dict[str, list[str]] = {"qls": []}
+
+    def fake_query(
+        ql: str, timeout_s: float = 90, retries: int = 3
+    ) -> overpy.Result:
+        captured["qls"].append(ql)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    rd._overpass.query = fake_query  # type: ignore[method-assign]
+    return rd, captured
+
+
+def test_cache_miss_fetches_and_writes_back(
+    tmp_path: "Path",
+) -> None:
+    """On a cold cache every tile is a miss, fetched, then written."""
+    cache = PoiCache(tmp_path / "poi.sqlite3")
+    rd, captured = make_rd_cached(
+        result_from(node(1, 48.0005, 24.00, natural="peak")),
+        cache,
+    )
+    pois = rd._fetch_poi(TRACK)
+
+    assert len(captured["qls"]) >= 1
+    assert len(pois) >= 1
+    assert pois[0].osm_tags == {"natural": "peak"}
+
+    # Verify it was written to the cache
+    tiles = tiles_for_track(
+        ((48.0, 24.0), (48.0, 24.01), (48.0, 24.02)),
+        POI_SAMPLE_M,
+    )
+    cur_filters = filters_hash(POI_FILTERS)
+    hits, missing, _ = cache.get(tiles, cur_filters)
+    assert len(missing) == 0
+    assert len(hits) > 0
+    cache.close()
+
+
+def test_cache_hit_skips_overpass(tmp_path: "Path") -> None:
+    """When all tiles are cached, Overpass is never called."""
+    cache = PoiCache(tmp_path / "poi.sqlite3")
+
+    # First call populates the cache
+    rd1, _ = make_rd_cached(
+        result_from(node(1, 48.0005, 24.00, natural="peak")),
+        cache,
+    )
+    rd1._fetch_poi(TRACK)
+
+    # Second call should hit the cache entirely
+    rd2, captured2 = make_rd_cached(
+        result_from(),  # would return empty if called
+        cache,
+    )
+    pois = rd2._fetch_poi(TRACK)
+
+    assert captured2["qls"] == []
+    assert len(pois) >= 1
+    assert pois[0].osm_tags == {"natural": "peak"}
+    cache.close()
+
+
+def test_cache_failure_degrades_to_uncached(
+    tmp_path: "Path",
+) -> None:
+    """If the cache raises, fetching still works via Overpass."""
+    cache = PoiCache(tmp_path / "poi.sqlite3")
+    # Break the cache's get method
+    cache.get = (  # type: ignore[method-assign]
+        lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("boom"))
+    )
+
+    rd, captured = make_rd_cached(
+        result_from(node(1, 48.0005, 24.00, natural="peak")),
+        cache,
+    )
+    pois = rd._fetch_poi(TRACK)
+
+    assert len(captured["qls"]) >= 1
+    assert len(pois) >= 1
+    cache.close()
+
+
+def test_inflight_dedup_avoids_double_fetch(
+    tmp_path: "Path",
+) -> None:
+    """Two concurrent loads for overlapping tiles share one fetch."""
+    cache = PoiCache(tmp_path / "poi.sqlite3")
+    rd = RouteDetails(cache=cache)
+    call_count = 0
+    entered = threading.Event()
+
+    def slow_query(
+        ql: str, timeout_s: float = 90, retries: int = 3
+    ) -> overpy.Result:
+        nonlocal call_count
+        call_count += 1
+        entered.set()
+        # Give the second worker time to discover the in-flight
+        # future and wait on it instead of issuing its own request.
+        import time
+        time.sleep(0.2)
+        return result_from(
+            node(1, 48.0005, 24.00, natural="peak")
+        )
+
+    rd._overpass.query = slow_query  # type: ignore[method-assign]
+
+    f1 = rd.load_poi(TRACK)
+    # Wait until the first worker has entered the query, then
+    # submit the second load so it finds tiles already in-flight.
+    entered.wait(timeout=5)
+    f2 = rd.load_poi(TRACK)
+    f1.result(timeout=10)
+    f2.result(timeout=10)
+
+    # Both workers share the same tiles, so at most one set of
+    # Overpass queries should be issued (the second worker waits on
+    # the in-flight futures from the first).
+    tiles = tiles_for_track(
+        ((48.0, 24.0), (48.0, 24.01), (48.0, 24.02)),
+        POI_SAMPLE_M,
+    )
+    max_expected = (len(tiles) + TILE_BATCH - 1) // TILE_BATCH
+    assert call_count <= max_expected
+    rd.cancel()
+    cache.close()

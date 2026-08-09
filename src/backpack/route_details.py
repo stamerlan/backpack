@@ -1,13 +1,20 @@
+from __future__ import annotations
+
 import logging
+import threading
 from collections.abc import Iterable, Iterator
 from concurrent.futures import CancelledError, Future, ThreadPoolExecutor
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import overpy
 
 from . import model, route
 from .overpass import Overpass
 from .poi_tiles import PoiTile, tile_bbox, tile_of, tiles_for_track
+from .storage.poi_cache import CachedPoi, filters_hash
+
+if TYPE_CHECKING:
+    from .storage.poi_cache import PoiCache
 
 logger = logging.getLogger(__name__)
 
@@ -83,87 +90,229 @@ def _batch_tiles(
 
 
 class RouteDetails:
-    """Loads route detail data off the mainloop, hiding the Overpass client. """
+    """Loads route detail data off the mainloop, hiding the Overpass client and
+    tile cache.
+    """
 
-    def __init__(self) -> None:
+    def __init__(self, cache: PoiCache | None = None) -> None:
         self._overpass = Overpass()
-        # Two workers mirror Overpass's own slot budget; more would just block
-        # on the server's rate limit anyway.
+        self._cache = cache
+        # Two workers mirror Overpass's own slot budget; more would
+        # just block on the server's rate limit anyway.
         self._pool = ThreadPoolExecutor(
             max_workers=2, thread_name_prefix="route-details"
         )
+        # Per-tile in-flight dedup: when one worker is already
+        # fetching a tile, the other waits on the same future
+        # instead of issuing a duplicate request.
+        self._inflight: dict[PoiTile, Future[list[CachedPoi]]] = {}
+        self._inflight_lock = threading.Lock()
 
     def load_poi(
         self, track: tuple[model.TrackPoint, ...]
-    ) -> "Future[tuple[model.Poi, ...]]":
+    ) -> Future[tuple[model.Poi, ...]]:
         """Start loading POIs near track and return the pending future.
 
-        The future resolves to the POIs found (an empty tuple when none), or
-        fails with CancelledError if the service is cancelled while it runs.
+        The future resolves to the POIs found (an empty tuple when
+        none), or fails with CancelledError if the service is
+        cancelled while it runs.
         """
         return self._pool.submit(self._fetch_poi, track)
 
     def cancel(self) -> None:
         """Abort in-flight loads and stop accepting new ones.
 
-        Thread safe, so it may be called from the shutdown handler. Aborting
-        Overpass makes each running load raise CancelledError and finish;
-        queued loads are dropped.
+        Thread safe, so it may be called from the shutdown handler.
+        Aborting Overpass makes each running load raise
+        CancelledError and finish; queued loads are dropped.
         """
         self._overpass.cancel()
         self._pool.shutdown(wait=False, cancel_futures=True)
 
-    def _fetch_poi(
-        self, track: tuple[model.TrackPoint, ...]
-    ) -> tuple[model.Poi, ...]:
-        """Query Overpass for POIs near the track via tile bboxes.
+    def _fetch_tiles(
+        self, tiles_to_fetch: frozenset[PoiTile]
+    ) -> dict[PoiTile, list[CachedPoi]]:
+        """Fetch POIs for *tiles_to_fetch* from Overpass, deduping against other
+        in-flight fetches in this process.
 
-        Computes tiles covering a corridor of POI_SAMPLE_M around the track,
-        batches them into groups of TILE_BATCH, queries Overpass for each batch
-        and assigns returned elements to tiles by their center coordinate
-        (dropping any whose center falls outside the requested batch). The
-        corridor filter is applied locally: only POIs within POI_SAMPLE_M of
-        the track are kept.
+        Returns a dict mapping each tile to its POIs.
         """
-        sampled_track = route.sample(track, POI_SAMPLE_M)
-        if not sampled_track:
-            return ()
+        # Partition tiles into ones already in-flight and ones we
+        # need to fetch ourselves.
+        owned: list[PoiTile] = []
+        waited: dict[PoiTile, Future[list[CachedPoi]]] = {}
 
-        tiles = tiles_for_track(sampled_track, POI_SAMPLE_M)
-        batches = _batch_tiles(tiles, TILE_BATCH)
+        with self._inflight_lock:
+            for tile in tiles_to_fetch:
+                existing = self._inflight.get(tile)
+                if existing is not None:
+                    waited[tile] = existing
+                else:
+                    fut: Future[list[CachedPoi]] = Future()
+                    self._inflight[tile] = fut
+                    owned.append(tile)
 
-        raw: list[tuple[
-            Literal["n", "w", "r"], int, float, float,
-            dict[str, str]
-        ]] = []
+        result: dict[PoiTile, list[CachedPoi]] = {}
+
+        # Fetch our owned tiles from Overpass in batches.
+        try:
+            fetched = self._fetch_tiles_from_overpass(owned)
+            for tile in owned:
+                pois = fetched.get(tile, [])
+                result[tile] = pois
+                with self._inflight_lock:
+                    self._inflight[tile].set_result(pois)
+                    del self._inflight[tile]
+        except BaseException as exc:
+            # Signal waiters so they don't hang.
+            with self._inflight_lock:
+                for tile in owned:
+                    fut_owned = self._inflight.pop(tile, None)
+                    if fut_owned is not None and not fut_owned.done():
+                        fut_owned.set_exception(exc)
+            raise
+
+        # Collect results from tiles another worker was fetching.
+        for tile, fut_ext in waited.items():
+            try:
+                result[tile] = fut_ext.result()
+            except CancelledError:
+                raise
+            except Exception:
+                # Treat a peer failure as a miss - the tile simply
+                # won't contribute POIs this time.
+                result[tile] = []
+
+        return result
+
+    def _fetch_tiles_from_overpass(
+        self, tiles: list[PoiTile]
+    ) -> dict[PoiTile, list[CachedPoi]]:
+        """Query Overpass for POIs in the given tiles.
+
+        Tiles are split into batches of TILE_BATCH. Each returned element is
+        assigned to a tile by its center coordinate; elements outside the batch
+        are dropped.
+        """
+        if not tiles:
+            return {}
+        batches = _batch_tiles(frozenset(tiles), TILE_BATCH)
+        per_tile: dict[PoiTile, list[CachedPoi]] = {
+            t: [] for t in tiles
+        }
         for batch in batches:
             batch_set = frozenset(batch)
             try:
                 result = self._overpass.query(_poi_query(batch))
             except Overpass.Aborted:
                 raise CancelledError from None
-            for osm_type, osm_id, lat, lon, tags in _raw_pois(result):
-                if tile_of(lat, lon) not in batch_set:
+            for osm_type, osm_id, lat, lon, tags in (
+                _raw_pois(result)
+            ):
+                tile = tile_of(lat, lon)
+                if tile not in batch_set:
                     continue
-                raw.append((osm_type, osm_id, lat, lon, tags))
+                per_tile.setdefault(tile, []).append(CachedPoi(
+                    osm_type=osm_type,
+                    osm_id=osm_id,
+                    lat=lat,
+                    long=lon,
+                    tags=tags,
+                ))
+        return per_tile
 
-        found: list[tuple[float, model.Poi]] = []
-        for osm_type, osm_id, lat, lon, tags in raw:
-            nearest_pt = route.nearest(lat, lon, track)
-            dist_from_track = route.distance_m(
-                (lat, lon), nearest_pt
-            )
-            if dist_from_track > POI_SAMPLE_M:
-                continue
-            ofs_m = nearest_pt.dist_m
-            found.append((
-                ofs_m,
-                model.Poi(
-                    osm_type=osm_type, osm_id=osm_id,
-                    lat=lat, long=lon,
-                    osm_tags=tags
+    # ----------------------------------------------------------
+
+    def _fetch_poi(
+        self, track: tuple[model.TrackPoint, ...]
+    ) -> tuple[model.Poi, ...]:
+        """Query for POIs near the track, using the tile cache when
+        available.
+
+        Computes tiles covering a corridor of POI_SAMPLE_M around the track.
+        When a cache is present, serves hits directly and only fetches misses
+        from Overpass. Freshly fetched tiles are written back to the cache, and
+        all used tiles get a touch.
+        """
+        sampled_track = route.sample(track, POI_SAMPLE_M)
+        if not sampled_track:
+            return ()
+
+        tiles = tiles_for_track(sampled_track, POI_SAMPLE_M)
+        cur_filters = filters_hash(POI_FILTERS)
+
+        # Read through cache
+        cached_pois: dict[PoiTile, list[CachedPoi]] = {}
+        missing: frozenset[PoiTile] = tiles
+        stale: frozenset[PoiTile] = frozenset()
+
+        if self._cache is not None:
+            try:
+                cached_pois, missing, stale = self._cache.get(
+                    tiles, cur_filters
                 )
-            ))
+            except Exception:
+                logger.debug(
+                    "poi cache read failed, treating all as miss",
+                    exc_info=True
+                )
+                missing = tiles
+
+        logger.debug(
+            f"poi tiles:{len(tiles)}, {len(cached_pois)} cached, "
+            f"{len(missing)} missing"
+        )
+
+        # Fetch misses from Overpass (with in-flight dedup)
+        fetched: dict[PoiTile, list[CachedPoi]] = {}
+        if missing:
+            fetched = self._fetch_tiles(missing)
+
+        # Write fetched tiles back to cache
+        if self._cache is not None and fetched:
+            for tile, pois in fetched.items():
+                try:
+                    self._cache.put(tile, pois, cur_filters)
+                except Exception:
+                    logger.debug(
+                        "poi cache write failed for tile %s",
+                        tile, exc_info=True,
+                    )
+
+        # Touch all tiles we used (hits + fetched)
+        if self._cache is not None:
+            touched = (frozenset(cached_pois.keys()) | frozenset(fetched))
+            try:
+                self._cache.touch(touched)
+            except Exception:
+                logger.debug("poi cache touch failed", exc_info=True)
+
+        # Merge cached and fetched POIs
+        all_pois: dict[PoiTile, list[CachedPoi]] = {}
+        all_pois.update(cached_pois)
+        all_pois.update(fetched)
+
+        # Corridor filter + offset computation
+        found: list[tuple[float, model.Poi]] = []
+        for tile_pois in all_pois.values():
+            for cp in tile_pois:
+                nearest_pt = route.nearest(cp.lat, cp.long, track)
+                dist_from_track = route.distance_m(
+                    (cp.lat, cp.long), nearest_pt
+                )
+                if dist_from_track > POI_SAMPLE_M:
+                    continue
+                ofs_m = nearest_pt.dist_m
+                found.append((
+                    ofs_m,
+                    model.Poi(
+                        osm_type=cp.osm_type,
+                        osm_id=cp.osm_id,
+                        lat=cp.lat,
+                        long=cp.long,
+                        osm_tags=cp.tags,
+                    )
+                ))
 
         found.sort(key=lambda p: p[0])
         return tuple(p[1] for p in found)
