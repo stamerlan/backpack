@@ -7,12 +7,18 @@ freshness, and eviction.
 Schema version changes or database corruption cause the file to be deleted and
 recreated silently. The cache is disposable and must never break trip loading.
 """
+import hashlib
+import json
 import logging
 import sqlite3
 import threading
+import time
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from backpack import paths
+from backpack.poi_tiles import PoiTile
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +28,27 @@ TILE_TTL_S = 60 * 86400
 MAX_AGE_S = 365 * 86400
 MAX_BYTES = 200 * 1024 * 1024
 TOUCH_MIN_INTERVAL_S = 86400
+
+@dataclass(frozen=True, slots=True)
+class CachedPoi:
+    """A POI as stored in the cache - route-independent facts only."""
+
+    osm_type: Literal["n", "w", "r"]
+    osm_id: int
+    lat: float
+    long: float
+    tags: dict[str, str]
+
+
+def filters_hash(filters: tuple[str, ...]) -> int:
+    """Stable 32-bit hash of the active POI filter set.
+
+    When the filters change, cached tiles fetched under the old set are
+    treated as missing rather than stale, since they may be incomplete.
+    """
+    h = hashlib.sha256("\n".join(filters).encode()).digest()
+    return int.from_bytes(h[:4])
+
 
 _SCHEMA = """\
 CREATE TABLE tile (
@@ -100,3 +127,98 @@ class PoiCache:
             if self._conn is not None:
                 self._conn.close()
                 self._conn = None
+
+    def put(
+        self, tile: PoiTile, pois: list[CachedPoi], current_filters: int
+    ) -> None:
+        """Write a tile and its POIs, replacing any previous data.
+
+        Stamps fetched_at and used_at to now; stores the filter hash so future
+        reads can detect whether the cached set is complete.
+        """
+        now = int(time.time())
+        with self._lock:
+            assert self._conn is not None
+            conn = self._conn
+            with conn:
+                conn.execute(
+                    "DELETE FROM tile WHERE x=? AND y=?",
+                    (tile.x, tile.y)
+                )
+                conn.execute(
+                    "INSERT INTO tile"
+                    " (x, y, filters, fetched_at, used_at)"
+                    " VALUES (?, ?, ?, ?, ?)",
+                    (tile.x, tile.y, current_filters, now, now)
+                )
+                conn.executemany(
+                    "INSERT INTO poi"
+                    " (x, y, osm_type, osm_id, lat, long, tags)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    [
+                        (
+                            tile.x, tile.y,
+                            p.osm_type, p.osm_id,
+                            p.lat, p.long,
+                            json.dumps(
+                                p.tags, ensure_ascii=False
+                            ),
+                        )
+                        for p in pois
+                    ]
+                )
+
+    def get(
+        self, tiles: frozenset[PoiTile], current_filters: int
+    ) -> tuple[
+        dict[PoiTile, list[CachedPoi]],
+        frozenset[PoiTile],
+        frozenset[PoiTile],
+    ]:
+        """Look up tiles in the cache.
+
+        Returns (hits, missing, stale) where:
+        - hits maps each cached tile to its POIs;
+        - missing is the set of tiles not in the cache or fetched under a
+          different filter set;
+        - stale is the set of tiles older than TILE_TTL_S (also in hits, so they
+          can be served immediately and refreshed in the background).
+        """
+        now = int(time.time())
+        hits: dict[PoiTile, list[CachedPoi]] = {}
+        missing: set[PoiTile] = set()
+        stale: set[PoiTile] = set()
+
+        with self._lock:
+            assert self._conn is not None
+            conn = self._conn
+            for tile in tiles:
+                row = conn.execute(
+                    "SELECT filters, fetched_at FROM tile WHERE x=? AND y=?",
+                    (tile.x, tile.y)
+                ).fetchone()
+                if row is None:
+                    missing.add(tile)
+                    continue
+                stored_filters, fetched_at = row
+                if stored_filters != current_filters:
+                    missing.add(tile)
+                    continue
+                pois: list[CachedPoi] = []
+                for pr in conn.execute(
+                    "SELECT osm_type, osm_id, lat, long, tags"
+                    " FROM poi WHERE x=? AND y=?",
+                    (tile.x, tile.y)
+                ):
+                    pois.append(CachedPoi(
+                        osm_type=pr[0],
+                        osm_id=pr[1],
+                        lat=pr[2],
+                        long=pr[3],
+                        tags=json.loads(pr[4]),
+                    ))
+                hits[tile] = pois
+                if now - fetched_at > TILE_TTL_S:
+                    stale.add(tile)
+
+        return hits, frozenset(missing), frozenset(stale)
