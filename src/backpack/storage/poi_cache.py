@@ -2,10 +2,21 @@
 
 The cache stores raw POI facts (OSM type, id, coordinates, tags) grouped by
 tile. A tile at TILE_ZOOM (~3.3 km at alpine latitudes) is the unit of fetching,
-freshness, and eviction.
+freshness, and eviction. See ``poi_tiles`` for the tile math and the zoom-level
+rationale.
 
-Schema version changes or database corruption cause the file to be deleted and
-recreated silently. The cache is disposable and must never break trip loading.
+Each POI belongs to exactly one tile - the one whose bbox contains the POI's
+center coordinate. When writing, elements returned by Overpass whose center
+falls outside the requested tile are dropped. This keeps tiles disjoint and
+writes idempotent: re-fetching a tile produces the same set of rows regardless
+of what the neighboring tiles contain.
+
+Known caveat: a large area feature (e.g. a big lake) whose center is far from
+the route lands in a tile that may never be fetched, so it can be missed.
+
+The database lives at ``paths.appcache() / "poi.sqlite3"``. Schema version
+changes or database corruption cause the file to be deleted and recreated
+silently. The cache is disposable and must never break trip loading.
 """
 import hashlib
 import json
