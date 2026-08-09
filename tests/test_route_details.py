@@ -95,31 +95,34 @@ def test_fetch_poi_builds_the_around_query() -> None:
 
 def test_fetch_poi_returns_pois_sorted_from_the_start() -> None:
     rd, _ = make_rd(result_from(
-        relation(4, 48.0005, 24.02, amenity="shelter"),    # nearest the end
-        node(1, 48.0005, 24.00, natural="peak"),           # nearest the start
-        way(3, 48.0005, 24.01, tourism="alpine_hut"),      # in the middle
+        relation(4, 48.0005, 24.02, amenity="shelter"),
+        node(1, 48.0005, 24.00, natural="peak"),
+        way(3, 48.0005, 24.01, tourism="alpine_hut"),
     ))
     pois = rd._fetch_poi(TRACK)
 
-    assert [p.tags for p in pois] == [
+    assert [p.osm_tags for p in pois] == [
         {"natural": "peak"},
         {"tourism": "alpine_hut"},
         {"amenity": "shelter"},
     ]
     assert (pois[0].lat, pois[0].long) == (48.0005, 24.00)
-    # 0.0005 deg of latitude off the track is about 55 m
-    assert all(40.0 < p.ofs_m < 80.0 for p in pois)
+    assert [(p.osm_type, p.osm_id) for p in pois] == [
+        ("n", 1), ("w", 3), ("r", 4),
+    ]
 
 
 def test_fetch_poi_skips_untagged_and_centerless_elements() -> None:
     rd, _ = make_rd(result_from(
-        node(1, 48.0005, 24.00),                    # bare geometry, no tags
+        node(1, 48.0005, 24.00),
         node(2, 48.0005, 24.01, natural="spring"),
-        way(3, None, None, tourism="viewpoint"),    # no center from out center
+        way(3, None, None, tourism="viewpoint"),
     ))
     pois = rd._fetch_poi(TRACK)
 
-    assert [p.tags for p in pois] == [{"natural": "spring"}]
+    assert [p.osm_tags for p in pois] == [{"natural": "spring"}]
+    assert pois[0].osm_type == "n"
+    assert pois[0].osm_id == 2
 
 
 def test_fetch_poi_copies_tags_off_the_overpy_element() -> None:
@@ -128,8 +131,8 @@ def test_fetch_poi_copies_tags_off_the_overpy_element() -> None:
     rd, _ = make_rd(result)
 
     pois = rd._fetch_poi(TRACK)
-    assert pois[0].tags == {"natural": "mutated"}
-    pois[0].tags["natural"] = "again"
+    assert pois[0].osm_tags == {"natural": "mutated"}
+    pois[0].osm_tags["natural"] = "again"
     assert result.nodes[0].tags["natural"] == "mutated"
 
 

@@ -15,9 +15,10 @@ def get_poi(
     loading rather than guessing.
 
     Each POI dict contains:
+        osm_type: "n" (node), "w" (way) or "r" (relation).
+        osm_id: numeric OSM id of the element.
         lat, long: coordinates of the point of interest.
-        ofs_m: distance in meters from the route track to the POI.
-        tags: dict of raw OSM tags with the details.
+        osm_tags: dict of raw OSM tags with the details.
 
     Args:
         route_id: Id of the route, from get_trip_info.

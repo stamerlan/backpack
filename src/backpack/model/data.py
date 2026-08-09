@@ -27,14 +27,20 @@ class TrackPoint:
 class Poi:
     """A point of interest found near the track.
 
-    tags holds the raw OSM tags. The dataclass is frozen but the dict is not;
-    treat tags as read only.
+    osm_tags holds the raw OSM tags. The dataclass is frozen but the
+    dict is not; treat osm_tags as read only.
     """
 
+    # OSM element identity:
+    # - Nodes are simple points (peaks, springs);
+    # - Ways are linear or area features (buildings, lakes);
+    # - Relations group several elements (multi-polygon boundaries,
+    #   long-distance routes).
+    osm_type: Literal["n", "w", "r"]
+    osm_id: int
     lat: float
     long: float
-    ofs_m: float            # distance from the track in meters
-    tags: dict[str, str]    # raw OSM tags; treat as read-only
+    osm_tags: dict[str, str]    # raw OSM tags; treat as read-only
 
 
 @dataclass(frozen=True, slots=True)

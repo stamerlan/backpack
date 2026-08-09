@@ -40,8 +40,9 @@ def get_trip_info(
                 elev_min_m, elev_max_m: lowest and highest point.
                 elev_net_m: end minus start elevation, signed.
                 elev_mean_m: elevation averaged over distance.
-            poi: list of POI dicts (lat, long, ofs_m, tags), or None while
-                still loading. Present only when poi=True was requested.
+            poi: list of POI dicts (osm_type, osm_id, lat,
+                long, osm_tags), or None while still loading.
+                Present only when poi=True was requested.
     """
     with ctx.deps.doc.lock():
         return {

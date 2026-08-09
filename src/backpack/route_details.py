@@ -1,5 +1,6 @@
 import logging
 from concurrent.futures import CancelledError, Future, ThreadPoolExecutor
+from typing import Literal
 
 from . import model, route
 from .overpass import Overpass
@@ -72,27 +73,36 @@ class RouteDetails:
 
         found: list[tuple[float, model.Poi]] = []
 
-        def add(lat: float, lon: float, tags: dict[str, str]) -> None:
-            if not tags:                    # bare geometry, nothing to describe
+        def add(
+            osm_type: Literal["n", "w", "r"], osm_id: int,
+            lat: float, lon: float,
+            tags: dict[str, str],
+        ) -> None:
+            if not tags:
                 return
-            near = route.nearest(lat, lon, track)
+            dist = route.nearest(lat, lon, track).dist_m
             found.append((
-                near.dist_m,
+                dist,
                 model.Poi(
+                    osm_type=osm_type, osm_id=osm_id,
                     lat=lat, long=lon,
-                    ofs_m=route.distance_m((lat, lon), near),
-                    tags=dict(tags)
+                    osm_tags=dict(tags),
                 )
             ))
 
         for node in result.nodes:
-            add(float(node.lat), float(node.lon), node.tags)
+            add("n", node.id, float(node.lat),
+                float(node.lon), node.tags)
         for way in result.ways:
-            if way.center_lat is not None and way.center_lon is not None:
-                add(float(way.center_lat), float(way.center_lon), way.tags)
+            if (way.center_lat is not None
+                    and way.center_lon is not None):
+                add("w", way.id, float(way.center_lat),
+                    float(way.center_lon), way.tags)
         for rel in result.relations:
-            if rel.center_lat is not None and rel.center_lon is not None:
-                add(float(rel.center_lat), float(rel.center_lon), rel.tags)
+            if (rel.center_lat is not None
+                    and rel.center_lon is not None):
+                add("r", rel.id, float(rel.center_lat),
+                    float(rel.center_lon), rel.tags)
 
         found.sort(key=lambda p: p[0])      # nearest the start first
         return tuple(p[1] for p in found)
