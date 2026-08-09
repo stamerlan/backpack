@@ -1,6 +1,9 @@
 import logging
+from collections.abc import Iterator
 from concurrent.futures import CancelledError, Future, ThreadPoolExecutor
 from typing import Literal
+
+import overpy
 
 from . import model, route
 from .overpass import Overpass
@@ -16,6 +19,56 @@ POI_FILTERS = (
     '[mountain_pass=yes]',
     '[historic]',
 )
+
+def _poi_query(
+    sampled_track: tuple[tuple[float, float], ...],
+) -> str:
+    """Build Overpass QL querying POIs around the sampled track."""
+    around = ",".join(
+        f"{lat},{lon}" for lat, lon in sampled_track
+    )
+    body = "\n".join(
+        f"  nwr(around:{POI_SAMPLE_M * 1.118},{around}){f};"
+        for f in POI_FILTERS
+    )
+    return f"[out:json][timeout:180];\n(\n{body}\n);\nout center;\n"
+
+
+def _raw_pois(
+    result: overpy.Result,
+) -> Iterator[
+    tuple[Literal["n", "w", "r"], int, float, float, dict[str, str]]
+]:
+    """Yield (osm_type, osm_id, lat, lon, tags) from an overpy result.
+
+    Drops elements that have no tags or no center coordinate.
+    """
+    for node in result.nodes:
+        if node.tags:
+            yield (
+                "n", node.id,
+                float(node.lat), float(node.lon),
+                dict(node.tags),
+            )
+    for way in result.ways:
+        if (way.center_lat is not None
+                and way.center_lon is not None
+                and way.tags):
+            yield (
+                "w", way.id,
+                float(way.center_lat), float(way.center_lon),
+                dict(way.tags),
+            )
+    for rel in result.relations:
+        if (rel.center_lat is not None
+                and rel.center_lon is not None
+                and rel.tags):
+            yield (
+                "r", rel.id,
+                float(rel.center_lat), float(rel.center_lon),
+                dict(rel.tags),
+            )
+
 
 class RouteDetails:
     """Loads route detail data off the mainloop, hiding the Overpass client. """
@@ -61,48 +114,21 @@ class RouteDetails:
         if not sampled_track:
             return ()
         try:
-            around = ",".join(f"{lat},{lon}" for lat, lon in sampled_track)
-            body = "\n".join(
-                f"  nwr(around:{POI_SAMPLE_M * 1.118},{around}){f};"
-                for f in POI_FILTERS
-            )
-            query = f"[out:json][timeout:180];\n(\n{body}\n);\nout center;\n"
-            result = self._overpass.query(query)
+            result = self._overpass.query(_poi_query(sampled_track))
         except Overpass.Aborted:
-            raise CancelledError from None      # unwind quietly on shutdown
+            raise CancelledError from None
 
         found: list[tuple[float, model.Poi]] = []
-
-        def add(
-            osm_type: Literal["n", "w", "r"], osm_id: int,
-            lat: float, lon: float,
-            tags: dict[str, str],
-        ) -> None:
-            if not tags:
-                return
+        for osm_type, osm_id, lat, lon, tags in _raw_pois(result):
             dist = route.nearest(lat, lon, track).dist_m
             found.append((
                 dist,
                 model.Poi(
                     osm_type=osm_type, osm_id=osm_id,
                     lat=lat, long=lon,
-                    osm_tags=dict(tags),
+                    osm_tags=tags
                 )
             ))
 
-        for node in result.nodes:
-            add("n", node.id, float(node.lat),
-                float(node.lon), node.tags)
-        for way in result.ways:
-            if (way.center_lat is not None
-                    and way.center_lon is not None):
-                add("w", way.id, float(way.center_lat),
-                    float(way.center_lon), way.tags)
-        for rel in result.relations:
-            if (rel.center_lat is not None
-                    and rel.center_lon is not None):
-                add("r", rel.id, float(rel.center_lat),
-                    float(rel.center_lon), rel.tags)
-
-        found.sort(key=lambda p: p[0])      # nearest the start first
+        found.sort(key=lambda p: p[0])
         return tuple(p[1] for p in found)
