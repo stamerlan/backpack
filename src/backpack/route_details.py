@@ -107,6 +107,11 @@ class RouteDetails:
         # instead of issuing a duplicate request.
         self._inflight: dict[PoiTile, Future[list[CachedPoi]]] = {}
         self._inflight_lock = threading.Lock()
+        # Background refresher for stale tiles. Single thread so it never
+        # competes with the foreground pool for Overpass slots.
+        self._refresher = ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="poi-refresh"
+        )
 
     def load_poi(
         self, track: tuple[model.TrackPoint, ...]
@@ -125,9 +130,11 @@ class RouteDetails:
         Thread safe, so it may be called from the shutdown handler.
         Aborting Overpass makes each running load raise
         CancelledError and finish; queued loads are dropped.
+        The background refresher is shut down too.
         """
         self._overpass.cancel()
         self._pool.shutdown(wait=False, cancel_futures=True)
+        self._refresher.shutdown(wait=False, cancel_futures=True)
 
     def _fetch_tiles(
         self, tiles_to_fetch: frozenset[PoiTile]
@@ -221,7 +228,36 @@ class RouteDetails:
                 ))
         return per_tile
 
-    # ----------------------------------------------------------
+    def _schedule_refresh(
+        self, stale: frozenset[PoiTile], cur_filters: int
+    ) -> None:
+        """Submit stale tiles for background refresh."""
+        to_refresh = sorted(stale, key=lambda t: (t.x, t.y))
+        logger.debug(f"scheduling refresh for {len(to_refresh)} stale tiles")
+        self._refresher.submit(self._refresh_tiles, to_refresh, cur_filters)
+
+    def _refresh_tiles(self, tiles: list[PoiTile], cur_filters: int) -> None:
+        """Fetch tiles from Overpass and write to cache.
+
+        Runs on the refresher thread. All errors are swallowed so a failing
+        refresh never disrupts foreground work.
+        """
+        try:
+            fetched = self._fetch_tiles_from_overpass(tiles)
+            assert self._cache is not None
+            for tile, pois in fetched.items():
+                try:
+                    self._cache.put(tile, pois, cur_filters)
+                except Exception:
+                    logger.debug(
+                        f"refresh write failed for tile {tile}",
+                        exc_info=True
+                    )
+            logger.debug(f"refreshed {len(fetched)} stale tiles")
+        except CancelledError:
+            pass
+        except Exception:
+            logger.debug("background refresh failed", exc_info=True)
 
     def _fetch_poi(
         self, track: tuple[model.TrackPoint, ...]
@@ -281,11 +317,15 @@ class RouteDetails:
 
         # Touch all tiles we used (hits + fetched)
         if self._cache is not None:
-            touched = (frozenset(cached_pois.keys()) | frozenset(fetched))
+            touched = frozenset(cached_pois.keys()) | frozenset(fetched)
             try:
                 self._cache.touch(touched)
             except Exception:
                 logger.debug("poi cache touch failed", exc_info=True)
+
+        # Background-refresh stale tiles
+        if self._cache is not None and stale:
+            self._schedule_refresh(stale, cur_filters)
 
         # Merge cached and fetched POIs
         all_pois: dict[PoiTile, list[CachedPoi]] = {}

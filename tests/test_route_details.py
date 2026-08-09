@@ -6,20 +6,24 @@ transport itself is covered by test_overpass.
 """
 import json
 import threading
+import time
 from concurrent.futures import CancelledError
 from pathlib import Path
+from unittest.mock import patch
 
 import overpy
 import pytest
 
 from backpack import model
 from backpack.overpass import Overpass
-from backpack.poi_tiles import tile_bbox, tile_of, tiles_for_track
+from backpack.poi_tiles import (
+    PoiTile, tile_bbox, tile_of, tiles_for_track,
+)
 from backpack.route_details import (
     POI_FILTERS, POI_SAMPLE_M, TILE_BATCH, RouteDetails,
 )
 from backpack.storage.poi_cache import (
-    CachedPoi, PoiCache, filters_hash,
+    CachedPoi, PoiCache, TILE_TTL_S, filters_hash,
 )
 
 
@@ -417,3 +421,144 @@ def test_inflight_dedup_avoids_double_fetch(
     assert call_count <= max_expected
     rd.cancel()
     cache.close()
+
+
+# ---------------------------------------------------------------
+# Background refresh tests
+# ---------------------------------------------------------------
+
+
+def _seed_stale_cache(
+    cache: PoiCache,
+    tiles: frozenset[PoiTile],
+    cur_filters: int,
+) -> None:
+    """Populate *cache* with stale tiles."""
+    old_ts = time.time() - TILE_TTL_S - 1
+    with patch(
+        "backpack.storage.poi_cache.time.time",
+        return_value=old_ts,
+    ):
+        for tile in tiles:
+            cache.put(tile, [
+                CachedPoi(
+                    "n", 1, 48.0005, 24.00,
+                    {"natural": "peak"},
+                ),
+            ], cur_filters)
+
+
+def test_stale_tiles_refreshed_in_background(
+    tmp_path: "Path",
+) -> None:
+    """Stale tiles are served from cache and refreshed in
+    the background.
+    """
+    cache = PoiCache(tmp_path / "poi.sqlite3")
+    tiles = tiles_for_track(
+        ((48.0, 24.0), (48.0, 24.01), (48.0, 24.02)),
+        POI_SAMPLE_M,
+    )
+    cur_filters = filters_hash(POI_FILTERS)
+    _seed_stale_cache(cache, tiles, cur_filters)
+
+    # Confirm they are stale before fetching
+    _, _, stale_before = cache.get(tiles, cur_filters)
+    assert len(stale_before) > 0
+
+    rd, captured = make_rd_cached(
+        result_from(
+            node(1, 48.0005, 24.00, natural="peak"),
+        ),
+        cache,
+    )
+    pois = rd._fetch_poi(TRACK)
+
+    # Foreground returns cached data without calling Overpass
+    assert len(pois) >= 1
+
+    # Wait for the refresher to finish
+    rd._refresher.shutdown(wait=True)
+
+    # After refresh, tiles should no longer be stale
+    _, _, stale_after = cache.get(tiles, cur_filters)
+    assert len(stale_after) == 0
+
+    # The refresher must have called Overpass
+    assert len(captured["qls"]) >= 1
+
+    rd.cancel()
+    cache.close()
+
+
+def test_cancel_shuts_down_refresher(
+    tmp_path: "Path",
+) -> None:
+    """cancel() shuts down the refresher executor."""
+    cache = PoiCache(tmp_path / "poi.sqlite3")
+    rd = RouteDetails(cache=cache)
+    rd.cancel()
+    assert rd._refresher._shutdown
+    cache.close()
+
+
+def test_refresh_failure_does_not_propagate(
+    tmp_path: "Path",
+) -> None:
+    """An Overpass error during refresh is swallowed."""
+    cache = PoiCache(tmp_path / "poi.sqlite3")
+    tiles = tiles_for_track(
+        ((48.0, 24.0), (48.0, 24.01), (48.0, 24.02)),
+        POI_SAMPLE_M,
+    )
+    cur_filters = filters_hash(POI_FILTERS)
+    _seed_stale_cache(cache, tiles, cur_filters)
+
+    rd = RouteDetails(cache=cache)
+    call_count = 0
+
+    def failing_query(
+        ql: str, timeout_s: float = 90,
+        retries: int = 3,
+    ) -> overpy.Result:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return result_from(
+                node(1, 48.0005, 24.00, natural="peak"),
+            )
+        raise RuntimeError("overpass down")
+
+    rd._overpass.query = failing_query  # type: ignore[method-assign]
+
+    # The foreground fetch should succeed even though the
+    # background refresh will fail.
+    pois = rd._fetch_poi(TRACK)
+    assert len(pois) >= 1
+
+    # Wait for the refresher - no exception should escape.
+    rd._refresher.shutdown(wait=True)
+
+    rd.cancel()
+    cache.close()
+
+
+def test_no_refresh_without_cache() -> None:
+    """Without a cache, no refresh is scheduled."""
+    rd, captured = make_rd(
+        result_from(
+            node(1, 48.0005, 24.00, natural="peak"),
+        ),
+    )
+    rd._fetch_poi(TRACK)
+    rd._refresher.shutdown(wait=True)
+    # Only foreground queries, no refresh queries
+    tiles = tiles_for_track(
+        ((48.0, 24.0), (48.0, 24.01), (48.0, 24.02)),
+        POI_SAMPLE_M,
+    )
+    expected = (
+        (len(tiles) + TILE_BATCH - 1) // TILE_BATCH
+    )
+    assert len(captured["qls"]) == expected
+    rd.cancel()
