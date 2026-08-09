@@ -106,9 +106,12 @@ class RouteDetails:
     ) -> tuple[model.Poi, ...]:
         """Query Overpass for POIs near the track. Runs on a worker thread.
 
-        Sampled every POI_SAMPLE_M along the track, searched within a slightly
-        larger radius to find all POI within POI_SAMPLE_M from any point on
-        track.
+        Sampled every POI_SAMPLE_M along the track, searched within a  slightly
+        larger radius so that discrete sampling does not miss features between
+        sample points. The actual corridor filter is applied locally: only POIs
+        within POI_SAMPLE_M of the track are kept. Each POI is assigned ofs_m
+        (position along the route) for sorting; ofs_m is not stored on the Poi
+        value object.
         """
         sampled_track = route.sample(track, POI_SAMPLE_M)
         if not sampled_track:
@@ -120,9 +123,13 @@ class RouteDetails:
 
         found: list[tuple[float, model.Poi]] = []
         for osm_type, osm_id, lat, lon, tags in _raw_pois(result):
-            dist = route.nearest(lat, lon, track).dist_m
+            nearest_pt = route.nearest(lat, lon, track)
+            dist_from_track = route.distance_m((lat, lon), nearest_pt)
+            if dist_from_track > POI_SAMPLE_M:
+                continue
+            ofs_m = nearest_pt.dist_m
             found.append((
-                dist,
+                ofs_m,
                 model.Poi(
                     osm_type=osm_type, osm_id=osm_id,
                     lat=lat, long=lon,

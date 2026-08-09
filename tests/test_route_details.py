@@ -136,6 +136,20 @@ def test_fetch_poi_copies_tags_off_the_overpy_element() -> None:
     assert result.nodes[0].tags["natural"] == "mutated"
 
 
+def test_fetch_poi_filters_pois_beyond_corridor() -> None:
+    """POIs farther than POI_SAMPLE_M from the track are dropped."""
+    rd, _ = make_rd(result_from(
+        # ~55 m from track - inside corridor
+        node(1, 48.0005, 24.00, natural="peak"),
+        # ~445 m from track - outside corridor (POI_SAMPLE_M=350)
+        node(2, 48.004, 24.01, natural="spring"),
+    ))
+    pois = rd._fetch_poi(TRACK)
+
+    assert len(pois) == 1
+    assert pois[0].osm_id == 1
+
+
 def test_fetch_poi_empty_track_returns_empty_without_querying() -> None:
     rd, captured = make_rd(result_from())
     assert rd._fetch_poi(()) == ()
