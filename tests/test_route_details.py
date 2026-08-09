@@ -12,7 +12,10 @@ import pytest
 
 from backpack import model
 from backpack.overpass import Overpass
-from backpack.route_details import POI_FILTERS, POI_SAMPLE_M, RouteDetails
+from backpack.poi_tiles import tile_bbox, tile_of, tiles_for_track
+from backpack.route_details import (
+    POI_FILTERS, POI_SAMPLE_M, TILE_BATCH, RouteDetails,
+)
 
 
 def track_point(lat: float, long: float, dist_m: float) -> model.TrackPoint:
@@ -59,19 +62,19 @@ def result_from(*elements: dict[str, object]) -> overpy.Result:
 
 def make_rd(
     result: overpy.Result | Exception,
-) -> tuple[RouteDetails, dict[str, str]]:
+) -> tuple[RouteDetails, dict[str, list[str]]]:
     """A RouteDetails whose Overpass.query is stubbed.
 
-    The stub records the QL it receives in the returned dict under "ql", and
-    either returns result or raises it when it is an exception.
+    The stub records every QL it receives in the returned dict under "qls",
+    and either returns result or raises it when it is an exception.
     """
     rd = RouteDetails()
-    captured: dict[str, str] = {}
+    captured: dict[str, list[str]] = {"qls": []}
 
     def fake_query(
         ql: str, timeout_s: float = 90, retries: int = 3
     ) -> overpy.Result:
-        captured["ql"] = ql
+        captured["qls"].append(ql)
         if isinstance(result, Exception):
             raise result
         return result
@@ -80,17 +83,28 @@ def make_rd(
     return rd, captured
 
 
-def test_fetch_poi_builds_the_around_query() -> None:
+def test_fetch_poi_builds_tile_bbox_query() -> None:
     rd, captured = make_rd(result_from())
     rd._fetch_poi(TRACK)
 
-    ql = captured["ql"]
+    qls = captured["qls"]
+    assert len(qls) >= 1
+    ql = qls[0]
     assert "[out:json]" in ql
     assert ql.strip().endswith("out center;")
-    assert f"nwr(around:{POI_SAMPLE_M * 1.118}," in ql
-    assert "48.0,24.0" in ql            # the sampled start coordinate
     for f in POI_FILTERS:
         assert f in ql
+    # Must contain bbox coordinates, not around: syntax
+    assert "around:" not in ql
+    assert "nwr" in ql
+    # Verify bbox format (s,w,n,e) appears
+    tiles = tiles_for_track(
+        ((48.0, 24.0), (48.0, 24.01), (48.0, 24.02)),
+        POI_SAMPLE_M,
+    )
+    for tile in list(tiles)[:1]:
+        s, w, n, e = tile_bbox(tile)
+        assert f"{s},{w},{n},{e}" in ql
 
 
 def test_fetch_poi_returns_pois_sorted_from_the_start() -> None:
@@ -153,10 +167,43 @@ def test_fetch_poi_filters_pois_beyond_corridor() -> None:
 def test_fetch_poi_empty_track_returns_empty_without_querying() -> None:
     rd, captured = make_rd(result_from())
     assert rd._fetch_poi(()) == ()
-    assert "ql" not in captured
+    assert captured["qls"] == []
 
 
 def test_fetch_poi_translates_abort_to_cancelled() -> None:
     rd, _ = make_rd(Overpass.Aborted())
     with pytest.raises(CancelledError):
         rd._fetch_poi(TRACK)
+
+
+def test_fetch_poi_drops_elements_outside_requested_tiles() -> None:
+    """Elements whose center lands in a tile not in the batch are dropped."""
+    # This node is far from the track - its tile is not in the set
+    # computed by tiles_for_track, so it should be dropped even if
+    # Overpass returns it.
+    rd, _ = make_rd(result_from(
+        node(1, 48.0005, 24.00, natural="peak"),
+        node(99, 10.0, 10.0, natural="spring"),
+    ))
+    pois = rd._fetch_poi(TRACK)
+
+    assert all(p.osm_id != 99 for p in pois)
+
+
+def test_fetch_poi_batches_tiles() -> None:
+    """With more tiles than TILE_BATCH, multiple queries are issued."""
+    # Build a long track that spans many tiles
+    long_track = tuple(
+        track_point(48.0, 24.0 + i * 0.05, i * 3700.0)
+        for i in range(20)
+    )
+    tiles = tiles_for_track(
+        tuple((p.lat, p.long) for p in long_track),
+        POI_SAMPLE_M,
+    )
+    expected_batches = (len(tiles) + TILE_BATCH - 1) // TILE_BATCH
+
+    rd, captured = make_rd(result_from())
+    rd._fetch_poi(long_track)
+
+    assert len(captured["qls"]) == expected_batches

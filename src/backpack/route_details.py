@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from concurrent.futures import CancelledError, Future, ThreadPoolExecutor
 from typing import Literal
 
@@ -7,10 +7,12 @@ import overpy
 
 from . import model, route
 from .overpass import Overpass
+from .poi_tiles import PoiTile, tile_bbox, tile_of, tiles_for_track
 
 logger = logging.getLogger(__name__)
 
 POI_SAMPLE_M = 350.0
+TILE_BATCH = 12
 POI_FILTERS = (
     '[natural~"peak|spring|saddle|cave_entrance|water"]',
     '[tourism~"viewpoint|alpine_hut|wilderness_hut'
@@ -20,17 +22,16 @@ POI_FILTERS = (
     '[historic]',
 )
 
-def _poi_query(
-    sampled_track: tuple[tuple[float, float], ...],
-) -> str:
-    """Build Overpass QL querying POIs around the sampled track."""
-    around = ",".join(
-        f"{lat},{lon}" for lat, lon in sampled_track
-    )
-    body = "\n".join(
-        f"  nwr(around:{POI_SAMPLE_M * 1.118},{around}){f};"
-        for f in POI_FILTERS
-    )
+
+def _poi_query(tiles: Iterable[PoiTile]) -> str:
+    """Build Overpass QL querying POIs in a batch of tile bboxes."""
+    lines: list[str] = []
+    for tile in tiles:
+        s, w, n, e = tile_bbox(tile)
+        bbox = f"{s},{w},{n},{e}"
+        for f in POI_FILTERS:
+            lines.append(f"  nwr{f}({bbox});")
+    body = "\n".join(lines)
     return f"[out:json][timeout:180];\n(\n{body}\n);\nout center;\n"
 
 
@@ -70,6 +71,17 @@ def _raw_pois(
             )
 
 
+def _batch_tiles(
+    tiles: frozenset[PoiTile], batch_size: int
+) -> list[list[PoiTile]]:
+    """Split tiles into batches of at most batch_size."""
+    ordered = sorted(tiles, key=lambda t: (t.x, t.y))
+    return [
+        ordered[i:i + batch_size]
+        for i in range(0, len(ordered), batch_size)
+    ]
+
+
 class RouteDetails:
     """Loads route detail data off the mainloop, hiding the Overpass client. """
 
@@ -104,27 +116,43 @@ class RouteDetails:
     def _fetch_poi(
         self, track: tuple[model.TrackPoint, ...]
     ) -> tuple[model.Poi, ...]:
-        """Query Overpass for POIs near the track. Runs on a worker thread.
+        """Query Overpass for POIs near the track via tile bboxes.
 
-        Sampled every POI_SAMPLE_M along the track, searched within a  slightly
-        larger radius so that discrete sampling does not miss features between
-        sample points. The actual corridor filter is applied locally: only POIs
-        within POI_SAMPLE_M of the track are kept. Each POI is assigned ofs_m
-        (position along the route) for sorting; ofs_m is not stored on the Poi
-        value object.
+        Computes tiles covering a corridor of POI_SAMPLE_M around the track,
+        batches them into groups of TILE_BATCH, queries Overpass for each batch
+        and assigns returned elements to tiles by their center coordinate
+        (dropping any whose center falls outside the requested batch). The
+        corridor filter is applied locally: only POIs within POI_SAMPLE_M of
+        the track are kept.
         """
         sampled_track = route.sample(track, POI_SAMPLE_M)
         if not sampled_track:
             return ()
-        try:
-            result = self._overpass.query(_poi_query(sampled_track))
-        except Overpass.Aborted:
-            raise CancelledError from None
+
+        tiles = tiles_for_track(sampled_track, POI_SAMPLE_M)
+        batches = _batch_tiles(tiles, TILE_BATCH)
+
+        raw: list[tuple[
+            Literal["n", "w", "r"], int, float, float,
+            dict[str, str]
+        ]] = []
+        for batch in batches:
+            batch_set = frozenset(batch)
+            try:
+                result = self._overpass.query(_poi_query(batch))
+            except Overpass.Aborted:
+                raise CancelledError from None
+            for osm_type, osm_id, lat, lon, tags in _raw_pois(result):
+                if tile_of(lat, lon) not in batch_set:
+                    continue
+                raw.append((osm_type, osm_id, lat, lon, tags))
 
         found: list[tuple[float, model.Poi]] = []
-        for osm_type, osm_id, lat, lon, tags in _raw_pois(result):
+        for osm_type, osm_id, lat, lon, tags in raw:
             nearest_pt = route.nearest(lat, lon, track)
-            dist_from_track = route.distance_m((lat, lon), nearest_pt)
+            dist_from_track = route.distance_m(
+                (lat, lon), nearest_pt
+            )
             if dist_from_track > POI_SAMPLE_M:
                 continue
             ofs_m = nearest_pt.dist_m
