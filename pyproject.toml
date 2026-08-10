@@ -1,6 +1,6 @@
 [project]
 name = "backpack"
-version = "0.3"
+dynamic = ["version"]
 description = "Backpacking trip planner"
 requires-python = ">=3.14"
 dependencies = [
@@ -24,8 +24,15 @@ dev = [
 backpack = "backpack.main:main"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+fallback-version = "0"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/backpack/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/backpack"]
@@ -42,6 +49,10 @@ include = [
 
 [tool.mypy]
 strict = true
+
+[[tool.mypy.overrides]]
+module = "backpack._version"
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "webview.*"
