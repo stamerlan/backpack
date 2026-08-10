@@ -25,7 +25,9 @@ def get_poi(
 
     Returns None if no route has that id or its POIs are still loading.
     """
-    route = ctx.deps.doc.route(route_id)
-    if route is None or route.poi is None:
+    if ctx.deps.doc.route(route_id) is None:
         return None
-    return [asdict(p) for p in route.poi]
+    poi = ctx.deps.poi.get(route_id)
+    if poi is None:
+        return None
+    return [asdict(p) for p in poi]

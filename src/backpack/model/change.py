@@ -10,7 +10,7 @@ Document._apply just calls change.apply.
 
 from dataclasses import dataclass, replace
 from typing import Protocol
-from .data import ChatData, ChatTurn, Poi, RouteData, TrackPoint
+from .data import ChatData, ChatTurn, RouteData, TrackPoint
 from .store import State
 
 
@@ -82,17 +82,6 @@ class SetRouteTrack:
         r = state.route(self.route_id)
         if r is not None:
             state.put_route(replace(r, track=self.track))
-
-
-@dataclass(frozen=True, slots=True)
-class SetRoutePoi:
-    route_id: str
-    poi: tuple[Poi, ...] | None
-
-    def apply(self, state: State) -> None:
-        r = state.route(self.route_id)
-        if r is not None:
-            state.put_route(replace(r, poi=self.poi))
 
 
 @dataclass(frozen=True, slots=True)

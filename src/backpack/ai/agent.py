@@ -8,6 +8,7 @@ from .deps import Deps
 from .errors import AiError
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from .. import model
     from ..nominatim import Nominatim
     from ..storage import Storage
@@ -67,6 +68,7 @@ class Agent:
     async def ask(
         self,
         doc: "model.Document",
+        poi: "Mapping[str, tuple[model.Poi, ...]]",
         chat_id: str,
         model_id: str,
         prompt: str,
@@ -83,7 +85,7 @@ class Agent:
         if (chat := doc.chat(chat_id)) is None:
             raise AiError(f"No chat id:{chat_id}")
 
-        deps = Deps(self, doc, chat_id, model_id)
+        deps = Deps(self, doc, poi, chat_id, model_id)
         reply = list[str]()
         try:
             async with llm:

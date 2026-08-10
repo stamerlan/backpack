@@ -4,6 +4,7 @@ import logging
 import pathlib
 import threading
 import webview
+from collections.abc import Coroutine
 from concurrent.futures import CancelledError, Future
 from dataclasses import replace
 from typing import Any
@@ -35,6 +36,7 @@ class App:
         self.storage = storage
         self.nominatim = Nominatim()
         self.route_details = RouteDetails(storage.poi_cache)
+        self.poi: dict[str, tuple[model.Poi, ...]] = {}
         self.ai = ai.Agent(storage, self.nominatim)
         self.ai_models: asyncio.Future[tuple[ai.AiModel, ...]] = (
             mainloop.create_future()
@@ -45,7 +47,7 @@ class App:
         self._shutdown_lock = threading.Lock()
         self._shutdown_fut: Future[bool] | None = None
         self._settings_task: asyncio.Task[None] | None = None
-        self._ask_tasks: set[asyncio.Task[None]] = set()
+        self._tasks: set[asyncio.Task[None]] = set()
 
     def start(self, window: webview.Window) -> None:
         """Bind the window and start application tasks."""
@@ -54,6 +56,16 @@ class App:
         self.js.start(window)
         self.running.set()
         logger.debug("app started")
+
+    def add_task(self, coro: Coroutine[Any, Any, None]) -> None:
+        """Schedule coro as a detached, tracked mainloop task.
+
+        Keeps a strong reference so the task is not garbage-collected mid
+        run, and drops it once it settles. Call from the mainloop.
+        """
+        task = asyncio.ensure_future(coro)
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
 
     def shutdown(self, force: bool = False) -> "Future[bool]":
         """Start shutting the app down. Safe to call from any thread.
@@ -83,8 +95,8 @@ class App:
                 self.api.shutdown()
                 self.js.shutdown()
 
-                # cancel running agents
-                for task in list(self._ask_tasks):
+                # cancel running agents and pending detail loads
+                for task in list(self._tasks):
                     self.mainloop.call_soon_threadsafe(task.cancel)
 
                 self.nominatim.cancel()
@@ -162,13 +174,14 @@ class App:
         if not await self._show_save_dialog():
             return
 
-        # cancel running agents
-        for task in list(self._ask_tasks):
+        # cancel running agents and pending detail loads
+        for task in list(self._tasks):
             task.cancel()
 
         doc = model.Document()
         doc.subscribe(self.on_change)
         self.doc = doc
+        self.poi = {}
         self.filepath = None
         models = await self.ai_models
         self._reset_ui(doc, models)
@@ -210,12 +223,13 @@ class App:
             )
             return False
 
-        # cancel running agents
-        for task in list(self._ask_tasks):
+        # cancel running agents and pending detail loads
+        for task in list(self._tasks):
             task.cancel()
 
         doc.subscribe(self.on_change)
         self.doc = doc
+        self.poi = {}
         self.filepath = filepath
         models = await self.ai_models
         self._reset_ui(doc, models)
@@ -225,8 +239,7 @@ class App:
                 ed.apply(model.AddChat(chat))
             self.ui.assist.set_active_chat(chat.id)
         for r in doc.routes():
-            if r.poi is None:
-                self._load_route_details(doc, r.id, r.track)
+            self.add_task(self.load_route_details(r.id, r.track))
         doc.mark_saved()
         self._add_recent_item(filepath, doc)
         return True
@@ -502,7 +515,7 @@ class App:
             card: model.ChatCard | None = None
             try:
                 await self.ai.ask(
-                    doc, chat_id, model_id, prompt,
+                    doc, self.poi, chat_id, model_id, prompt,
                     on_text=on_text, on_think=on_think,
                 )
             except ai.AiError as e:
@@ -538,12 +551,8 @@ class App:
             self.ui.assist.end_turn(chat_id)
 
         # Run the agent detached so this call returns at once and the frontend
-        # action chain is freed while the run streams. Keep a reference so the
-        # task is not garbage-collected mid-run, and drop it (and log any
-        # escaping error) once it settles.
-        task = asyncio.ensure_future(do_ask())
-        self._ask_tasks.add(task)
-        task.add_done_callback(self._ask_tasks.discard)
+        # action chain is freed while the run streams.
+        self.add_task(do_ask())
 
     async def set_trip_info(
         self, card_id: str, title: str, notes: str
@@ -581,7 +590,7 @@ class App:
                     )
                     with self.doc.edit(self) as ed:
                         ed.apply(model.AddRoute(r))
-                    self._load_route_details(self.doc, r.id, r.track)
+                    self.add_task(self.load_route_details(r.id, r.track))
                 except Exception as e:
                     logger.exception(f'Failed to load "{filepath}"')
                     name = pathlib.Path(filepath).name
@@ -612,47 +621,49 @@ class App:
         with self.doc.edit(self.api) as ed:
             ed.apply(model.MoveRoute(card_id, after_id))
 
-    def _load_route_details(
-        self, doc: model.Document, route_id: str,
-        track: tuple[model.TrackPoint, ...]
+    async def load_route_details(
+        self, route_id: str, track: tuple[model.TrackPoint, ...]
     ) -> None:
-        """Start loading a route's details and reflect it in the UI."""
-        if not track:
-            return
-        self.ui.set_route_loading(route_id, True)
-        fut = self.route_details.load_poi(track)
+        """Load one route's POIs and store them, reflecting it in the UI.
 
-        def on_loaded(fut: Future[tuple[model.Poi, ...]]) -> None:
+        The fetch runs on the route-details pool but this coroutine runs on
+        the mainloop, so self.poi is only ever rebound here, without a lock.
+        Route ids are unique across documents, so a completion that lands
+        after the document changed just adds an entry no current route reads;
+        it is dropped on the next new or open.
+        """
+        async def retry_poi(route_id: str, error: Exception) -> bool:
+            """Prompt to retry a failed POI load; return True to retry."""
+            route = self.doc.route(route_id)
+            name = route.title if route else route_id
+            notify_fut = self.ui.notify(
+                f"{name}: {error}",
+                intent="error",
+                title="Could not load route details",
+                actions=[NotifyAction("Retry", result="retry")]
+            )
             try:
-                if fut.cancelled():
-                    return
-                poi = fut.result()
-                if doc is self.doc and doc.route(route_id):
-                    with doc.edit(self) as ed:
-                        ed.apply(model.SetRoutePoi(route_id, poi))
+                action = await asyncio.wrap_future(notify_fut)
             except CancelledError:
-                return # aborted while shutting down
-            except Exception as e:
-                logger.exception(f"route_id:{route_id} POI load failed")
-                route = doc.route(route_id)
-                name = route.title if route else route_id
-                notify_fut = self.ui.notify(
-                    f"{name}: {e}",
-                    intent="error",
-                    title="Could not load route details",
-                    actions=[NotifyAction("Retry", result="retry")]
-                )
+                return False
+            return bool(action == "retry")
 
-                def retry(notify_fut: Future[Any]) -> None:
-                    if notify_fut.cancelled():
-                        return
-                    if notify_fut.result() == "retry":
-                        self._load_route_details(doc, route_id, track)
-                notify_fut.add_done_callback(retry)
-            finally:
+        while True:
+            self.ui.set_route_loading(route_id, True)
+            try:
+                poi = await self.route_details.load_poi(track)
+            except CancelledError:
                 self.ui.set_route_loading(route_id, False)
-
-        fut.add_done_callback(on_loaded)
+                return
+            except Exception as e:
+                self.ui.set_route_loading(route_id, False)
+                logger.exception(f"route_id:{route_id} POI load failed")
+                if await retry_poi(route_id, e):
+                    continue
+                return
+            self.poi = {**self.poi, route_id: poi}
+            self.ui.set_route_loading(route_id, False)
+            return
 
     def on_change(self, change: model.Change, origin: model.Origin) -> None:
         if isinstance(change, model.AddRoute):
@@ -673,6 +684,10 @@ class App:
                 if r is not None:
                     self.ui.set_route_card(r.id, r.title, r.notes)
         elif isinstance(change, model.RemoveRoute):
+            self.poi = {
+                rid: p for rid, p in self.poi.items()
+                if rid != change.route_id
+            }
             if origin is not self.api:
                 self.ui.remove_card(change.route_id)
         elif isinstance(change, model.MoveRoute):

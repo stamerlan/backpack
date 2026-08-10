@@ -4,6 +4,7 @@ _fetch_poi runs against a stubbed Overpass, so no request leaves the machine:
 the query string is captured and a canned overpy result is returned. The
 transport itself is covered by test_overpass.
 """
+import asyncio
 import json
 import threading
 import time
@@ -402,13 +403,15 @@ def test_inflight_dedup_avoids_double_fetch(
 
     rd._overpass.query = slow_query  # type: ignore[method-assign]
 
-    f1 = rd.load_poi(TRACK)
-    # Wait until the first worker has entered the query, then
-    # submit the second load so it finds tiles already in-flight.
-    entered.wait(timeout=5)
-    f2 = rd.load_poi(TRACK)
-    f1.result(timeout=10)
-    f2.result(timeout=10)
+    async def run() -> None:
+        t1 = asyncio.ensure_future(rd.load_poi(TRACK))
+        # Wait until the first worker has entered the query, then
+        # submit the second load so it finds tiles already in-flight.
+        await asyncio.to_thread(entered.wait, 5)
+        t2 = asyncio.ensure_future(rd.load_poi(TRACK))
+        await asyncio.gather(t1, t2)
+
+    asyncio.run(run())
 
     # Both workers share the same tiles, so at most one set of
     # Overpass queries should be issued (the second worker waits on

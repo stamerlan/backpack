@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
 from collections.abc import Iterable, Iterator
@@ -113,16 +114,18 @@ class RouteDetails:
             max_workers=1, thread_name_prefix="poi-refresh"
         )
 
-    def load_poi(
+    async def load_poi(
         self, track: tuple[model.TrackPoint, ...]
-    ) -> Future[tuple[model.Poi, ...]]:
-        """Start loading POIs near track and return the pending future.
+    ) -> tuple[model.Poi, ...]:
+        """Load POIs near track, resolving on the caller's event loop.
 
-        The future resolves to the POIs found (an empty tuple when
-        none), or fails with CancelledError if the service is
-        cancelled while it runs.
+        The fetch runs on the internal pool; awaiting it hands the result back
+        without blocking the caller's loop. Returns the POIs found (an  empty
+        tuple when none), or raises CancelledError if the service is cancelled
+        while it runs.
         """
-        return self._pool.submit(self._fetch_poi, track)
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(self._pool, self._fetch_poi, track)
 
     def cancel(self) -> None:
         """Abort in-flight loads and stop accepting new ones.

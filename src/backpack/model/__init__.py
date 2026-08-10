@@ -108,7 +108,6 @@ from .change import (
     SetChatTitle,
     SetDocInfo,
     SetRouteInfo,
-    SetRoutePoi,
     SetRouteTrack,
 )
 
@@ -136,7 +135,6 @@ __all__ = [
     "SetChatTitle",
     "SetDocInfo",
     "SetRouteInfo",
-    "SetRoutePoi",
     "SetRouteTrack",
     "TrackPoint",
 ]

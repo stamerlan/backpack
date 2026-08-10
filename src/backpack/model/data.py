@@ -45,10 +45,10 @@ class Poi:
 
 @dataclass(frozen=True, slots=True)
 class RouteData:
-    """One route: its description, its sampled track and its POIs.
+    """One route: its description and its sampled track.
 
-    poi is None while it has not been loaded yet (fetched lazily after the
-    track); an empty tuple means loaded but nothing was found near the route.
+    POIs are derived from the track and are not persisted on the route; the
+    controller keeps them in a transient map keyed by route id (App.poi).
     """
 
     @staticmethod
@@ -58,7 +58,6 @@ class RouteData:
     title: str = ""
     notes: str = ""
     track: tuple[TrackPoint, ...] = ()
-    poi: tuple[Poi, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)

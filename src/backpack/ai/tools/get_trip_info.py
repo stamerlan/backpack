@@ -61,8 +61,9 @@ def get_trip_info(
                     ),
                 } | (
                     {"poi": (
-                        [asdict(p) for p in r.poi]
-                        if r.poi is not None else None
+                        [asdict(p) for p in found]
+                        if (found := ctx.deps.poi.get(r.id))
+                        is not None else None
                     )} if poi else {}
                 )
                 for r in ctx.deps.doc.routes()
