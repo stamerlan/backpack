@@ -1,11 +1,12 @@
-from typing import Callable, TYPE_CHECKING
+import logging
+from typing import Any, Callable, TYPE_CHECKING
 
 import pydantic_ai
 import pydantic_ai.capabilities
 
 from . import prompts, provider, tools
-from .deps import Deps
 from .errors import AiError
+from .assist_run import AssistRun
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -13,41 +14,16 @@ if TYPE_CHECKING:
     from ..nominatim import Nominatim
     from ..storage import Storage
 
-
-def _build_history(
-    chat: "model.ChatData",
-) -> list[pydantic_ai.ModelMessage]:
-    """Map persisted chat turns to pydantic-ai message history.
-
-    Each turn contributes the user prompt and a single assistant message with
-    its reply blocks joined. A turn that produced no reply (e.g. a failed run)
-    is skipped so the history never carries a dangling user message. Thinking
-    and card items never enter the LLM context.
-    """
-    from ..model.data import ChatReply
-
-    messages = list[pydantic_ai.ModelMessage]()
-    for turn in chat.turns:
-        reply = "".join(
-            it.text for it in turn.items if isinstance(it, ChatReply)
-        )
-        if not reply:
-            continue
-        messages.append(pydantic_ai.ModelRequest(
-            parts=[pydantic_ai.UserPromptPart(content=turn.prompt)]
-        ))
-        messages.append(pydantic_ai.ModelResponse(
-            parts=[pydantic_ai.TextPart(content=reply)]
-        ))
-    return messages
+logger = logging.getLogger(__name__)
 
 
 class Agent:
     def __init__(self, storage: "Storage", nominatim: "Nominatim") -> None:
         self.storage = storage
         self.nominatim = nominatim
-        self.agent = pydantic_ai.Agent[Deps, str](
-            deps_type=Deps,
+        self._runs: dict[str, AssistRun] = {}
+        self.agent = pydantic_ai.Agent[AssistRun, str](
+            deps_type=AssistRun,
             instructions=prompts.SYSTEM,
             capabilities=[
                 pydantic_ai.capabilities.Thinking(effort="medium"),
@@ -72,74 +48,60 @@ class Agent:
         chat_id: str,
         model_id: str,
         prompt: str,
-        on_text: Callable[[str], None] = lambda _: None,
-        on_think: Callable[[str], None] = lambda _: None,
-        on_tool: Callable[[str], None] = lambda _: None,
-    ) -> str:
-        """Run the agent and stream tokens back via callbacks.
+        on_text: Callable[[str], Any] = lambda text: None,
+        on_think: Callable[[str], Any] = lambda text: None,
+        on_tool: Callable[[str], Any] = lambda text: None,
+    ) -> "tuple[model.ChatItem, ...]":
+        """Run one assistant turn and return the items it produced.
 
-        on_tool is called with the tool function name each time the
-        model invokes a tool, so the caller can emit a status card.
+        Reply and thinking tokens are streamed live through the callbacks and
+        also accumulated into the returned items, which the caller commits to
+        the document. A model failure is turned into a trailing error card, so
+        a returned list always describes a finished turn. Stopping the run (see
+        stop) instead raises asyncio.CancelledError so the caller can drop it.
+
+        on_tool is called with the tool function name each time the model
+        invokes a tool, so the caller can emit a status card.
         """
+        logger.debug(f"chat_id:{chat_id} model_id:{model_id!r}")
         llm = await provider.build_model(model_id, self.storage)
         if (chat := doc.chat(chat_id)) is None:
             raise AiError(f"No chat id:{chat_id}")
 
-        deps = Deps(self, doc, poi, chat_id, model_id)
-        reply = list[str]()
+        # Register the run so stop() can cancel it. Only one run per chat is
+        # expected, but cancel any earlier one to stay safe.
+        run = AssistRun(self, doc, poi, chat_id, model_id, prompt, llm,
+            on_text=on_text, on_think=on_think, on_tool=on_tool,
+        )
+        if (prev := self._runs.get(chat_id)) is not None:
+            prev.stop()
+        self._runs[chat_id] = run
+
         try:
-            async with llm:
-                async with self.agent.run_stream_events(
-                    prompt,
-                    deps=deps,
-                    model=llm,
-                    message_history=_build_history(chat),
-                ) as events:
-                    async for ev in events:
-                        self._dispatch_event(
-                            ev, reply, on_text, on_think, on_tool
-                        )
-        except AiError:
-            raise
+            await run.stream(chat)
+            if not run.has_reply():
+                raise AiError("The model returned an empty reply.", True)
+        except AiError as e:
+            logger.exception(e.message)
+            run.add_error(e.message, e.retryable)
         except Exception as e:
-            raise AiError.convert(e) from e
+            logger.exception("assist run failed")
+            err = AiError.convert(e)
+            run.add_error(err.message, err.retryable)
+        finally:
+            if self._runs.get(chat_id) is run:
+                del self._runs[chat_id]
 
-        if not reply:
-            raise AiError("The model returned an empty reply.", True)
-        return "".join(reply)
+        return tuple(run.items)
 
-    def _dispatch_event(
-        self,
-        ev: object,
-        reply: list[str],
-        on_text: Callable[[str], None],
-        on_think: Callable[[str], None],
-        on_tool: Callable[[str], None],
-    ) -> None:
-        match ev:
-            case pydantic_ai.PartStartEvent(
-                part=pydantic_ai.TextPart(content=text)
-            ) if text:
-                reply.append(text)
-                on_text(text)
-            case pydantic_ai.PartDeltaEvent(
-                delta=pydantic_ai.TextPartDelta(content_delta=text)
-            ) if text:
-                reply.append(text)
-                on_text(text)
-            case pydantic_ai.PartStartEvent(
-                part=pydantic_ai.ThinkingPart(content=text)
-            ) if text:
-                on_think(text)
-            case pydantic_ai.PartDeltaEvent(
-                delta=pydantic_ai.ThinkingPartDelta(content_delta=text)
-            ) if text:
-                on_think(text)
-            case pydantic_ai.FunctionToolCallEvent(part=part):
-                on_tool(part.tool_name)
+    def stop(self, chat_id: str) -> None:
+        """Stop the in-flight run for a chat, if one is running."""
+        logger.debug(f"chat_id:{chat_id}")
+        if (run := self._runs.get(chat_id)) is not None:
+            run.stop()
 
     def _get_chat_title(
-        self, ctx: pydantic_ai.RunContext[Deps]
+        self, ctx: pydantic_ai.RunContext[AssistRun]
     ) -> str:
         chat = ctx.deps.doc.chat(ctx.deps.chat_id)
         if chat is None or not chat.title:

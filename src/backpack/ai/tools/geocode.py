@@ -4,12 +4,12 @@ from geopy.exc import GeopyError
 from pydantic_ai import RunContext
 
 from ...nominatim import Nominatim
-from ..deps import Deps
+from ..assist_run import AssistRun
 
 logger = logging.getLogger(__name__)
 
 
-def geocode(ctx: RunContext[Deps], query: str) -> dict[str, object] | str:
+def geocode(ctx: RunContext[AssistRun], query: str) -> dict[str, object] | str:
     """Resolve a place name to coordinates via OpenStreetMap.
 
     Use to put a named place on the map: a village, pass, lake, hut or trail

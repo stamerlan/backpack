@@ -48,6 +48,7 @@ interface Api {
   ask_assist(
     chat_id: string, model_id: string, prompt: string
   ): Promise<unknown>;
+  stop_assist(chat_id: string): Promise<unknown>;
 }
 
 const api = new Proxy({} as Api, {

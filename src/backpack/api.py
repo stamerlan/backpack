@@ -129,3 +129,7 @@ class Api:
         frontend calls.
         """
         self._app.add_task(self._app.ask_assist(chat_id, model_id, prompt))
+
+    @api_method
+    def stop_assist(self, chat_id: str) -> Coroutine[Any, Any, Any]:
+        return self._app.stop_assist(chat_id)

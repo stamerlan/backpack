@@ -1,12 +1,12 @@
 from pydantic_ai import RunContext
 
 from ... import model
-from ..deps import Deps
+from ..assist_run import AssistRun
 from .get_trip_info import get_trip_info
 
 
 def set_route_info(
-    ctx: RunContext[Deps],
+    ctx: RunContext[AssistRun],
     route_id: str,
     title: str | None = None,
     notes: str | None = None,

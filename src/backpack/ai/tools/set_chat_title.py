@@ -1,10 +1,10 @@
 from pydantic_ai import RunContext
 
 from ... import model
-from ..deps import Deps
+from ..assist_run import AssistRun
 
 
-def set_chat_title(ctx: RunContext[Deps], title: str) -> str:
+def set_chat_title(ctx: RunContext[AssistRun], title: str) -> str:
     """Set a short title for this chat tab.
 
     Use a concise label of a few words that captures the topic of the

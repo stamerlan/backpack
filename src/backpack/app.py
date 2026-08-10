@@ -466,21 +466,13 @@ class App:
     async def ask_assist(
         self, chat_id: str, model_id: str, prompt: str
     ) -> None:
-        """Run one assistant turn, streaming replies to the frontend."""
-        def on_text(text: str) -> None:
-            if items and isinstance(items[-1], model.ChatReply):
-                items[-1] = model.ChatReply(items[-1].text + text)
-            else:
-                items.append(model.ChatReply(text))
-            self.ui.assist.append_reply(chat_id, text)
+        """Run one assistant turn, streaming replies to the frontend.
 
-        def on_think(text: str) -> None:
-            if items and isinstance(items[-1], model.ChatThinking):
-                items[-1] = model.ChatThinking(items[-1].text + text)
-            else:
-                items.append(model.ChatThinking(text))
-            self.ui.assist.append_thinking(chat_id, text)
-
+        The agent streams thinking and reply tokens through the callbacks and
+        returns the finished items (including a trailing error card on failure),
+        which are committed as one turn. A stopped run raises CancelledError
+        instead, so the turn is dropped and the chat left idle.
+        """
         def card_action(fut: Future[Any]) -> None:
             try:
                 action_id = fut.result()
@@ -503,51 +495,45 @@ class App:
                 asyncio.run_coroutine_threadsafe(_retry(), self.mainloop)
 
         logger.debug(f"chat_id:{chat_id} model_id:{model_id!r}")
-        items = list[model.ChatItem]()
-
         if self.doc.chat(chat_id) is None:
             return
 
         turn_id = model.ChatTurn.unique_id()
         self.ui.assist.new_turn(chat_id, turn_id, prompt)
 
-        card: model.ChatCard | None = None
         try:
-            await self.ai.ask(
+            items = await self.ai.ask(
                 self.doc, self.poi, chat_id, model_id, prompt,
-                on_text=on_text, on_think=on_think
+                on_text=lambda text: self.ui.assist.append_reply(chat_id, text),
+                on_think=(
+                    lambda text: self.ui.assist.append_thinking(chat_id, text)
+                )
             )
-        except ai.AiError as e:
-            logger.exception(e.message)
-            card = model.ChatCard(
-                card_kind="error",
-                text=e.message,
-                actions=(
-                    model.ChatCardAction(
-                        id="retry", label="Retry", appearance="primary"
-                    ),
-                ) if e.retryable else ()
-            )
-        except CancelledError:
+        except asyncio.CancelledError:
+            # Stopped by the user: drop the streamed turn and clear the busy
+            # state so the frontend can restore the prompt for editing.
+            self.ui.assist.del_turn(chat_id, turn_id)
+            self.ui.assist.end_turn(chat_id)
             return
-        except Exception as e:
-            logger.exception("assist run failed")
-            card = model.ChatCard(
-                card_kind="error",
-                text=str(e) or type(e).__name__
-            )
 
-        if card is not None:
-            items.append(card)
-
-        turn = model.ChatTurn(id=turn_id, prompt=prompt, items=tuple(items))
+        turn = model.ChatTurn(turn_id, prompt, items)
         with self.doc.edit(self.ai) as ed:
             ed.apply(model.AppendChatTurn(chat_id, turn))
 
-        if card is not None:
-            fut = self.ui.assist.add_card(chat_id, card)
-            fut.add_done_callback(card_action)
+        for item in items:
+            if isinstance(item, model.ChatCard):
+                fut = self.ui.assist.add_card(chat_id, item)
+                fut.add_done_callback(card_action)
         self.ui.assist.end_turn(chat_id)
+
+    async def stop_assist(self, chat_id: str) -> None:
+        """Stop the assistant run for a chat, if one is in flight.
+
+        The stopped run drops its streamed turn and clears the busy state,
+        leaving the chat ready for the next prompt.
+        """
+        logger.debug(f"chat_id:{chat_id}")
+        self.ai.stop(chat_id)
 
     async def set_trip_info(self, card_id: str, title: str, notes: str) -> None:
         logger.debug(f"card_id:{card_id} title:{title!r} notes:{notes!r}")

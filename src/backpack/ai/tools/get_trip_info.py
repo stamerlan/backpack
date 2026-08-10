@@ -3,11 +3,11 @@ from dataclasses import asdict
 from pydantic_ai import RunContext
 
 from ... import route
-from ..deps import Deps
+from ..assist_run import AssistRun
 
 
 def get_trip_info(
-    ctx: RunContext[Deps], poi: bool = False
+    ctx: RunContext[AssistRun], poi: bool = False
 ) -> dict[str, object]:
     """Return the whole trip: title, notes and every route.
 

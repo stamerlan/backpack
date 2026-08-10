@@ -2,11 +2,11 @@ from dataclasses import asdict
 
 from pydantic_ai import RunContext
 
-from ..deps import Deps
+from ..assist_run import AssistRun
 
 
 def get_poi(
-    ctx: RunContext[Deps], route_id: str
+    ctx: RunContext[AssistRun], route_id: str
 ) -> list[dict[str, object]] | None:
     """Return the points of interest near one route.
 

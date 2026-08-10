@@ -6,12 +6,12 @@ from pydantic_ai import RunContext
 
 from ... import route
 from .. import prompts
-from ..deps import Deps
+from ..assist_run import AssistRun
 
 logger = logging.getLogger(__name__)
 
 
-def google_maps(ctx: RunContext[Deps], query: str) -> str:
+def google_maps(ctx: RunContext[AssistRun], query: str) -> str:
     """Ask about real-world places near the trip via Google Maps.
 
     Use for huts, shelters, water, shops, campsites, viewpoints, opening hours,

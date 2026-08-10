@@ -4,13 +4,13 @@ from geopy.exc import GeopyError
 from pydantic_ai import RunContext
 
 from ...nominatim import Nominatim
-from ..deps import Deps
+from ..assist_run import AssistRun
 
 logger = logging.getLogger(__name__)
 
 
 def reverse_geocode(
-    ctx: RunContext[Deps], lat: float, long: float
+    ctx: RunContext[AssistRun], lat: float, long: float
 ) -> dict[str, object] | str:
     """Resolve coordinates to a place name and address via OpenStreetMap.
 

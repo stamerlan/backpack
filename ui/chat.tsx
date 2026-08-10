@@ -206,6 +206,7 @@ export function Chat(props: {
   const [sending, set_sending] = useState(false);
   const log_ref = useRef<HTMLDivElement>(null);
   const input_ref = useRef<HTMLTextAreaElement>(null);
+  const sent_ref = useRef("");
   const idle = !props.busy && !sending;
 
   const model_label = props.models.find(
@@ -255,10 +256,23 @@ export function Chat(props: {
     const text = prompt.trim();
     if (!text || !idle)
       return;
+    sent_ref.current = text;
     set_sending(true);
     set_prompt("");
     void api.ask_assist(props.chat_id, props.selected_model, text)
       .finally(() => set_sending(false));
+  }
+
+  /* Stop the running turn: cancel the backend run and, if the composer is
+   * empty, drop the sent prompt back in so the user can edit and resend. The
+   * backend removes the streamed turn once the run is cancelled.
+   */
+  function stop(): void {
+    void api.stop_assist(props.chat_id);
+    if (sent_ref.current && prompt.trim().length === 0) {
+      set_prompt(sent_ref.current);
+      input_ref.current?.focus();
+    }
   }
 
   function on_keydown(e: ReactKeyboardEvent<HTMLTextAreaElement>): void {
@@ -355,11 +369,11 @@ export function Chat(props: {
               appearance="primary"
               size="small"
               shape="circular"
-              icon={icon("send", 18)}
-              disabled={prompt.trim().length == 0 || !idle}
-              title="Send"
-              aria-label="Send message"
-              onClick={submit}
+              icon={idle ? icon("send", 18) : icon("stop", 18)}
+              disabled={idle && prompt.trim().length == 0}
+              title={idle ? "Send" : "Stop"}
+              aria-label={idle ? "Send message" : "Stop assistant"}
+              onClick={idle ? submit : stop}
             />
           </div>
           <div className="chat-composer-bar">
