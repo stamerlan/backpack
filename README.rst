@@ -60,3 +60,36 @@ From ``ui/``, Vitest runs the frontend tests once::
     npm test
 
 Use ``npm run test:watch`` from ``ui/`` to re-run them as files change.
+
+Packaging
+---------
+
+Standalone packages are built with PyInstaller, which cannot cross compile, so
+build on the target OS. Install the packaging tools once::
+
+    .venv\Scripts\python.exe -m pip install --editable ".[pkg]"
+
+Then build the frontend and the package in one step::
+
+    .venv\Scripts\python.exe scripts\build.py
+
+The result lands in ``dist/``: a ``backpack`` folder with
+``backpack.exe`` on Windows and a ``backpack.app`` bundle on macOS. Pass
+``--onefile`` for a single executable, ``--archive`` to zip a versioned
+copy, ``--console`` to keep a console window for debugging, and
+``--skip-frontend`` to reuse an existing ``assets/`` build.
+
+Remove the build output and caches with::
+
+    .venv\Scripts\python.exe scripts\clean.py
+
+macOS Gatekeeper
+----------------
+
+The macOS package is not signed with an Apple Developer ID or notarized, so a
+downloaded ``backpack.app`` is quarantined and macOS refuses to open it with a
+"damaged and can't be opened" message. Clear the quarantine flag once, then open
+it normally::
+
+    xattr -dr com.apple.quarantine /path/to/backpack.app
+    open /path/to/backpack.app

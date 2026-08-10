@@ -3,6 +3,8 @@ name: CI
 on:
   push:
     branches: [master]
+    tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -26,7 +28,7 @@ jobs:
         run: python -m pip install --upgrade pip && pip install -e ".[dev]"
 
       - name: Run pytest
-        run: python -m pytest --junitxml=pytest-report.xml
+        run: make pytest EXTRA_PYTEST_ARGS="--junitxml=pytest-report.xml"
 
       - name: Upload pytest report
         if: always()
@@ -38,9 +40,6 @@ jobs:
   ui-tests:
     name: UI tests
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ui
     steps:
       - uses: actions/checkout@v5
 
@@ -53,13 +52,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        working-directory: ui
 
       - name: Run Vitest
         run: >-
-          npx vitest run
-          --reporter=default
-          --reporter=junit
-          --outputFile.junit=vitest-report.xml
+          make vitest EXTRA_VITEST_ARGS="--reporter=default --reporter=junit
+          --outputFile.junit=vitest-report.xml"
 
       - name: Upload Vitest report
         if: always()
@@ -67,6 +65,82 @@ jobs:
         with:
           name: vitest-report
           path: ui/vitest-report.xml
+
+  build:
+    name: Build ${{ matrix.os }} package
+    # Runs on a manual dispatch or a v* tag, once both test suites pass.
+    # fail-fast cancels the other OS so a broken build never gets released.
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || startsWith(github.ref, 'refs/tags/v')
+    needs: [python-tests, ui-tests]
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: backpack-windows-x64
+          - os: macos-latest
+            artifact: backpack-macos-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install package with dev extras
+        run: python -m pip install --upgrade pip && pip install -e ".[dev]"
+
+      - name: Install make
+        if: runner.os == 'Windows'
+        run: |
+          winget install -e --id GnuWin32.Make `
+            --accept-source-agreements --accept-package-agreements
+          echo "C:\Program Files (x86)\GnuWin32\bin" >> $env:GITHUB_PATH
+
+      - name: Build package
+        run: make dist
+
+      - name: Upload package
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/*.zip
+
+  release:
+    name: Publish release
+    # Only for v* tags; a manual dispatch just leaves the artifacts.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@v8
+        with:
+          pattern: backpack-*
+          path: packages
+          merge-multiple: true
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: packages/*.zip
+          fail_on_unmatched_files: true
 
   report:
     name: Test report
