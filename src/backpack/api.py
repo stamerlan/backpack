@@ -120,7 +120,12 @@ class Api:
         return self._app.del_chat(chat_id)
 
     @api_method
-    def ask_assist(
+    async def ask_assist(
         self, chat_id: str, model_id: str, prompt: str
-    ) -> Coroutine[Any, Any, Any]:
-        return self._app.ask_assist(chat_id, model_id, prompt)
+    ) -> None:
+        """Schedule the assistant run.
+
+        The task is run in mainloop, while this call finishes fast to unblock
+        frontend calls.
+        """
+        self._app.add_task(self._app.ask_assist(chat_id, model_id, prompt))

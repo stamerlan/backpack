@@ -466,16 +466,7 @@ class App:
     async def ask_assist(
         self, chat_id: str, model_id: str, prompt: str
     ) -> None:
-        logger.debug(f"chat_id:{chat_id} model_id:{model_id!r}")
-        doc = self.doc
-        if doc.chat(chat_id) is None:
-            return
-
-        turn_id = model.ChatTurn.unique_id()
-        self.ui.assist.new_turn(chat_id, turn_id, prompt)
-
-        items = list[model.ChatItem]()
-
+        """Run one assistant turn, streaming replies to the frontend."""
         def on_text(text: str) -> None:
             if items and isinstance(items[-1], model.ChatReply):
                 items[-1] = model.ChatReply(items[-1].text + text)
@@ -508,55 +499,57 @@ class App:
                         return
                     with self.doc.edit(self.api) as ed:
                         ed.apply(model.RemoveChatTurn(chat_id, turn_id))
-                    await self.ask_assist(chat_id, model_id, prompt)
+                    self.add_task(self.ask_assist(chat_id, model_id, prompt))
                 asyncio.run_coroutine_threadsafe(_retry(), self.mainloop)
 
-        async def do_ask() -> None:
-            card: model.ChatCard | None = None
-            try:
-                await self.ai.ask(
-                    doc, self.poi, chat_id, model_id, prompt,
-                    on_text=on_text, on_think=on_think,
-                )
-            except ai.AiError as e:
-                logger.exception(e.message)
-                card = model.ChatCard(
-                    card_kind="error",
-                    text=e.message,
-                    actions=(
-                        model.ChatCardAction(
-                            id="retry", label="Retry", appearance="primary"
-                        ),
-                    ) if e.retryable else ()
-                )
-            except CancelledError:
-                return
-            except Exception as e:
-                logger.exception("assist run failed")
-                card = model.ChatCard(
-                    card_kind="error",
-                    text=str(e) or type(e).__name__
-                )
+        logger.debug(f"chat_id:{chat_id} model_id:{model_id!r}")
+        items = list[model.ChatItem]()
 
-            if card is not None:
-                items.append(card)
+        if self.doc.chat(chat_id) is None:
+            return
 
-            turn = model.ChatTurn(id=turn_id, prompt=prompt, items=tuple(items))
-            with doc.edit(self.ai) as ed:
-                ed.apply(model.AppendChatTurn(chat_id, turn))
+        turn_id = model.ChatTurn.unique_id()
+        self.ui.assist.new_turn(chat_id, turn_id, prompt)
 
-            if card is not None:
-                fut = self.ui.assist.add_card(chat_id, card)
-                fut.add_done_callback(card_action)
-            self.ui.assist.end_turn(chat_id)
+        card: model.ChatCard | None = None
+        try:
+            await self.ai.ask(
+                self.doc, self.poi, chat_id, model_id, prompt,
+                on_text=on_text, on_think=on_think
+            )
+        except ai.AiError as e:
+            logger.exception(e.message)
+            card = model.ChatCard(
+                card_kind="error",
+                text=e.message,
+                actions=(
+                    model.ChatCardAction(
+                        id="retry", label="Retry", appearance="primary"
+                    ),
+                ) if e.retryable else ()
+            )
+        except CancelledError:
+            return
+        except Exception as e:
+            logger.exception("assist run failed")
+            card = model.ChatCard(
+                card_kind="error",
+                text=str(e) or type(e).__name__
+            )
 
-        # Run the agent detached so this call returns at once and the frontend
-        # action chain is freed while the run streams.
-        self.add_task(do_ask())
+        if card is not None:
+            items.append(card)
 
-    async def set_trip_info(
-        self, card_id: str, title: str, notes: str
-    ) -> None:
+        turn = model.ChatTurn(id=turn_id, prompt=prompt, items=tuple(items))
+        with self.doc.edit(self.ai) as ed:
+            ed.apply(model.AppendChatTurn(chat_id, turn))
+
+        if card is not None:
+            fut = self.ui.assist.add_card(chat_id, card)
+            fut.add_done_callback(card_action)
+        self.ui.assist.end_turn(chat_id)
+
+    async def set_trip_info(self, card_id: str, title: str, notes: str) -> None:
         logger.debug(f"card_id:{card_id} title:{title!r} notes:{notes!r}")
         with self.doc.edit(self.api) as ed:
             ed.apply(model.SetDocInfo(title=title, notes=notes))
