@@ -37,6 +37,7 @@
 .settings-control-group {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 4px;
   flex: 0 0 var(--settings-control-width);
 }
@@ -57,4 +58,15 @@
 .fui-Dropdown.settings-control {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* Read-only version value on the right of its row. Selectable so it can be
+ * copied into a bug report, and it wraps rather than pushing the row wider.
+ */
+.settings-version {
+  min-width: 0;
+  color: var(--colorNeutralForeground2);
+  text-align: right;
+  word-break: break-all;
+  user-select: text;
 }

@@ -62,6 +62,8 @@ interface Request {
   key_set: boolean;
   /* Size of the POI tile cache file in bytes, or 0 when empty. */
   poi_cache_bytes: number;
+  /* App version string, shown read-only at the foot of the dialog. */
+  version: string;
 }
 
 const THEME_OPTIONS = [
@@ -98,6 +100,7 @@ export function SettingsDialog() {
         initial_theme: theme,
         key_set: settings?.gemini_api_key_set === true,
         poi_cache_bytes,
+        version: get_str(settings?.version, ""),
       });
       set_open(true);
     });
@@ -257,6 +260,22 @@ export function SettingsDialog() {
                   </div>
                 </div>
               </Card>
+
+              {req.version && (
+                <Card>
+                  <div className="settings-row">
+                    <div className="settings-text">
+                      <Label className="settings-label">Version</Label>
+                      <span className="settings-hint">
+                        The running build of Backpack.
+                      </span>
+                    </div>
+                    <div className="settings-control-group">
+                      <span className="settings-version">{req.version}</span>
+                    </div>
+                  </div>
+                </Card>
+              )}
             </div>
           </DialogContent>
           <DialogActions>

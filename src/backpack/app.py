@@ -10,7 +10,7 @@ from dataclasses import replace
 from typing import Any
 from uuid import uuid4
 
-from backpack import ai, model, route
+from backpack import APP_VERSION, ai, model, route
 from backpack.api import Api
 from backpack.js_worker import JsWorker
 from backpack.nominatim import Nominatim
@@ -400,6 +400,7 @@ class App:
                 "theme": self.storage.settings.theme,
                 "gemini_api_key_set": bool(key),
                 "poi_cache_bytes": poi_cache_bytes,
+                "version": APP_VERSION,
             }
 
             new_settings = await asyncio.wrap_future(
