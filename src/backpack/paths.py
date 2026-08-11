@@ -10,10 +10,10 @@ system may purge ~/Library/Caches on its own, which is fine for tiles and fatal
 for settings. Neither function creates the directory: that is up to whoever
 writes.
 
-Bundled resources - assets_dir. Read-only files shipped with the app, found by
-probing the packaging layout rather than an OS convention. Unlike the
-writable-dir helpers it touches the filesystem and raises if the frontend has
-not been built.
+Bundled resources - assets_dir and locales_dir. Read-only files shipped with the
+app, found by probing the packaging layout rather than an OS convention. Unlike
+the writable-dir helpers, assets_dir touches the filesystem and raises if the
+frontend has not been built.
 """
 import os
 import sys
@@ -60,6 +60,17 @@ def assets_dir() -> Path:
         if (assets / "index.html").is_file():
             return assets
     raise FileNotFoundError("assets not found, run: npm run build")
+
+
+def locales_dir() -> Path:
+    """Locate the bundled gettext catalogs, <tag>/LC_MESSAGES within."""
+    base = getattr(sys, "_MEIPASS", None)
+    dirs = [Path(base)] if base else Path(__file__).resolve().parents
+    for d in dirs:
+        locales = d / "locales"
+        if locales.is_dir():
+            return locales
+    return dirs[0] / "locales"
 
 
 def app_icon_path(name: str | None = None) -> str | None:
