@@ -10,6 +10,7 @@ dependencies = [
     "keyring>=25.7,<26",
     "overpy>=0.7,<1",
     "pydantic-ai-slim[google]>=2.21,<3",
+    "babel>=2.18,<3",
 ]
 readme = "README.rst"
 
