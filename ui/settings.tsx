@@ -59,6 +59,10 @@ interface Request {
    * to put back whatever was active when it opened.
    */
   initial_theme: string;
+  /* Selecting a locale previews it live too, so a dismissed dialog has to
+   * put back whatever was active when it opened.
+   */
+  initial_locale: string;
   /* Whether the credential store holds a key. Only then is there something
    * to replace or remove.
    */
@@ -76,6 +80,15 @@ const THEME_OPTIONS = [
   { value: "system", key: "settings.theme.system" },
   { value: "light", key: "settings.theme.light" },
   { value: "dark", key: "settings.theme.dark" },
+] as const;
+
+/* Locale values and their catalog keys; labels are translated at render
+ * time so a locale switch relabels the dropdown. "system" follows the OS.
+ */
+const LOCALE_OPTIONS = [
+  { value: "system", key: "settings.locale.system" },
+  { value: "en", key: "settings.locale.en" },
+  { value: "ru", key: "settings.locale.ru" },
 ] as const;
 
 /* Read a string field from the untyped settings, falling back to a default. */
@@ -113,6 +126,7 @@ export function SettingsDialog() {
         },
         resolve,
         initial_theme: theme,
+        initial_locale: locale,
         key_set: settings?.gemini_api_key_set === true,
         poi_cache_bytes,
         version: get_str(settings?.version, ""),
@@ -127,9 +141,11 @@ export function SettingsDialog() {
   if (req === null)
     return null;
 
-  const { gemini_api_key, theme, clear_poi_cache } = req.values;
+  const { gemini_api_key, theme, locale, units, clear_poi_cache } = req.values;
   const selected_theme =
     THEME_OPTIONS.find((o) => o.value === theme) ?? THEME_OPTIONS[0];
+  const selected_locale =
+    LOCALE_OPTIONS.find((o) => o.value === locale) ?? LOCALE_OPTIONS[0];
   /* The remove button doubles as its own undo, so the removal stays pending
    * until the dialog is saved and Cancel needs no special handling.
    */
@@ -147,8 +163,10 @@ export function SettingsDialog() {
    * idempotent, so the close paths need no guard against each other.
    */
   const close = (values: SettingsValues | null): void => {
-    if (values === null)
+    if (values === null) {
       void api.set_theme(req.initial_theme);
+      void api.set_locale(req.initial_locale, req.values.units);
+    }
     set_open(false);
     req.resolve(values);
     /* Let the exit animation finish before dropping the dialog. */
@@ -245,6 +263,44 @@ export function SettingsDialog() {
                       }}
                     >
                       {THEME_OPTIONS.map((option) => (
+                        <Option key={option.value} value={option.value}>
+                          {t(option.key)}
+                        </Option>
+                      ))}
+                    </Dropdown>
+                  </div>
+                </div>
+              </Card>
+
+              <Card>
+                <div className="settings-row">
+                  <div className="settings-text">
+                    <Label className="settings-label"
+                      htmlFor="settings-locale">
+                      {t("settings.locale.label")}
+                    </Label>
+                    <span className="settings-hint">
+                      {t("settings.locale.hint")}
+                    </span>
+                  </div>
+                  <div className="settings-control-group">
+                    <Dropdown
+                      id="settings-locale"
+                      className="settings-control"
+                      inlinePopup
+                      positioning={{ strategy: "fixed" }}
+                      value={t(selected_locale.key)}
+                      selectedOptions={[selected_locale.value]}
+                      onOptionSelect={(_event, data) => {
+                        const tag = data.optionValue ?? "system";
+                        set_value({ locale: tag });
+                        /* Preview it through the backend so it reloads the
+                         * message catalog and re-pushes the locale.
+                         */
+                        void api.set_locale(tag, units);
+                      }}
+                    >
+                      {LOCALE_OPTIONS.map((option) => (
                         <Option key={option.value} value={option.value}>
                           {t(option.key)}
                         </Option>

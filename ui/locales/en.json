@@ -34,6 +34,13 @@
       "light": "Light",
       "dark": "Dark"
     },
+    "locale": {
+      "label": "Language",
+      "hint": "Choose the interface language.",
+      "system": "Follow system",
+      "en": "English",
+      "ru": "Русский"
+    },
     "poi": {
       "label": "Cached points of interest",
       "hint_clearing": "Will be cleared when you save.",
