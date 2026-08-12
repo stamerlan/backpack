@@ -1,9 +1,14 @@
 import "@testing-library/jest-dom/vitest";
-import { afterEach } from "vitest";
-import { cleanup } from "@testing-library/react";
+import "./i18n";
 
-/* unmount between tests hands the ui-api entries back to their defaults */
-afterEach(cleanup);
+/* No afterEach(cleanup) here on purpose. React Testing Library registers its
+ * own cleanup afterEach the first time a spec imports it, and test.globals
+ * makes that fire. Keeping this shared setup file free of suite-scoped hooks
+ * means a mid-run Vite module-runner reload cannot re-run a hook before the
+ * runner exists, which is what made every suite fail to find its runner. It
+ * also must not import @testing-library/react, or that auto-cleanup would
+ * register here, during setup, and bring the hazard back.
+ */
 
 /* Fluent UI queries these APIs; jsdom does not implement them. */
 if (!window.matchMedia) {

@@ -5,6 +5,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./ui-api";
+import "./i18n";
 import "./styles.css";
 import { App } from "./app";
 

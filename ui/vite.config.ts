@@ -18,6 +18,7 @@ export default defineConfig({
     strictPort: true,
   },
   test: {
+    globals: true,
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
     css: false,
