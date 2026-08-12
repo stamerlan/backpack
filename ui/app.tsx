@@ -1,6 +1,6 @@
 /* The window shell: the app bar over the notification strip, the document
  * with the assistant beside it, and the menu, dialogs and busy overlay that
- * lie on top. It owns the theme every one of them is drawn in.
+ * lie on top. It owns the theme and the locale every one of them is drawn in.
  *
  * Properties:
  *   - (none): index.tsx mounts it.
@@ -13,6 +13,9 @@
  *     the bridge: system, light or dark.
  *   - sys_theme_dark: Whether the OS asks for a dark theme, tracked so
  *     "system" follows it without a restart.
+ *   - locale: The last set_locale push (tag and resolved units). Holding it
+ *     forces a tree re-render after i18n swaps elev_str and dist_str, so every
+ *     number is redrawn in the new system.
  */
 import { useEffect, useState } from "react";
 import {
@@ -28,9 +31,15 @@ import { DialogHost } from "./dialog-host";
 import { Menu } from "./menu";
 import { NotifyHost } from "./notify";
 import { SettingsDialog } from "./settings";
+import type { LocaleDetail } from "./i18n";
 import "./app.css";
 
 type ThemeMode = "system" | "light" | "dark";
+
+interface Locale {
+  tag: string;
+  units: string;
+}
 
 export function App() {
   const [menu_open, set_menu_open] = useState(false);
@@ -40,6 +49,10 @@ export function App() {
   const [sys_theme_dark, set_sys_theme_dark] = useState(
     () => window.matchMedia("(prefers-color-scheme: dark)").matches
   );
+  const [locale, set_locale] = useState<Locale>({
+    tag: "en",
+    units: "metric",
+  });
 
   /* Track the OS preference so "Follow system" reacts without a restart. */
   useEffect(() => {
@@ -57,6 +70,15 @@ export function App() {
     return () => { window.set_theme_mode = () => {}; };
   }, []);
 
+  useEffect(() => {
+    const on_locale = (event: CustomEvent<LocaleDetail>): void => {
+      const { tag, units } = event.detail;
+      set_locale({ tag, units });
+    };
+    window.addEventListener("set_locale", on_locale);
+    return () => window.removeEventListener("set_locale", on_locale);
+  }, []);
+
   const is_dark_theme = (
     theme_mode === "dark" || (theme_mode === "system" && sys_theme_dark)
   );
@@ -65,6 +87,8 @@ export function App() {
     <FluentProvider
       theme={is_dark_theme ? webDarkTheme : webLightTheme}
       className="app"
+      data-locale={locale.tag}
+      data-units={locale.units}
     >
       <AppBar
         title={title}
