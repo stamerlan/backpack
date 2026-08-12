@@ -37,6 +37,7 @@ import {
   Spinner,
   Text,
 } from "@fluentui/react-components";
+import { useTranslation } from "react-i18next";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import api from "./api";
@@ -74,60 +75,18 @@ export interface AiModel {
   name: string;
 }
 
-interface Suggestion {
-  title: string;
-  description: string;
-  prompt: string;
-}
-
-const SUGGESTIONS: Suggestion[] = [
-  {
-    title: "Trip overview",
-    description: "Fill in titles and notes",
-    prompt:
-      "Write a short overview of this trip into the trip notes, and give " +
-      "each route a clear title and summary. Find huts, shelters, campsites, " +
-      "water sources and other POI near my route, with access and opening " +
-      "details. Include as much details as possible including terrain, " +
-      "scenery, water sources."
-  },
-  {
-    title: "Getting there",
-    description: "Access, shuttles, bailouts",
-    prompt:
-      "How do I get to the start and back from the end of this route - " +
-      "parking, shuttles and public transport - and where are the bailout " +
-      "points?"
-  },
-  {
-    title: "Packing list",
-    description: "Gear for terrain and season",
-    prompt:
-      "Build a packing list for this route and season, and show where I can " +
-      "cut base weight."
-  },
-  {
-    title: "Meals and water",
-    description: "Calories, weight, refill points",
-    prompt:
-      "Plan meals for each day with nutrition and pack weight, and mark " +
-      "where I can refill water."
-  },
-  {
-    title: "Difficulty and pace",
-    description: "Effort, daily distance, tips&tricks",
-    prompt:
-      "Assess the difficulty and daily pacing of this route for my fitness, " +
-      "give some tips and tricks."
-  },
-  {
-    title: "Hazards and permits",
-    description: "Safety, closures, regulations",
-    prompt:
-      "List hazards, permit requirements and seasonal closures along this " +
-      "route."
-  },
-];
+/* Suggestion ids, each backed by a title, description and prompt under
+ * chat.suggest in the catalog. The prompt is dropped into the composer, so
+ * it is translated like the labels rather than sent verbatim in English.
+ */
+const SUGGESTION_IDS = [
+  "overview",
+  "access",
+  "packing",
+  "meals",
+  "difficulty",
+  "hazards",
+] as const;
 
 export interface ThinkingItem {
   kind: "thinking";
@@ -166,6 +125,7 @@ function ThinkingBlock(props: {
   text: string;
   finished: boolean;
 }) {
+  const { t } = useTranslation();
   const [folded, set_folded] = useState(false);
 
   useEffect(() => {
@@ -184,7 +144,7 @@ function ThinkingBlock(props: {
         <span className={mergeClasses("chevron", folded && "folded")}>
           {icon("chevron", 12)}
         </span>
-        <span>Thinking</span>
+        <span>{t("chat.thinking")}</span>
       </button>
       <div className={mergeClasses("chat-thought-body", folded && "folded")}>
         <Markdown className="chat-thought-text" text={props.text} />
@@ -202,6 +162,7 @@ export function Chat(props: {
   selected_model: string;
   on_model_change: (id: string) => void;
 }) {
+  const { t } = useTranslation();
   const [prompt, set_prompt] = useState("");
   const [sending, set_sending] = useState(false);
   const log_ref = useRef<HTMLDivElement>(null);
@@ -211,7 +172,14 @@ export function Chat(props: {
 
   const model_label = props.models.find(
     (m) => m.id === props.selected_model
-  )?.name ?? "Model";
+  )?.name ?? t("chat.model");
+
+  const suggestions = SUGGESTION_IDS.map((id) => ({
+    id,
+    title: t(`chat.suggest.${id}.title`),
+    description: t(`chat.suggest.${id}.description`),
+    prompt: t(`chat.suggest.${id}.prompt`),
+  }));
 
   const turns = props.turns;
 
@@ -292,12 +260,12 @@ export function Chat(props: {
           {turns.length === 0 && (
             <div className="chat-welcome">
               <Text size={500} weight="bold" align="center" block>
-                What should we plan?
+                {t("chat.welcome")}
               </Text>
               <div className="chat-suggest">
-                {SUGGESTIONS.map((s) => (
+                {suggestions.map((s) => (
                   <CompoundButton
-                    key={s.title}
+                    key={s.id}
                     className="chat-suggest-item"
                     appearance="subtle"
                     secondaryContent={s.description}
@@ -358,7 +326,7 @@ export function Chat(props: {
               ref={input_ref}
               className="chat-input"
               rows={2}
-              placeholder="Ask the assistant..."
+              placeholder={t("chat.placeholder")}
               value={prompt}
               onChange={(e) => set_prompt(e.target.value)}
               onKeyDown={on_keydown}
@@ -371,8 +339,8 @@ export function Chat(props: {
               shape="circular"
               icon={idle ? icon("send", 18) : icon("stop", 18)}
               disabled={idle && prompt.trim().length == 0}
-              title={idle ? "Send" : "Stop"}
-              aria-label={idle ? "Send message" : "Stop assistant"}
+              title={idle ? t("chat.send") : t("chat.stop")}
+              aria-label={idle ? t("chat.send_aria") : t("chat.stop_aria")}
               onClick={idle ? submit : stop}
             />
           </div>
@@ -403,8 +371,8 @@ export function Chat(props: {
             <button
               type="button"
               className="icon-btn"
-              title="Delete chat"
-              aria-label="Delete current chat"
+              title={t("chat.delete")}
+              aria-label={t("chat.delete_aria")}
               onClick={() => void api.del_chat(props.chat_id)}
             >
               {icon("trash", 15)}

@@ -60,5 +60,54 @@
       "cyclosm": "CyclOSM | (C) OpenStreetMap contributors",
       "satellite": "Tiles (C) Esri, Maxar, Earthstar Geographics"
     }
+  },
+  "assist": {
+    "label": "AI assistant",
+    "resize": "Drag to resize",
+    "new_chat": "New chat"
+  },
+  "chat": {
+    "thinking": "Thinking",
+    "welcome": "What should we plan?",
+    "model": "Model",
+    "placeholder": "Ask the assistant...",
+    "send": "Send",
+    "send_aria": "Send message",
+    "stop": "Stop",
+    "stop_aria": "Stop assistant",
+    "delete": "Delete chat",
+    "delete_aria": "Delete current chat",
+    "suggest": {
+      "overview": {
+        "title": "Trip overview",
+        "description": "Fill in titles and notes",
+        "prompt": "Write a short overview of this trip into the trip notes, and give each route a clear title and summary. Find huts, shelters, campsites, water sources and other POI near my route, with access and opening details. Include as much details as possible including terrain, scenery, water sources."
+      },
+      "access": {
+        "title": "Getting there",
+        "description": "Access, shuttles, bailouts",
+        "prompt": "How do I get to the start and back from the end of this route - parking, shuttles and public transport - and where are the bailout points?"
+      },
+      "packing": {
+        "title": "Packing list",
+        "description": "Gear for terrain and season",
+        "prompt": "Build a packing list for this route and season, and show where I can cut base weight."
+      },
+      "meals": {
+        "title": "Meals and water",
+        "description": "Calories, weight, refill points",
+        "prompt": "Plan meals for each day with nutrition and pack weight, and mark where I can refill water."
+      },
+      "difficulty": {
+        "title": "Difficulty and pace",
+        "description": "Effort, daily distance, tips&tricks",
+        "prompt": "Assess the difficulty and daily pacing of this route for my fitness, give some tips and tricks."
+      },
+      "hazards": {
+        "title": "Hazards and permits",
+        "description": "Safety, closures, regulations",
+        "prompt": "List hazards, permit requirements and seasonal closures along this route."
+      }
+    }
   }
 }

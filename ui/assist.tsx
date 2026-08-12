@@ -19,6 +19,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { mergeClasses, Tab, TabList } from "@fluentui/react-components";
+import { useTranslation } from "react-i18next";
 import api from "./api";
 import { icon } from "./icon";
 import { Chat, type AiModel, type Turn, type TurnItem } from "./chat";
@@ -72,6 +73,7 @@ function drop_key<V>(
 export function Assist(props: {
   open: boolean;
 }) {
+  const { t } = useTranslation();
   const [chats, set_chats] = useState<ChatMeta[]>([]);
   const [active, set_active] = useState("");
   const [models, set_models] = useState<AiModel[]>([]);
@@ -124,8 +126,7 @@ export function Assist(props: {
         set_busy({});
       },
       new_chat(chat_id, title) {
-        set_chats((all) =>
-          [...all, { id: chat_id, title: title || "New chat" }]);
+        set_chats((all) => [...all, { id: chat_id, title }]);
       },
       del_chat(chat_id) {
         set_chats((all) => all.filter((c) => c.id !== chat_id));
@@ -216,12 +217,12 @@ export function Assist(props: {
         resizing && "resizing",
       )}
       style={props.open ? { width: `${width}px` } : undefined}
-      aria-label="AI assistant"
+      aria-label={t("assist.label")}
       inert={!props.open ? true : undefined}
     >
       <div
         className={mergeClasses("assist-handle", resizing && "active")}
-        title="Drag to resize"
+        title={t("assist.resize")}
         onPointerDown={(e) => {
           e.preventDefault();
           set_resizing(true);
@@ -238,7 +239,7 @@ export function Assist(props: {
               onTabSelect={(_e, d) => set_active(d.value as string)}
             >
               {chats.map((c) => {
-                const label = c.title || "New chat";
+                const label = c.title || t("assist.new_chat");
                 return (
                   <Tab key={c.id} value={c.id} title={label}>
                     {label.length > 30 ? label.slice(0, 28) + "..." : label}
@@ -249,8 +250,8 @@ export function Assist(props: {
             <button
               type="button"
               className="icon-btn"
-              title="New chat"
-              aria-label="New chat"
+              title={t("assist.new_chat")}
+              aria-label={t("assist.new_chat")}
               onClick={() => { void api.add_chat(); }}
             >
               {icon("doc-add", 16)}
