@@ -35,6 +35,7 @@ declare global {
     clear_notify(): void;
     set_busy(busy: boolean, label?: string): void;
     set_theme_mode(mode: string): void;
+    set_locale(tag: string, units: string): void;
   }
 }
 
@@ -52,3 +53,4 @@ window.notify = not_mounted("notify host");
 window.clear_notify = () => {};
 window.set_busy = () => {};
 window.set_theme_mode = () => {};
+window.set_locale = () => {};

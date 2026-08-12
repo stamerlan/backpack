@@ -151,8 +151,12 @@ class App:
         return task
 
     async def on_loaded(self) -> None:
-        # load locale
+        # load locale and push it to the frontend, seeding its units state
         i18n.load([self.storage.settings.locale] + system_locales())
+        units = self.storage.settings.units
+        if units not in ("metric", "imperial"):
+            units = i18n.units
+        self.ui.set_locale(i18n.tag, units)
 
         # enumerate models in the background; it might take a while
         self.ai_models = asyncio.ensure_future(ai.enum_models())

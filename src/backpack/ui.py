@@ -104,6 +104,18 @@ class UI:
         """
         return self.js.submit("set_theme_mode", (mode,))
 
+    def set_locale(self, tag: str, units: str) -> "Future[Any]":
+        """Apply the active locale and units to the frontend.
+
+        Mirrors set_theme: this is the single place the locale is pushed, so
+        the frontend can switch its catalog and seed its units state on startup
+        and after a language change.
+
+        :param str tag: BCP-47 tag of the active locale, e.g. "en-US" or "ru".
+        :param str units: measurement system, "metric" or "imperial".
+        """
+        return self.js.submit("set_locale", (tag, units))
+
     def show_settings_dialog(self, settings: dict[str, Any]) -> "Future[Any]":
         """Open the settings dialog, resolving to the edited values or None.
 
