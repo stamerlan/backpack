@@ -61,6 +61,58 @@ From ``ui/``, Vitest runs the frontend tests once::
 
 Use ``npm run test:watch`` from ``ui/`` to re-run them as files change.
 
+Translations
+------------
+
+User facing Python strings are wrapped in ``i18n.gettext`` (or ``ngettext`` for
+plurals), extracted with Babel into gettext catalogs under ``locales/``, and
+negotiated at runtime against the OS locale. English is the source language and
+the message id, so a missing catalog or entry falls back to the English text and
+the app runs without any compiled catalog. Supported languages are listed in
+``SUPPORTED_LANG`` in ``src/backpack/i18n.py``; the frontend keeps its own
+catalogs under ``ui/locales/``.
+
+Each language owns a catalog at ``locales/<lang>/LC_MESSAGES/backpack.po``.
+The extraction config lives in ``babel.cfg`` and all commands run from the
+repository root.
+
+After changing or adding wrapped strings, refresh the template and merge the new
+messages into every existing catalog::
+
+    pybabel extract -F babel.cfg -o locales/backpack.pot .
+    pybabel update -i locales/backpack.pot -d locales -D backpack
+
+``update`` marks changed entries ``fuzzy``; edit the ``msgstr`` values in each
+``.po`` and drop the ``fuzzy`` flag once a translation is confirmed.
+
+To add a new backend language, extend ``SUPPORTED_LANG`` in
+``src/backpack/i18n.py``, create its catalog from the template, then fill in the
+translations (``ru`` shown here)::
+
+    pybabel init -i locales/backpack.pot -d locales -D backpack -l ru
+
+Compile every catalog to the binary ``.mo`` files the app loads. Run this after
+any ``.po`` edit and before packaging (``make locales`` wraps it)::
+
+    pybabel compile -d locales -D backpack
+
+Commit the ``.pot`` and ``.po`` sources; the generated ``.mo`` files are build
+artifacts.
+
+The frontend keeps its own catalogs as plain JSON under ``ui/locales/``, one
+file per language (``en.json``, ``ru.json``), loaded by i18next in
+``ui/i18n.ts``. There is no extraction step: keys are added by hand as strings
+are wrapped in ``t("...")``, with English as the source and fallback, so a
+missing key renders its English text. After editing a wrapped string, mirror the
+key in every ``ui/locales/*.json`` file.
+
+To add the same language on the frontend, copy ``ui/locales/en.json`` to
+``ui/locales/<lang>.json``, translate its values, then register the language in
+``ui/i18n.ts`` by adding it to ``supported_languages`` and importing it into the
+i18next ``resources`` map. Both sides negotiate against the same tag, so add a
+language to the backend ``SUPPORTED_LANG`` and the frontend
+``supported_languages`` together.
+
 Packaging
 ---------
 

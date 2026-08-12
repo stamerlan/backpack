@@ -84,6 +84,9 @@ def main() -> None:
         "--specpath", args.workpath,
         "--paths", str(SRCTREE / "src"),
         "--add-data", f"{SRCTREE / "assets"}{os.pathsep}assets",
+        # Compiled gettext catalogs (.mo) live under locales/; ship the tree so
+        # locales_dir() can find them at runtime. Run "make locales" first.
+        "--add-data", f"{SRCTREE / "locales"}{os.pathsep}locales",
         # pywebview loads its native backend and, on Windows, the bundled
         # WebView2 loader at runtime, so pull in the whole package.
         "--collect-all", "webview",

@@ -1,5 +1,6 @@
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +28,7 @@ class NpmBuildHook(BuildHookInterface):
         root = Path(self.root)
         ui = root / "ui"
         assets = root / "assets"
+        locales = root / "locales"
 
         # An sdist ships ui/, a tree with prebuilt assets may not
         if ui.is_dir():
@@ -40,3 +42,13 @@ class NpmBuildHook(BuildHookInterface):
             raise RuntimeError(f"no built frontend at {assets}")
 
         build_data["force_include"][str(assets)] = "backpack/assets"
+
+        if locales.is_dir():
+            subprocess.run(
+                [
+                    sys.executable, "-m", "babel.messages.frontend",
+                    "compile", "-d", str(locales), "-D", "backpack",
+                ],
+                check=True
+            )
+            build_data["force_include"][str(locales)] = "backpack/locales"

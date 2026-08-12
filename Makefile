@@ -4,12 +4,16 @@ MAKEFILE_DIR := $(patsubst %/,%,$(dir $(MAKEFILE_PATH)))
 PYTHON := python
 
 .PHONY: all
-all: assets
+all: assets locales
 
 .PHONY: assets
 assets:
 	npm --prefix $(MAKEFILE_DIR)/ui install
 	npm --prefix $(MAKEFILE_DIR)/ui run build
+
+.PHONY: locales
+locales:
+	$(PYTHON) -m babel.messages.frontend compile -d $(MAKEFILE_DIR)/locales -D backpack
 
 .PHONY: test
 test: pytest vitest
@@ -28,7 +32,7 @@ devenv: assets
 
 
 .PHONY: dist
-dist: assets
+dist: assets locales
 	$(PYTHON) $(MAKEFILE_DIR)/scripts/dist.py $(EXTRA_DIST_ARGS)
 
 .PHONY: clean

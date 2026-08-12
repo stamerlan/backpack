@@ -11,3 +11,4 @@ src/backpack/_version.py
 
 *.py[cod]
 *.spec
+*.mo
