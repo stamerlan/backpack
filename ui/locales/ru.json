@@ -45,5 +45,20 @@
     "eta": "В пути {{time}}",
     "elevation": "Высота",
     "slope": "Уклон"
+  },
+  "route_map": {
+    "resize": "Перетащите для изменения размера",
+    "layer": {
+      "opentopo": "OpenTopoMap",
+      "osm": "OpenStreetMap",
+      "cyclosm": "CyclOSM",
+      "satellite": "Спутник"
+    },
+    "attribution": {
+      "opentopo": "Данные карты: (C) участники OpenStreetMap, SRTM | Стиль карты: (C) OpenTopoMap (CC-BY-SA)",
+      "osm": "(C) участники OpenStreetMap",
+      "cyclosm": "CyclOSM | (C) участники OpenStreetMap",
+      "satellite": "Тайлы (C) Esri, Maxar, Earthstar Geographics"
+    }
   }
 }

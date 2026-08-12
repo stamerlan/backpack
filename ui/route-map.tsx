@@ -18,47 +18,41 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import * as leaflet from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./route-map.css";
 
 /* Base maps for the layer switcher; the first entry is the default. Every
  * layer shares MAX_ZOOM and declares its own native zoom, so Leaflet upscale
- * instead of blanking out when a provider runs out of levels.
+ * instead of blanking out when a provider runs out of levels. The switcher
+ * name and attribution live in the catalog under route_map.layer.<id> and
+ * route_map.attribution.<id>, so both follow a language switch.
  */
 const MAP_LAYERS = [
   {
     id: "opentopo",
-    label: "OpenTopoMap",
     url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
-    attribution:
-      "Map data: (C) OpenStreetMap contributors, SRTM | " +
-      "Map style: (C) OpenTopoMap (CC-BY-SA)",
     native_zoom: 17,
   },
   {
     id: "osm",
-    label: "OpenStreetMap",
     url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    attribution: "(C) OpenStreetMap contributors",
     native_zoom: 19,
   },
   {
     id: "cyclosm",
-    label: "CyclOSM",
     url:
       "https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/" +
       "{z}/{x}/{y}.png",
-    attribution: "CyclOSM | (C) OpenStreetMap contributors",
     native_zoom: 20,
   },
   {
     id: "satellite",
-    label: "Satellite",
     url:
       "https://server.arcgisonline.com/ArcGIS/rest/services/" +
       "World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    attribution: "Tiles (C) Esri, Maxar, Earthstar Geographics",
     native_zoom: 19,
   },
 ];
@@ -101,11 +95,22 @@ export interface MapOverlay {
   fit: Coord[] | null;   /* bounds to frame, or null to leave the view alone */
 }
 
+/* One base map: its spec, the Leaflet layer and the attribution currently
+ * registered on the map, kept so a language switch can swap it out.
+ */
+interface MapTile {
+  spec: (typeof MAP_LAYERS)[number];
+  layer: leaflet.TileLayer;
+  attribution: string;
+}
+
 /* The live map, built together on mount and torn down together. */
 interface MapCtl {
   map: leaflet.Map;
-  routes: leaflet.LayerGroup;   /* the trip's lines and end dots */
-  hover: leaflet.LayerGroup;    /* the dot echoing the profile cursor */
+  routes: leaflet.LayerGroup;     /* the trip's lines and end dots */
+  hover: leaflet.LayerGroup;      /* the dot echoing the profile cursor */
+  layers: leaflet.Control.Layers; /* the base-map switcher */
+  tiles: MapTile[];
   destroy(): void;
 }
 
@@ -121,18 +126,19 @@ function create_map(host: HTMLDivElement): MapCtl {
   });
   map.setView([20, 0], 2);
 
-  const choices: Record<string, leaflet.Layer> = {};
-  MAP_LAYERS.forEach((spec, index) => {
-    const tiles = leaflet.tileLayer(spec.url, {
-      attribution: spec.attribution,
+  /* Names and attributions come from the catalog, so build the tiles bare
+   * here and let apply_locale fill the switcher and attribution control.
+   */
+  const tiles: MapTile[] = MAP_LAYERS.map((spec, index) => {
+    const layer = leaflet.tileLayer(spec.url, {
       maxZoom: MAX_ZOOM,
       maxNativeZoom: spec.native_zoom,
     });
     if (index === 0)
-      tiles.addTo(map);
-    choices[spec.label] = tiles;
+      layer.addTo(map);
+    return { spec, layer, attribution: "" };
   });
-  leaflet.control.layers(choices).addTo(map);
+  const layers = leaflet.control.layers().addTo(map);
   map.attributionControl.setPrefix(false);
 
   const container = map.getContainer();
@@ -157,11 +163,35 @@ function create_map(host: HTMLDivElement): MapCtl {
     map,
     routes: leaflet.layerGroup().addTo(map),
     hover: leaflet.layerGroup().addTo(map),
+    layers,
+    tiles,
     destroy() {
       container.removeEventListener("wheel", on_wheel);
       map.remove();
     },
   };
+}
+
+/* Names the switcher entries and their attributions from the catalog. The
+ * switcher is rebuilt in order so a language switch keeps the layers stable,
+ * and the visible layer's attribution is swapped in place; Leaflet handles
+ * the rest as the user toggles layers, reading the updated layer options.
+ */
+function apply_locale(ctl: MapCtl, t: TFunction): void {
+  for (const tile of ctl.tiles)
+    ctl.layers.removeLayer(tile.layer);
+  for (const tile of ctl.tiles) {
+    const label = t(`route_map.layer.${tile.spec.id}`);
+    const attribution = t(`route_map.attribution.${tile.spec.id}`);
+    ctl.layers.addBaseLayer(tile.layer, label);
+    if (ctl.map.hasLayer(tile.layer)) {
+      if (tile.attribution !== "")
+        ctl.map.attributionControl.removeAttribution(tile.attribution);
+      ctl.map.attributionControl.addAttribution(attribution);
+    }
+    tile.layer.options.attribution = attribution;
+    tile.attribution = attribution;
+  }
 }
 
 function paint(ctl: MapCtl, overlay: MapOverlay): void {
@@ -196,6 +226,7 @@ export function RouteMap(props: {
   overlay: MapOverlay;
   hover?: Coord | null;
 }) {
+  const { t, i18n } = useTranslation();
   const host = useRef<HTMLDivElement>(null);
   const ctl = useRef<MapCtl | null>(null);
   const [height, set_height] = useState(DEFAULT_H);
@@ -213,6 +244,11 @@ export function RouteMap(props: {
       ctl.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (ctl.current !== null)
+      apply_locale(ctl.current, t);
+  }, [i18n.language, t]);
 
   useEffect(() => {
     if (ctl.current !== null)
@@ -255,7 +291,7 @@ export function RouteMap(props: {
       <div ref={host} className="route-map" style={{ height }} />
       <div
         className="route-map-handle"
-        title="Drag to resize"
+        title={t("route_map.resize")}
         onPointerDown={start_resize}
       />
     </div>

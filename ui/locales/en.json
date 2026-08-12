@@ -45,5 +45,20 @@
     "eta": "ETA {{time}}",
     "elevation": "Elevation",
     "slope": "Slope"
+  },
+  "route_map": {
+    "resize": "Drag to resize",
+    "layer": {
+      "opentopo": "OpenTopoMap",
+      "osm": "OpenStreetMap",
+      "cyclosm": "CyclOSM",
+      "satellite": "Satellite"
+    },
+    "attribution": {
+      "opentopo": "Map data: (C) OpenStreetMap contributors, SRTM | Map style: (C) OpenTopoMap (CC-BY-SA)",
+      "osm": "(C) OpenStreetMap contributors",
+      "cyclosm": "CyclOSM | (C) OpenStreetMap contributors",
+      "satellite": "Tiles (C) Esri, Maxar, Earthstar Geographics"
+    }
   }
 }
