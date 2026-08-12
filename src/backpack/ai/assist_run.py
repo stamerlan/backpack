@@ -6,6 +6,7 @@ from typing import Any, TYPE_CHECKING
 import pydantic_ai
 from pydantic_ai.models import Model
 
+from ..i18n import i18n
 from ..model import ChatCard, ChatCardAction, ChatItem, ChatReply, ChatThinking
 
 if TYPE_CHECKING:
@@ -140,7 +141,11 @@ class AssistRun:
             card_kind="error",
             text=message,
             actions=(
-                ChatCardAction(id="retry", label="Retry", appearance="primary"),
+                ChatCardAction(
+                    id="retry",
+                    label=i18n.gettext("Retry"),
+                    appearance="primary"
+                ),
             ) if retryable else ()
         ))
 

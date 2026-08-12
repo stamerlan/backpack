@@ -8,6 +8,8 @@ from pydantic_ai.exceptions import (
     UsageLimitExceeded,
 )
 
+from ..i18n import i18n
+
 
 class AiError(Exception):
     def __init__(
@@ -35,14 +37,24 @@ class AiError(Exception):
                     details = (
                         exc.body["error"]["message"].strip()    # type: ignore
                     )
-                    msg = f"{details} (status: {exc.status_code})"
+                    msg = i18n.gettext(
+                        "{details} (status: {status})",
+                        details=details, status=exc.status_code
+                    )
                 except (KeyError, AttributeError):
-                    msg = f"{exc.model_name}: status {exc.status_code}"
+                    msg = i18n.gettext(
+                        "{model}: status {status}",
+                        model=exc.model_name, status=exc.status_code
+                    )
                 return cls(msg, retry)
             case ContentFilterError():
-                return cls("The reply was blocked by content filters.", False)
+                return cls(i18n.gettext(
+                    "The reply was blocked by content filters."
+                ), False)
             case IncompleteToolCall():
-                return cls("The model ran out of tokens mid tool call.", True)
+                return cls(i18n.gettext(
+                    "The model ran out of tokens mid tool call."
+                ), True)
             case UnexpectedModelBehavior():
                 return cls(exc.message, True)
             case UsageLimitExceeded():

@@ -126,5 +126,5 @@ class ChatData:
     def unique_id() -> str:  return f"chat-{uuid4().hex}"
 
     id: str = field(default_factory=unique_id)
-    title: str = "New chat"
+    title: str = ""
     turns: tuple[ChatTurn, ...] = ()

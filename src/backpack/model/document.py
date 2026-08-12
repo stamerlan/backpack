@@ -75,7 +75,7 @@ class Document:
                 ))
             s.put_chat(ChatData(
                 id=c.get("id", ChatData.unique_id()),
-                title=c.get("title", "New chat"),
+                title=c.get("title", ""),
                 turns=tuple(turns)
             ))
         doc._has_edits = False
