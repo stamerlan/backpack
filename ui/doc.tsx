@@ -23,6 +23,7 @@ import {
   type DragEvent as ReactDragEvent,
 } from "react";
 import { Button, mergeClasses } from "@fluentui/react-components";
+import { useTranslation } from "react-i18next";
 import api from "./api";
 import { RouteCard, type RouteStats } from "./route-card";
 import type { MapOverlay, TrackPoint } from "./route-map";
@@ -124,6 +125,7 @@ function route_overlay(route_id: string, tracks: RouteTracks): MapOverlay {
 export function Doc(props: {
   on_title_change: (title: string) => void;
 }) {
+  const { t } = useTranslation();
   const [cards, set_cards] = useState<CardView[]>([]);
   const [tracks, set_tracks] = useState<RouteTracks>({});
   const grip_armed = useRef<string | null>(null);
@@ -328,7 +330,7 @@ export function Doc(props: {
           appearance="subtle"
           onClick={() => { void api.add_route(); }}
         >
-          + Add route
+          + {t("doc.add_route")}
         </Button>
       </div>
     </main>

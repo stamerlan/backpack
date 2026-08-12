@@ -22,5 +22,11 @@
     "recent": "Recent",
     "remove_recent": "Remove from recent",
     "settings": "Settings..."
+  },
+  "doc": {
+    "add_route": "Add route"
+  },
+  "trip_card": {
+    "notes_placeholder": "Add trip notes..."
   }
 }

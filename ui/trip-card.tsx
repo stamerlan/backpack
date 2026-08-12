@@ -8,6 +8,7 @@
  *   - on_change: Reports the edited title and notes on every keystroke.
  */
 import { Card, Input } from "@fluentui/react-components";
+import { useTranslation } from "react-i18next";
 import api from "./api";
 import { MdInput } from "./md-input";
 import "./trip-card.css";
@@ -18,6 +19,7 @@ export function TripCard(props: {
   notes: string;
   on_change: (title: string, notes: string) => void;
 }) {
+  const { t } = useTranslation();
   const commit = (): void => {
     void api.set_trip_info(props.id, props.title, props.notes);
   };
@@ -27,13 +29,13 @@ export function TripCard(props: {
       <Input
         className="trip-card-title"
         appearance="underline"
-        placeholder="Untitled trip"
+        placeholder={t("common.untitled_trip")}
         value={props.title}
         onChange={(_event, data) => props.on_change(data.value, props.notes)}
         onBlur={commit}
       />
       <MdInput
-        placeholder="Add trip notes..."
+        placeholder={t("trip_card.notes_placeholder")}
         value={props.notes}
         min_height={160}
         on_change={(value) => props.on_change(props.title, value)}
