@@ -212,7 +212,10 @@ class App:
             files = await asyncio.to_thread(
                 self.window.create_file_dialog,
                 webview.FileDialog.OPEN,
-                file_types=("Json files (*.json)", "All files (*.*)"),
+                file_types=(
+                    i18n.gettext("Json files (*.json)"),
+                    i18n.gettext("All files (*.*)"),
+                )
             )
             if not files:
                 return False
@@ -229,7 +232,7 @@ class App:
             self.ui.notify(
                 str(e) or type(e).__name__,
                 intent="error",
-                title="Could not open trip"
+                title=i18n.gettext("Could not open trip")
             )
             return False
 
@@ -299,7 +302,10 @@ class App:
                     self.window.create_file_dialog,
                     webview.FileDialog.SAVE,
                     save_filename="trip.json",
-                    file_types=("Json files (*.json)", "All files (*.*)"),
+                    file_types=(
+                        i18n.gettext("Json files (*.json)"),
+                        i18n.gettext("All files (*.*)"),
+                    )
                 )
                 if not files:
                     return False
@@ -317,7 +323,7 @@ class App:
             logger.exception(f'Failed to save to "{filepath}"')
             self.ui.notify(
                 str(e) or type(e).__name__,
-                intent="error", title="Could not save trip"
+                intent="error", title=i18n.gettext("Could not save trip")
             )
             return False
 
@@ -334,12 +340,16 @@ class App:
         if not self.doc.has_edits:
             return True
         result = await asyncio.wrap_future(self.ui.show_dialog(
-            "Save changes?",
-            "This trip has unsaved changes. Save them before continuing?",
+            i18n.gettext("Save changes?"),
+            i18n.gettext(
+                "This trip has unsaved changes. Save them before continuing?"
+            ),
             actions=(
-                DialogAction("Cancel", result="cancel"),
-                DialogAction("Don't save", result="discard"),
-                DialogAction("Save", result="save", appearance="primary")
+                DialogAction(i18n.gettext("Cancel"), result="cancel"),
+                DialogAction(i18n.gettext("Don't save"), result="discard"),
+                DialogAction(
+                    i18n.gettext("Save"), result="save", appearance="primary"
+                )
             )
         ))
         if result == "save":
@@ -475,7 +485,7 @@ class App:
                 self.ui.notify(
                     str(exc) or type(exc).__name__,
                     intent="error",
-                    title="Could not open settings"
+                    title=i18n.gettext("Could not open settings")
                 )
 
         self._settings_task = asyncio.ensure_future(do_show_settings_dialog())
@@ -589,12 +599,15 @@ class App:
             window.create_file_dialog,
             webview.FileDialog.OPEN,
             allow_multiple=True,
-            file_types=("GPX files (*.gpx)", "All files (*.*)"),
+            file_types=(
+                i18n.gettext("GPX files (*.gpx)"),
+                i18n.gettext("All files (*.*)"),
+            )
         )
         if not files:
             return
 
-        self.ui.set_busy(True, "Loading routes...")
+        self.ui.set_busy(True, i18n.gettext("Loading routes..."))
         try:
             for filepath in files:
                 try:
@@ -616,7 +629,7 @@ class App:
                     self.ui.notify(
                         f"{name}: {e}",
                         intent="error",
-                        title="Could not load route"
+                        title=i18n.gettext("Could not load route")
                     )
         finally:
             self.ui.set_busy(False)
@@ -658,8 +671,10 @@ class App:
             notify_fut = self.ui.notify(
                 f"{name}: {error}",
                 intent="error",
-                title="Could not load route details",
-                actions=[NotifyAction("Retry", result="retry")]
+                title=i18n.gettext("Could not load route details"),
+                actions=[
+                    NotifyAction(i18n.gettext("Retry"), result="retry")
+                ]
             )
             try:
                 action = await asyncio.wrap_future(notify_fut)
