@@ -4,5 +4,23 @@
     "km": "km",
     "ft": "ft",
     "mi": "mi"
+  },
+  "common": {
+    "untitled_trip": "Untitled trip"
+  },
+  "app_bar": {
+    "open_menu": "Open menu",
+    "show_assistant": "Show assistant",
+    "hide_assistant": "Hide assistant"
+  },
+  "menu": {
+    "close_menu": "Close menu",
+    "new_trip": "New trip",
+    "open_trip": "Open trip...",
+    "save": "Save",
+    "save_as": "Save as...",
+    "recent": "Recent",
+    "remove_recent": "Remove from recent",
+    "settings": "Settings..."
   }
 }

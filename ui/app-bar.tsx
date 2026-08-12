@@ -14,6 +14,7 @@ import {
   Button,
   ToggleButton,
 } from "@fluentui/react-components";
+import { useTranslation } from "react-i18next";
 import { icon } from "./icon";
 import "./app-bar.css";
 
@@ -23,25 +24,29 @@ export function AppBar(props: {
   on_menu_click: () => void;
   on_assist_toggle: () => void;
 }) {
+  const { t } = useTranslation();
   const has_title = props.title.trim().length > 0;
+  const assist_label = props.assist_open
+    ? t("app_bar.hide_assistant")
+    : t("app_bar.show_assistant");
 
   return (
     <header className="app-bar">
       <Button
         appearance="subtle"
-        title="Open menu"
-        aria-label="Open menu"
+        title={t("app_bar.open_menu")}
+        aria-label={t("app_bar.open_menu")}
         icon={icon("menu")}
         onClick={props.on_menu_click}
       />
       <span className={mergeClasses("app-bar-title", !has_title && "untitled")}>
-        {has_title ? props.title : "Untitled trip"}
+        {has_title ? props.title : t("common.untitled_trip")}
       </span>
       <ToggleButton
         appearance="subtle"
         checked={props.assist_open}
-        title={props.assist_open ? "Hide assistant" : "Show assistant"}
-        aria-label={props.assist_open ? "Hide assistant" : "Show assistant"}
+        title={assist_label}
+        aria-label={assist_label}
         icon={icon("panel")}
         onClick={props.on_assist_toggle}
       />

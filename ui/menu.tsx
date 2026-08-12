@@ -21,6 +21,7 @@ import {
   DrawerFooter,
   Text,
 } from "@fluentui/react-components";
+import { useTranslation } from "react-i18next";
 import api from "./api";
 import { icon } from "./icon";
 import "./menu.css";
@@ -35,6 +36,7 @@ export function Menu(props: {
   open: boolean;
   show_menu: (open: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const [recent, set_recent] = useState<RecentItem[]>([]);
 
   useEffect(() => {
@@ -56,8 +58,8 @@ export function Menu(props: {
           action={
             <Button
               appearance="subtle"
-              title="Close menu"
-              aria-label="Close menu"
+              title={t("menu.close_menu")}
+              aria-label={t("menu.close_menu")}
               icon={icon("close")}
               onClick={hide_menu}
             />
@@ -75,7 +77,7 @@ export function Menu(props: {
             icon={icon("doc-add")}
             onClick={() => { hide_menu(); api.new_doc(); }}
           >
-            New trip
+            {t("menu.new_trip")}
           </Button>
           <Button
             className="menu-entry"
@@ -83,7 +85,7 @@ export function Menu(props: {
             icon={icon("folder-open")}
             onClick={() => { hide_menu(); api.open_doc(); }}
           >
-            Open trip...
+            {t("menu.open_trip")}
           </Button>
           <Button
             className="menu-entry"
@@ -91,7 +93,7 @@ export function Menu(props: {
             icon={icon("save")}
             onClick={() => { hide_menu(); api.save_doc(); }}
           >
-            Save
+            {t("menu.save")}
           </Button>
           <Button
             className="menu-entry"
@@ -99,13 +101,13 @@ export function Menu(props: {
             icon={icon("save-as")}
             onClick={() => { hide_menu(); api.save_doc(null, true); }}
           >
-            Save as...
+            {t("menu.save_as")}
           </Button>
         </div>
 
         {recent.length > 0 && (
           <>
-            <div className="menu-section">Recent</div>
+            <div className="menu-section">{t("menu.recent")}</div>
             <div className="menu-recent">
               {recent.map((item) => (
                 <Card
@@ -117,7 +119,7 @@ export function Menu(props: {
                   <CardHeader
                     header={
                       <Text weight="semibold" truncate wrap={false}>
-                        {item.title.trim() || "Untitled trip"}
+                        {item.title.trim() || t("common.untitled_trip")}
                       </Text>
                     }
                     description={
@@ -127,8 +129,8 @@ export function Menu(props: {
                       <button
                         type="button"
                         className="icon-btn menu-recent-remove"
-                        title="Remove from recent"
-                        aria-label="Remove from recent"
+                        title={t("menu.remove_recent")}
+                        aria-label={t("menu.remove_recent")}
                         onClick={(e) => {
                           e.stopPropagation();
                           void api.remove_recent(item.filename);
@@ -152,7 +154,7 @@ export function Menu(props: {
           icon={icon("settings")}
           onClick={() => { hide_menu(); api.open_settings(); }}
         >
-          Settings...
+          {t("menu.settings")}
         </Button>
       </DrawerFooter>
     </OverlayDrawer>
