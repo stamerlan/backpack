@@ -14,6 +14,8 @@
  *     not re-render when it changes.
  */
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 import "./route-profile.css";
@@ -28,6 +30,7 @@ interface Profile {
   data: uPlot.AlignedData | null;
   width: number;
   height: number;
+  t: TFunction;
   on_hover: (point: TrackPoint) => void;
   on_leave: () => void;
 }
@@ -69,7 +72,9 @@ function cursor_plugin(profile: Profile): uPlot.Plugin {
         tip.hidden = false;
         tip.innerHTML =
           `<b>${(p.dist_m / 1000).toFixed(1)} km</b>` +
-          `<span>ETA ${fmt_eta(p.dur_s)}</span>` +
+          `<span>${profile.t("route_profile.eta", {
+            time: fmt_eta(p.dur_s),
+          })}</span>` +
           `<span>${Math.round(p.elev_m)} m</span>` +
           `<span>${p.slope.toFixed(1)} %</span>`;
 
@@ -158,7 +163,7 @@ function options(
     series: [
       {},
       {
-        label: "Elevation",
+        label: profile.t("route_profile.elevation"),
         scale: "m",
         stroke: elev_color,
         width: 2.5,
@@ -166,7 +171,7 @@ function options(
         points: { show: false },
       },
       {
-        label: "Slope",
+        label: profile.t("route_profile.slope"),
         scale: "%",
         stroke: slope_color,
         width: 1,
@@ -205,6 +210,7 @@ export function RouteProfile(props: {
   on_hover: (point: TrackPoint) => void;
   on_leave: () => void;
 }) {
+  const { t } = useTranslation();
   const host = useRef<HTMLDivElement>(null);
   const held = useRef<Profile | null>(null);
   const profile = held.current ??= {
@@ -213,13 +219,15 @@ export function RouteProfile(props: {
     data: null,
     width: 0,
     height: 0,
+    t,
     on_hover: props.on_hover,
     on_leave: props.on_leave,
   };
 
   /* The plugin runs long after this render, so keep it pointed at the
-   * callbacks the card is handing over now.
+   * callbacks and translator the card is handing over now.
    */
+  profile.t = t;
   profile.on_hover = props.on_hover;
   profile.on_leave = props.on_leave;
 

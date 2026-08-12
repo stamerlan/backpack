@@ -27,6 +27,8 @@ import {
   Input,
   Spinner,
 } from "@fluentui/react-components";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import api from "./api";
 import { icon } from "./icon";
 import { MdInput } from "./md-input";
@@ -63,16 +65,17 @@ function fmt_signed(meters: number): string {
   return v > 0 ? `+${v}` : String(v);
 }
 
-function elev_title(stats: RouteStats): string {
+function elev_title(t: TFunction, stats: RouteStats): string {
   /* The badge only has room for the two totals, so the rest of the
    * elevation numbers ride along in its tooltip. */
-  return (
-    `Net ${fmt_signed(stats.elev_net_m)} m over ` +
-    `${Math.round(stats.vertical_m)} m of vertical\n` +
-    `Lowest ${Math.round(stats.elev_min_m)} m, ` +
-    `highest ${Math.round(stats.elev_max_m)} m, ` +
-    `average ${Math.round(stats.elev_mean_m)} m`
-  );
+  return t("route_card.elevation_hint", {
+    unit: t("units.m"),
+    net: fmt_signed(stats.elev_net_m),
+    vertical: Math.round(stats.vertical_m),
+    min: Math.round(stats.elev_min_m),
+    max: Math.round(stats.elev_max_m),
+    mean: Math.round(stats.elev_mean_m),
+  });
 }
 
 export function RouteCard(props: {
@@ -88,6 +91,7 @@ export function RouteCard(props: {
   on_grip_down?: () => void;
   on_grip_up?: () => void;
 }) {
+  const { t } = useTranslation();
   const [folded, set_folded] = useState(false);
   const [hover, set_hover] = useState<Coord | null>(null);
   const stats = props.stats;
@@ -102,8 +106,8 @@ export function RouteCard(props: {
         <button
           type="button"
           className="icon-btn route-card-grip"
-          title="Drag to reorder"
-          aria-label="Drag to reorder"
+          title={t("route_card.reorder")}
+          aria-label={t("route_card.reorder")}
           onPointerDown={() => props.on_grip_down?.()}
           onPointerUp={() => props.on_grip_up?.()}
         >
@@ -112,8 +116,8 @@ export function RouteCard(props: {
         <Button
           appearance="subtle"
           size="small"
-          title={folded ? "Unfold route" : "Fold route"}
-          aria-label={folded ? "Unfold route" : "Fold route"}
+          title={folded ? t("route_card.unfold") : t("route_card.fold")}
+          aria-label={folded ? t("route_card.unfold") : t("route_card.fold")}
           aria-expanded={!folded}
           icon={
             <span className={"chevron" + (folded ? " folded" : "")}>
@@ -125,7 +129,7 @@ export function RouteCard(props: {
         <Input
           className="route-card-title"
           appearance="underline"
-          placeholder="Untitled route"
+          placeholder={t("route_card.untitled")}
           value={props.title}
           onChange={(_event, data) => props.on_change(data.value, props.notes)}
           onKeyDown={(event) => {
@@ -141,7 +145,7 @@ export function RouteCard(props: {
               appearance="tint"
               color="informative"
               shape="rounded"
-              title="Route length, elevation included"
+              title={t("route_card.distance_hint")}
             >
               {(stats.dist_m / 1000).toFixed(2)} km
             </Badge>
@@ -149,11 +153,7 @@ export function RouteCard(props: {
               appearance="tint"
               color="informative"
               shape="rounded"
-              title={
-                "Estimated walking time from Tobler's hiking " +
-                "function, with a 33% allowance for pack, rests " +
-                "and terrain"
-              }
+              title={t("route_card.duration_hint")}
             >
               {fmt_hm(stats.dur_s)}
             </Badge>
@@ -161,7 +161,7 @@ export function RouteCard(props: {
               appearance="tint"
               color="informative"
               shape="rounded"
-              title={elev_title(stats)}
+              title={elev_title(t, stats)}
             >
               {`\u2197${Math.round(stats.ascent_m)} ` +
                 `\u2198${Math.round(stats.descent_m)} m`}
@@ -170,14 +170,14 @@ export function RouteCard(props: {
         )}
         {props.route_loading && (
           <Spinner size="tiny"
-            title="Loading route details..."
-            aria-label="Loading route details"
+            title={t("route_card.loading")}
+            aria-label={t("route_card.loading")}
           />
         )}
         <Button
           appearance="subtle"
-          title="Delete route"
-          aria-label="Delete route"
+          title={t("route_card.delete")}
+          aria-label={t("route_card.delete")}
           icon={icon("trash", 16)}
           onClick={() => {
             void api.remove_route(props.id);
@@ -196,7 +196,7 @@ export function RouteCard(props: {
             />
           )}
           <MdInput
-            placeholder="Notes for this route..."
+            placeholder={t("route_card.notes_placeholder")}
             value={props.notes}
             min_height={120}
             on_change={(value) => props.on_change(props.title, value)}

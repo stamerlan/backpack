@@ -28,5 +28,22 @@
   },
   "trip_card": {
     "notes_placeholder": "Add trip notes..."
+  },
+  "route_card": {
+    "reorder": "Drag to reorder",
+    "fold": "Fold route",
+    "unfold": "Unfold route",
+    "untitled": "Untitled route",
+    "distance_hint": "Route length, elevation included",
+    "duration_hint": "Estimated walking time from Tobler's hiking function, with a 33% allowance for pack, rests and terrain",
+    "elevation_hint": "Net {{net}} {{unit}} over {{vertical}} {{unit}} of vertical\nLowest {{min}} {{unit}}, highest {{max}} {{unit}}, average {{mean}} {{unit}}",
+    "loading": "Loading route details...",
+    "delete": "Delete route",
+    "notes_placeholder": "Notes for this route..."
+  },
+  "route_profile": {
+    "eta": "ETA {{time}}",
+    "elevation": "Elevation",
+    "slope": "Slope"
   }
 }
