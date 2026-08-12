@@ -12,7 +12,7 @@ from uuid import uuid4
 
 from backpack import APP_VERSION, ai, model, route
 from backpack.api import Api
-from backpack.i18n import i18n
+from backpack.i18n import i18n, system_locales
 from backpack.js_worker import JsWorker
 from backpack.nominatim import Nominatim
 from backpack.route_details import RouteDetails
@@ -151,11 +151,18 @@ class App:
         return task
 
     async def on_loaded(self) -> None:
+        # load locale
+        i18n.load([self.storage.settings.locale] + system_locales())
+
         # enumerate models in the background; it might take a while
         self.ai_models = asyncio.ensure_future(ai.enum_models())
         asyncio.ensure_future(self._evict_poi_cache())
+
         await self.set_theme(self.storage.settings.theme)
+
         self._update_recent_items_view()
+
+        # load last opened document
         last = self.storage.settings.last_filepath
         if last and pathlib.Path(last).exists() and await self.open_doc(last):
             return

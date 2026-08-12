@@ -196,5 +196,83 @@ def system_units() -> str | None:
     return None
 
 
+def system_locales() -> list[str]:
+    """OS preferred locales as tags, most preferred first.
+
+    Returns an empty list when the platform gives no usable hint, so callers
+    fall back to English negotiation. Windows reads the user's preferred UI
+    languages via GetUserPreferredUILanguages; macOS reads the AppleLocale
+    global default; other platforms read the standard gettext environment
+    variables (LANGUAGE holds a colon-separated priority list; LC_ALL,
+    LC_MESSAGES and LANG each name a single locale).
+    """
+    if sys.platform == "win32":
+        import ctypes
+        from ctypes import wintypes
+
+        MUI_LANGUAGE_NAME = 0x8
+        try:
+            func = ctypes.windll.kernel32.GetUserPreferredUILanguages
+            func.argtypes = [
+                wintypes.DWORD,
+                ctypes.POINTER(wintypes.ULONG),
+                wintypes.LPWSTR,
+                ctypes.POINTER(wintypes.ULONG),
+            ]
+            func.restype = wintypes.BOOL
+            count = wintypes.ULONG()
+            size = wintypes.ULONG()
+            if not func(
+                MUI_LANGUAGE_NAME, ctypes.byref(count), None,
+                ctypes.byref(size)
+            ):
+                return []
+            buf = ctypes.create_unicode_buffer(size.value)
+            if not func(
+                MUI_LANGUAGE_NAME, ctypes.byref(count), buf,
+                ctypes.byref(size)
+            ):
+                return []
+        except OSError:
+            return []
+        raw = "".join(buf[:size.value])
+        return [tag for tag in raw.split("\x00") if tag]
+
+    if sys.platform == "darwin":
+        import subprocess
+
+        try:
+            out = subprocess.run(
+                ["defaults", "read", "-g", "AppleLocale"],
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return []
+        if out.returncode != 0:
+            return []
+        tag = out.stdout.strip()
+        return [tag] if tag else []
+
+    import os
+
+    language = os.environ.get("LANGUAGE")
+    if language:
+        tags = [_clean_locale(v) for v in language.split(":") if v]
+        if tags:
+            return tags
+    for var in ("LC_ALL", "LC_MESSAGES", "LANG"):
+        value = os.environ.get(var)
+        if value and value not in ("C", "POSIX"):
+            return [_clean_locale(value)]
+    return []
+
+
+def _clean_locale(value: str) -> str:
+    """Drop the ``.encoding`` and ``@modifier`` suffixes from a locale."""
+    return value.split(".")[0].split("@")[0]
+
+
 i18n = I18n()
 """Process-wide translator, shared by every module that renders text."""
