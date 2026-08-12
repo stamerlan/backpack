@@ -18,10 +18,14 @@ class Settings:
 
     @dataclass(frozen=True, slots=True)
     class RecentItem:
-        """A recently opened document, as listed in the menu."""
+        """A recently opened document, as listed in the menu.
+
+        Stores the raw route count, not a baked summary, so the view can
+        format and re-translate the meta line on a language switch.
+        """
 
         title: str
-        meta: str               # short summary, e.g. "3 routes"
+        routes: int             # number of routes in the document
         filepath: str
 
     theme: str = "system"       # "system" | "light" | "dark"
@@ -44,7 +48,7 @@ class Settings:
             try:
                 recent.append(cls.RecentItem(
                     title=str(r["title"]),
-                    meta=str(r["meta"]),
+                    routes=int(r["routes"]),
                     filepath=str(r["filepath"]),
                 ))
             except (KeyError, TypeError):

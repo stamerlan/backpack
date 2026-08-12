@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from backpack import APP_VERSION, ai, model, route
 from backpack.api import Api
+from backpack.i18n import i18n
 from backpack.js_worker import JsWorker
 from backpack.nominatim import Nominatim
 from backpack.route_details import RouteDetails
@@ -337,15 +338,12 @@ class App:
         return bool(result == "discard")
 
     def _add_recent_item(self, filepath: str, doc: model.Document) -> None:
-        match len(doc.routes()):
-            case 0:
-                meta = "no routes"
-            case 1:
-                meta = "one route"
-            case n:
-                meta = f"{n} routes"
         self.storage.settings = self.storage.settings.add_recent(
-            Settings.RecentItem(title=doc.title, meta=meta, filepath=filepath)
+            Settings.RecentItem(
+                title=doc.title,
+                routes=len(doc.routes()),
+                filepath=filepath,
+            )
         )
         self._update_recent_items_view()
 
@@ -355,7 +353,13 @@ class App:
 
     def _update_recent_items_view(self) -> None:
         self.ui.set_recent(
-            RecentItem(r.title, r.meta, r.filepath)
+            RecentItem(
+                r.title,
+                (i18n.gettext("no routes") if r.routes == 0 else
+                 i18n.ngettext("{n} route", "{n} routes", r.routes)
+                ),
+                r.filepath
+            )
             for r in self.storage.settings.recent
         )
 
