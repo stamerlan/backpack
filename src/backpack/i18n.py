@@ -194,3 +194,7 @@ def system_units() -> str | None:
             case _:
                 return None
     return None
+
+
+i18n = I18n()
+"""Process-wide translator, shared by every module that renders text."""
