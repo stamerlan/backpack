@@ -8,6 +8,43 @@
   "common": {
     "untitled_trip": "Untitled trip"
   },
+  "dialog": {
+    "close": "Close"
+  },
+  "notify": {
+    "dismiss": "Dismiss"
+  },
+  "settings": {
+    "title": "Settings",
+    "close": "Close",
+    "save": "Save",
+    "cancel": "Cancel",
+    "gemini": {
+      "label": "Gemini API key",
+      "hint": "Used by the AI assistant. Stored in the operating system credential manager.",
+      "hint_removing": "Removed from the credential manager when you save.",
+      "placeholder_stored": "Stored, type to replace",
+      "keep": "Keep the stored key",
+      "remove": "Remove the stored key"
+    },
+    "theme": {
+      "label": "Theme",
+      "hint": "Choose how Backpack looks.",
+      "system": "Follow system",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "poi": {
+      "label": "Cached points of interest",
+      "hint_clearing": "Will be cleared when you save.",
+      "keep": "Keep",
+      "clear": "Clear"
+    },
+    "version": {
+      "label": "Version",
+      "hint": "The running build of the app."
+    }
+  },
   "app_bar": {
     "open_menu": "Open menu",
     "show_assistant": "Show assistant",

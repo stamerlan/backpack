@@ -44,7 +44,7 @@ describe("show_dialog", () => {
     mount_host();
     const user = userEvent.setup();
     const answer = window.show_dialog("T", "B");
-    await user.click(await screen.findByRole("button", { name: "close" }));
+    await user.click(await screen.findByRole("button", { name: "Close" }));
     await expect(answer).resolves.toBeNull();
   });
 
@@ -62,7 +62,7 @@ describe("show_dialog", () => {
     void window.show_dialog("T", "B");
     await screen.findByRole("dialog");
     expect(
-      screen.getByRole("button", { name: "close" }),
+      screen.getByRole("button", { name: "Close" }),
     ).toBeInTheDocument();
     expect(screen.getAllByRole("button")).toHaveLength(1);
   });

@@ -21,6 +21,7 @@ import {
   DialogTrigger,
 } from "@fluentui/react-components";
 import type { ButtonProps } from "@fluentui/react-components";
+import { useTranslation } from "react-i18next";
 import { not_mounted } from "./ui-api";
 import { icon } from "./icon";
 
@@ -57,6 +58,7 @@ function DialogView(props: {
   actions: DialogAction[];
   on_close: (value: unknown) => void;
 }) {
+  const { t } = useTranslation();
   const [open, set_open] = useState(true);
 
   /* Settling a promise twice is a no-op, so the close paths need no guard
@@ -95,7 +97,9 @@ function DialogView(props: {
           <DialogTitle
             action={
               <DialogTrigger action="close" disableButtonEnhancement>
-                <Button appearance="transparent" aria-label="close"
+                <Button
+                  appearance="transparent"
+                  aria-label={t("dialog.close")}
                   icon={icon("close")}
                 />
               </DialogTrigger>

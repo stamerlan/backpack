@@ -55,7 +55,7 @@ describe("notify", () => {
     mount_host();
     const user = userEvent.setup();
     const answer = window.notify("Heads up");
-    await user.click(await screen.findByRole("button", { name: "dismiss" }));
+    await user.click(await screen.findByRole("button", { name: "Dismiss" }));
     await expect(answer).resolves.toBeNull();
   });
 
@@ -63,7 +63,7 @@ describe("notify", () => {
     mount_host();
     const user = userEvent.setup();
     void window.notify("Temporary");
-    await user.click(await screen.findByRole("button", { name: "dismiss" }));
+    await user.click(await screen.findByRole("button", { name: "Dismiss" }));
     await waitFor(() =>
       expect(screen.queryByText("Temporary")).not.toBeInTheDocument(),
     );

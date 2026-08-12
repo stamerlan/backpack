@@ -18,6 +18,7 @@ import {
   MessageBarTitle,
 } from "@fluentui/react-components";
 import type { ButtonProps } from "@fluentui/react-components";
+import { useTranslation } from "react-i18next";
 import { not_mounted } from "./ui-api";
 import { icon } from "./icon";
 import "./notify.css";
@@ -40,6 +41,7 @@ interface NotifyRequest {
 }
 
 export function NotifyHost() {
+  const { t } = useTranslation();
   const [items, set_items] = useState<NotifyRequest[]>([]);
 
   useEffect(() => {
@@ -86,7 +88,7 @@ export function NotifyHost() {
             containerAction={
               <Button
                 appearance="transparent"
-                aria-label="dismiss"
+                aria-label={t("notify.dismiss")}
                 icon={icon("close")}
                 onClick={() => close(msg, null)}
               />

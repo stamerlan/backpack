@@ -28,6 +28,7 @@ import {
   Label,
   Option,
 } from "@fluentui/react-components";
+import { useTranslation } from "react-i18next";
 import api from "./api";
 import { not_mounted } from "./ui-api";
 import { icon } from "./icon";
@@ -68,10 +69,13 @@ interface Request {
   version: string;
 }
 
+/* Theme values and their catalog keys; labels are translated at render time
+ * so a language switch relabels the dropdown.
+ */
 const THEME_OPTIONS = [
-  { value: "system", label: "Follow system" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
+  { value: "system", key: "settings.theme.system" },
+  { value: "light", key: "settings.theme.light" },
+  { value: "dark", key: "settings.theme.dark" },
 ] as const;
 
 /* Read a string field from the untyped settings, falling back to a default. */
@@ -87,6 +91,7 @@ function format_bytes(bytes: number): string {
 }
 
 export function SettingsDialog() {
+  const { t } = useTranslation();
   const [req, set_req] = useState<Request | null>(null);
   const [open, set_open] = useState(false);
 
@@ -130,11 +135,10 @@ export function SettingsDialog() {
    */
   const removing = gemini_api_key === null;
   const key_action = removing
-    ? "Keep the stored key" : "Remove the stored key";
+    ? t("settings.gemini.keep") : t("settings.gemini.remove");
   const key_hint = removing
-    ? "Removed from the credential manager when you save."
-    : "Used by the AI assistant. Stored in the operating system"
-      + " credential manager.";
+    ? t("settings.gemini.hint_removing")
+    : t("settings.gemini.hint");
 
   const set_value = (patch: Partial<SettingsValues>): void =>
     set_req((cur) => cur && { ...cur, values: { ...cur.values, ...patch } });
@@ -163,13 +167,13 @@ export function SettingsDialog() {
               <DialogTrigger action="close" disableButtonEnhancement>
                 <Button
                   appearance="transparent"
-                  aria-label="close"
+                  aria-label={t("settings.close")}
                   icon={icon("close")}
                 />
               </DialogTrigger>
             }
           >
-            Settings
+            {t("settings.title")}
           </DialogTitle>
           <DialogContent>
             <div className="settings-form">
@@ -177,7 +181,9 @@ export function SettingsDialog() {
                 <div className="settings-row">
                   <div className="settings-text">
                     <Label className="settings-label"
-                      htmlFor="settings-gemini-api-key">Gemini API key</Label>
+                      htmlFor="settings-gemini-api-key">
+                      {t("settings.gemini.label")}
+                    </Label>
                     <span className="settings-hint">{key_hint}</span>
                   </div>
                   <div className="settings-control-group">
@@ -189,7 +195,9 @@ export function SettingsDialog() {
                       spellCheck={false}
                       disabled={removing}
                       placeholder={
-                        req.key_set ? "Stored, type to replace" : "AIza..."}
+                        req.key_set
+                          ? t("settings.gemini.placeholder_stored")
+                          : "AIza..."}
                       value={gemini_api_key ?? ""}
                       onChange={(_event, data) =>
                         set_value({ gemini_api_key: data.value })}
@@ -212,9 +220,11 @@ export function SettingsDialog() {
                 <div className="settings-row">
                   <div className="settings-text">
                     <Label className="settings-label"
-                      htmlFor="settings-theme">Theme</Label>
+                      htmlFor="settings-theme">
+                      {t("settings.theme.label")}
+                    </Label>
                     <span className="settings-hint">
-                      Choose how Backpack looks.
+                      {t("settings.theme.hint")}
                     </span>
                   </div>
                   <div className="settings-control-group">
@@ -223,7 +233,7 @@ export function SettingsDialog() {
                       className="settings-control"
                       inlinePopup
                       positioning={{ strategy: "fixed" }}
-                      value={selected_theme.label}
+                      value={t(selected_theme.key)}
                       selectedOptions={[selected_theme.value]}
                       onOptionSelect={(_event, data) => {
                         const mode = data.optionValue ?? "system";
@@ -236,7 +246,7 @@ export function SettingsDialog() {
                     >
                       {THEME_OPTIONS.map((option) => (
                         <Option key={option.value} value={option.value}>
-                          {option.label}
+                          {t(option.key)}
                         </Option>
                       ))}
                     </Dropdown>
@@ -248,11 +258,11 @@ export function SettingsDialog() {
                 <div className="settings-row">
                   <div className="settings-text">
                     <Label className="settings-label">
-                      Cached points of interest
+                      {t("settings.poi.label")}
                     </Label>
                     <span className="settings-hint">
                       {clear_poi_cache
-                        ? "Will be cleared when you save."
+                        ? t("settings.poi.hint_clearing")
                         : format_bytes(req.poi_cache_bytes)}
                     </span>
                   </div>
@@ -265,7 +275,9 @@ export function SettingsDialog() {
                         clear_poi_cache: !clear_poi_cache,
                       })}
                     >
-                      {clear_poi_cache ? "Keep" : "Clear"}
+                      {clear_poi_cache
+                        ? t("settings.poi.keep")
+                        : t("settings.poi.clear")}
                     </Button>
                   </div>
                 </div>
@@ -275,9 +287,11 @@ export function SettingsDialog() {
                 <Card>
                   <div className="settings-row">
                     <div className="settings-text">
-                      <Label className="settings-label">Version</Label>
+                      <Label className="settings-label">
+                        {t("settings.version.label")}
+                      </Label>
                       <span className="settings-hint">
-                        The running build of Backpack.
+                        {t("settings.version.hint")}
                       </span>
                     </div>
                     <div className="settings-control-group">
@@ -290,9 +304,11 @@ export function SettingsDialog() {
           </DialogContent>
           <DialogActions>
             <Button appearance="primary" onClick={() => close(req.values)}>
-              Save
+              {t("settings.save")}
             </Button>
-            <Button onClick={() => close(null)}>Cancel</Button>
+            <Button onClick={() => close(null)}>
+              {t("settings.cancel")}
+            </Button>
           </DialogActions>
         </DialogBody>
       </DialogSurface>
