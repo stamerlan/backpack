@@ -25,6 +25,8 @@ class Settings:
         filepath: str
 
     theme: str = "system"       # "system" | "light" | "dark"
+    locale: str = "system"      # "system" or a tag, e.g. "en-US", "ru"
+    units: str = "auto"         # "auto" | "metric" | "imperial"
     recent: tuple[RecentItem, ...] = ()
     last_filepath: str | None = None  # restored on next launch
 
@@ -50,6 +52,8 @@ class Settings:
         lf = d.get("last_filepath")
         return cls(
             theme=_get(d, "theme", defaults.theme),
+            locale=_get(d, "locale", defaults.locale),
+            units=_get(d, "units", defaults.units),
             recent=tuple(recent[:MAX_RECENT_CNT]),
             last_filepath=lf if isinstance(lf, str) else None,
         )
