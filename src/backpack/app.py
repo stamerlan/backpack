@@ -152,11 +152,9 @@ class App:
 
     async def on_loaded(self) -> None:
         # load locale and push it to the frontend, seeding its units state
-        i18n.load([self.storage.settings.locale] + system_locales())
-        units = self.storage.settings.units
-        if units not in ("metric", "imperial"):
-            units = i18n.units
-        self.ui.set_locale(i18n.tag, units)
+        await self.set_locale(
+            self.storage.settings.locale, self.storage.settings.units
+        )
 
         # enumerate models in the background; it might take a while
         self.ai_models = asyncio.ensure_future(ai.enum_models())
@@ -392,6 +390,19 @@ class App:
         self.ui.set_theme(mode)
         self.theme.apply(mode)
 
+    async def set_locale(self, locale: str, units: str) -> None:
+        """Apply locale and units to the live app without persisting them.
+
+        :param str locale: "system" to follow the OS, or a tag, e.g. "en-US".
+        :param str units: "auto" to follow the OS, or "metric" or "imperial".
+        """
+        logger.debug(f"locale:{locale!r} units:{units!r}")
+        i18n.load([locale] + system_locales())
+        if units not in ("metric", "imperial"):
+            units = i18n.units
+        self.ui.set_locale(i18n.tag, units)
+        self._update_recent_items_view()
+
     async def open_settings(self) -> None:
         """Open the settings dialog without blocking the calling frontend.
 
@@ -413,6 +424,8 @@ class App:
             poi_cache_bytes = await self.storage.poi_cache_size()
             cur_settings = {
                 "theme": self.storage.settings.theme,
+                "locale": self.storage.settings.locale,
+                "units": self.storage.settings.units,
                 "gemini_api_key_set": bool(key),
                 "poi_cache_bytes": poi_cache_bytes,
                 "version": APP_VERSION,
@@ -431,6 +444,17 @@ class App:
                     self.storage.settings, theme=theme
                 )
                 await self.set_theme(theme)
+
+            # apply locale and units from the dialog so Save does not depend on
+            # a live preview having already pushed them
+            locale = new_settings.get("locale", self.storage.settings.locale)
+            units = new_settings.get("units", self.storage.settings.units)
+            if (locale != self.storage.settings.locale
+                    or units != self.storage.settings.units):
+                self.storage.settings = replace(
+                    self.storage.settings, locale=locale, units=units
+                )
+                await self.set_locale(locale, units)
 
             await self.storage.save_settings()
 

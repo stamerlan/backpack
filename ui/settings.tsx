@@ -43,6 +43,8 @@ export interface SettingsValues {
    */
   gemini_api_key: string | null;
   theme: string;
+  locale: string;
+  units: string;
   clear_poi_cache: boolean;
 }
 
@@ -91,11 +93,19 @@ export function SettingsDialog() {
   useEffect(() => {
     window.show_settings_dialog = (settings) => new Promise((resolve) => {
       const theme = get_str(settings?.theme, "system");
+      const locale = get_str(settings?.locale, "system");
+      const units = get_str(settings?.units, "auto");
       const poi_cache_bytes =
         typeof settings?.poi_cache_bytes === "number"
           ? settings.poi_cache_bytes : 0;
       set_req({
-        values: { gemini_api_key: "", theme, clear_poi_cache: false },
+        values: {
+          gemini_api_key: "",
+          theme,
+          locale,
+          units,
+          clear_poi_cache: false,
+        },
         resolve,
         initial_theme: theme,
         key_set: settings?.gemini_api_key_set === true,

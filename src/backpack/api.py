@@ -86,6 +86,10 @@ class Api:
         return self._app.set_theme(mode)
 
     @api_method
+    def set_locale(self, locale: str, units: str) -> Coroutine[Any, Any, Any]:
+        return self._app.set_locale(locale, units)
+
+    @api_method
     def set_trip_info(
         self, card_id: str, title: str, notes: str
     ) -> Coroutine[Any, Any, Any]:

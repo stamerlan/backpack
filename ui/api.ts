@@ -34,6 +34,7 @@ interface Api {
   open_settings(): Promise<unknown>;
   remove_recent(filename: string): Promise<unknown>;
   set_theme(mode: string): Promise<unknown>;
+  set_locale(locale: string, units: string): Promise<unknown>;
   set_trip_info(
     card_id: string, title: string, notes: string
   ): Promise<unknown>;
