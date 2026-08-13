@@ -19,7 +19,9 @@ import type { TFunction } from "i18next";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 import "./route-profile.css";
+import { dist_str, elev_str, to_dist, to_elev, unit_system } from "./i18n";
 import type { TrackPoint } from "./route-map";
+import type { UnitSystem } from "./i18n";
 
 /* Fixed chart height, matching the map's minimum, in px. */
 const PROFILE_H = 160;
@@ -30,6 +32,7 @@ interface Profile {
   data: uPlot.AlignedData | null;
   width: number;
   height: number;
+  unit_system: UnitSystem;
   t: TFunction;
   on_hover: (point: TrackPoint) => void;
   on_leave: () => void;
@@ -71,14 +74,14 @@ function cursor_plugin(profile: Profile): uPlot.Plugin {
           return;
         tip.hidden = false;
         tip.innerHTML =
-          `<b>${(p.dist_m / 1000).toFixed(1)} km</b>` +
+          `<b>${dist_str(p.dist_m)}</b>` +
           `<span>${profile.t("route_profile.eta", {
             time: fmt_eta(p.dur_s),
           })}</span>` +
-          `<span>${Math.round(p.elev_m)} m</span>` +
+          `<span>${elev_str(p.elev_m)}</span>` +
           `<span>${p.slope.toFixed(1)} %</span>`;
 
-        const left = u.valToPos(p.dist_m / 1000, "x"); /* css px in over */
+        const left = u.valToPos(to_dist(p.dist_m), "x"); /* css px in over */
         const gap = 32;
         const tw = tip.offsetWidth;
         const over_w = u.over.clientWidth;
@@ -105,10 +108,14 @@ function options(
   const label_font = `11px ${font_family}`;
   const label_color = token("--colorNeutralForeground3"); /* subtle grey */
   const grid_color = token("--colorNeutralStroke2");
+  const imperial = profile.unit_system === "imperial";
+  /* The x scale is drawn in the large unit; its zero end is tagged with the
+   * small one, matching how the badges read the same track. */
+  const near_unit = profile.t(imperial ? "units.ft" : "units.m");
+  const far_unit = profile.t(imperial ? "units.mi" : "units.km");
   const elev_color = token("--colorBrandStroke1");
   const slope_color = token("--colorPaletteGreenForeground1");
-  const elev_fill =
-    `color-mix(in srgb, ${elev_color} 15%, transparent)`;
+  const elev_fill = `color-mix(in srgb, ${elev_color} 15%, transparent)`;
 
   return {
     width,
@@ -130,12 +137,12 @@ function options(
     },
     axes: [
       {
-        values: (_u, splits) => splits.map((km, idx, all) => {
+        values: (_u, splits) => splits.map((v, idx, all) => {
           if (idx === 0)
-            return `${km} m`;
+            return `${v} ${near_unit}`;
           if (idx === all.length - 1)
-            return `${km} km`;
-          return `${km}`;
+            return `${v} ${far_unit}`;
+          return `${v}`;
         }),
         font: label_font,
         stroke: label_color,
@@ -219,6 +226,7 @@ export function RouteProfile(props: {
     data: null,
     width: 0,
     height: 0,
+    unit_system: unit_system,
     t,
     on_hover: props.on_hover,
     on_leave: props.on_leave,
@@ -248,17 +256,23 @@ export function RouteProfile(props: {
     const el = host.current;
     if (el === null)
       return;
+    const system_changed = profile.unit_system !== unit_system;
+    profile.unit_system = unit_system;
     profile.track = props.track;
     profile.data = [
-      props.track.map((p) => p.dist_m / 1000),   /* x: km        */
-      props.track.map((p) => p.elev_m),          /* elevation, m */
-      props.track.map((p) => p.slope),           /* slope, %     */
+      props.track.map((p) => to_dist(p.dist_m)), /* x: km or mi   */
+      props.track.map((p) => to_elev(p.elev_m)), /* elev: m or ft */
+      props.track.map((p) => p.slope),           /* slope, %      */
     ];
-    if (profile.plot)
+    if (profile.plot && !system_changed) {
       profile.plot.setData(profile.data);
-    else
+    } else {
+      /* A new system rebuilds the plot so its axis units follow along. */
+      profile.plot?.destroy();
+      profile.plot = null;
       requestAnimationFrame(() => sync(el, profile)); /* let layout settle */
-  }, [props.track]);
+    }
+  }, [props.track, unit_system]);
 
   return (
     <div ref={host} className="route-profile" style={{ height: PROFILE_H }} />

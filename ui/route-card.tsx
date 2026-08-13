@@ -29,6 +29,7 @@ import {
 } from "@fluentui/react-components";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import { dist_str, elev_str } from "./i18n";
 import api from "./api";
 import { icon } from "./icon";
 import { MdInput } from "./md-input";
@@ -60,21 +61,18 @@ function fmt_hm(seconds: number): string {
   return `${h}:${String(m).padStart(2, "0")}`;
 }
 
-function fmt_signed(meters: number): string {
-  const v = Math.round(meters);
-  return v > 0 ? `+${v}` : String(v);
-}
-
 function elev_title(t: TFunction, stats: RouteStats): string {
-  /* The badge only has room for the two totals, so the rest of the
-   * elevation numbers ride along in its tooltip. */
+  /* The badge only has room for the two totals, so the rest of the elevation
+   * numbers ride along in its tooltip. Each value carries its own unit so the
+   * whole tooltip follows the active system.
+   */
+  const net = stats.elev_net_m;
   return t("route_card.elevation_hint", {
-    unit: t("units.m"),
-    net: fmt_signed(stats.elev_net_m),
-    vertical: Math.round(stats.vertical_m),
-    min: Math.round(stats.elev_min_m),
-    max: Math.round(stats.elev_max_m),
-    mean: Math.round(stats.elev_mean_m),
+    net: (net > 0 ? "+" : "") + elev_str(net),
+    vertical: elev_str(stats.vertical_m),
+    min: elev_str(stats.elev_min_m),
+    max: elev_str(stats.elev_max_m),
+    mean: elev_str(stats.elev_mean_m),
   });
 }
 
@@ -147,7 +145,7 @@ export function RouteCard(props: {
               shape="rounded"
               title={t("route_card.distance_hint")}
             >
-              {(stats.dist_m / 1000).toFixed(2)} km
+              {dist_str(stats.dist_m)}
             </Badge>
             <Badge
               appearance="tint"
@@ -163,8 +161,8 @@ export function RouteCard(props: {
               shape="rounded"
               title={elev_title(t, stats)}
             >
-              {`\u2197${Math.round(stats.ascent_m)} ` +
-                `\u2198${Math.round(stats.descent_m)} m`}
+              {`\u2197${elev_str(stats.ascent_m, false)} ` +
+                `\u2198${elev_str(stats.descent_m)}`}
             </Badge>
           </div>
         )}

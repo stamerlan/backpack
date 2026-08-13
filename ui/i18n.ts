@@ -35,6 +35,16 @@ const M_PER_KM = 1000;
 const M_PER_MI = 1609.344;
 const FT_PER_M = 3.280839895;
 
+/* Distance in meters as a bare number in the system's large unit. */
+function dist_value(meters: number, imperial: boolean): number {
+  return meters / (imperial ? M_PER_MI : M_PER_KM);
+}
+
+/* Elevation in meters as a bare number in the system's unit. */
+function elev_value(meters: number, imperial: boolean): number {
+  return imperial ? meters * FT_PER_M : meters;
+}
+
 void i18n.use(initReactI18next).init({
   resources: {
     en: { translation: en },
@@ -54,11 +64,10 @@ function make_elev(
   const imperial = system === "imperial";
   const key = imperial ? "units.ft" : "units.m";
   return (meters, units = true) => {
-    const value = imperial ? meters * FT_PER_M : meters;
     const text = new Intl.NumberFormat(tag, {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
-    }).format(value);
+    }).format(elev_value(meters, imperial));
     return units ? `${text} ${i18n.t(key)}` : text;
   };
 }
@@ -69,11 +78,10 @@ function make_dist(
   const imperial = system === "imperial";
   const key = imperial ? "units.mi" : "units.km";
   return (meters, units = true) => {
-    const value = meters / (imperial ? M_PER_MI : M_PER_KM);
     const text = new Intl.NumberFormat(tag, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    }).format(value);
+    }).format(dist_value(meters, imperial));
     return units ? `${text} ${i18n.t(key)}` : text;
   };
 }
@@ -83,12 +91,24 @@ export let elev_str = make_elev("metric", "en");
 /* Distance in meters as a localized number in km or mi. */
 export let dist_str = make_dist("metric", "en");
 
+/* The active system, so charts can convert their own numeric scales. */
+export let unit_system: UnitSystem = "metric";
+
+/* Distance in meters as a bare number in the active system's large unit. */
+export function to_dist(meters: number): number {
+  return dist_value(meters, unit_system === "imperial");
+}
+
+/* Elevation in meters as a bare number in the active system's unit. */
+export function to_elev(meters: number): number {
+  return elev_value(meters, unit_system === "imperial");
+}
+
 window.addEventListener("set_locale", (event) => {
   const { tag, units } = event.detail;
-  const system: UnitSystem =
-    units === "imperial" ? "imperial" : "metric";
-  elev_str = make_elev(system, tag);
-  dist_str = make_dist(system, tag);
+  unit_system = units === "imperial" ? "imperial" : "metric";
+  elev_str = make_elev(unit_system, tag);
+  dist_str = make_dist(unit_system, tag);
 });
 
 window.set_locale = (tag, units) => {
