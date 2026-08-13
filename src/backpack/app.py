@@ -184,7 +184,6 @@ class App:
             logger.exception("poi cache eviction failed")
 
     async def new_doc(self) -> None:
-        logger.debug("")
         if not await self._show_save_dialog():
             return
 
@@ -206,7 +205,6 @@ class App:
         doc.mark_saved()
 
     async def open_doc(self, filepath: str | None = None) -> bool:
-        logger.debug(f"filepath:{filepath}")
         if self.window is None:
             return False
         if not await self._show_save_dialog():
@@ -259,6 +257,10 @@ class App:
             self.add_task(self.load_route_details(r.id, r.track))
         doc.mark_saved()
         self._add_recent_item(filepath, doc)
+        logger.info(
+            f"opened {filepath!r}: {len(doc.routes())} routes, "
+            f"{len(doc.chats())} chats"
+        )
         return True
 
     def _reset_ui(
@@ -296,7 +298,6 @@ class App:
         self, filepath: str | None = None, show_dialog: bool = False
     ) -> bool:
         """Save the document. Return True if saved, False if canceled."""
-        logger.debug(f"filepath:{filepath} show_dialog:{show_dialog}")
         if self.window is None:
             return False
 
@@ -334,6 +335,7 @@ class App:
         self.filepath = filepath
         doc.mark_saved()
         self._add_recent_item(filepath, doc)
+        logger.info(f"saved {filepath!r}")
         return True
 
     async def _show_save_dialog(self) -> bool:
@@ -388,7 +390,6 @@ class App:
 
     async def remove_recent(self, filepath: str) -> None:
         """Drop a trip from the recent list without opening it."""
-        logger.debug(f"filepath:{filepath}")
         self._remove_recent_item(filepath)
 
     async def set_theme(self, mode: str) -> None:
@@ -400,7 +401,6 @@ class App:
         WindowTheme, since it is drawn by the OS outside the document and would
         otherwise stay light.
         """
-        logger.debug(f"mode:{mode!r}")
         self.ui.set_theme(mode)
         self.theme.apply(mode)
 
@@ -410,7 +410,6 @@ class App:
         :param str locale: "system" to follow the OS, or a tag, e.g. "en-US".
         :param str units: "auto" to follow the OS, or "metric" or "imperial".
         """
-        logger.debug(f"locale:{locale!r} units:{units!r}")
         i18n.load([locale] + system_locales())
         if units not in ("metric", "imperial"):
             units = i18n.units
@@ -524,14 +523,12 @@ class App:
             )
 
     async def add_chat(self) -> None:
-        logger.debug("")
         chat = model.ChatData()
         with self.doc.edit(self.api) as ed:
             ed.apply(model.AddChat(chat))
         self.ui.assist.set_active_chat(chat.id)
 
     async def del_chat(self, chat_id: str) -> None:
-        logger.debug(f"chat_id:{chat_id}")
         active: str | None = None
         with self.doc.edit(self.api) as ed:
             ed.apply(model.RemoveChat(chat_id))
@@ -564,9 +561,6 @@ class App:
                 self.ui.notify(str(e) or type(e).__name__)
                 return
 
-            logger.debug(
-                f"chat_id:{chat_id} turn_id:{turn_id} action_id:{action_id!r}"
-            )
             if action_id == "retry":
                 async def _retry() -> None:
                     if self.doc.chat(chat_id) is None:
@@ -614,16 +608,13 @@ class App:
         The stopped run drops its streamed turn and clears the busy state,
         leaving the chat ready for the next prompt.
         """
-        logger.debug(f"chat_id:{chat_id}")
         self.ai.stop(chat_id)
 
     async def set_trip_info(self, card_id: str, title: str, notes: str) -> None:
-        logger.debug(f"card_id:{card_id} title:{title!r} notes:{notes!r}")
         with self.doc.edit(self.api) as ed:
             ed.apply(model.SetDocInfo(title=title, notes=notes))
 
     async def add_route(self) -> None:
-        logger.debug("")
         window = self.window
         if window is None:
             return
@@ -640,6 +631,7 @@ class App:
             return
 
         self.ui.set_busy(True, i18n.gettext("Loading routes..."))
+        added = 0
         try:
             for filepath in files:
                 try:
@@ -655,6 +647,7 @@ class App:
                     with self.doc.edit(self) as ed:
                         ed.apply(model.AddRoute(r))
                     self.add_task(self.load_route_details(r.id, r.track))
+                    added += 1
                 except Exception as e:
                     logger.exception(f'Failed to load "{filepath}"')
                     name = pathlib.Path(filepath).name
@@ -665,23 +658,21 @@ class App:
                     )
         finally:
             self.ui.set_busy(False)
+        logger.info(f"added {added} of {len(files)} routes")
 
     async def set_route_info(
         self, card_id: str, title: str, notes: str
     ) -> None:
-        logger.debug(f"card_id:{card_id} title:{title!r} notes:{notes!r}")
         with self.doc.edit(self.api) as ed:
             ed.apply(model.SetRouteInfo(card_id, title=title, notes=notes))
 
     async def remove_route(self, card_id: str) -> None:
-        logger.debug(f"card_id:{card_id}")
         with self.doc.edit(self.api) as ed:
             ed.apply(model.RemoveRoute(card_id))
 
     async def move_route(
         self, card_id: str, after_id: str | None = None
     ) -> None:
-        logger.debug(f"card_id:{card_id} after_id:{after_id}")
         with self.doc.edit(self.api) as ed:
             ed.apply(model.MoveRoute(card_id, after_id))
 
@@ -729,6 +720,7 @@ class App:
                 return
             self.poi = {**self.poi, route_id: poi}
             self.ui.set_route_loading(route_id, False)
+            logger.debug(f"route_id:{route_id} loaded {len(poi)} poi")
             return
 
     def on_change(self, change: model.Change, origin: model.Origin) -> None:
