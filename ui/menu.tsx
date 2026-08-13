@@ -117,14 +117,18 @@ export function Menu(props: {
                   onClick={() => { hide_menu(); api.open_doc(item.filename); }}
                 >
                   <CardHeader
-                    header={
-                      <Text weight="semibold" truncate wrap={false}>
-                        {item.title.trim() || t("common.untitled_trip")}
-                      </Text>
-                    }
-                    description={
-                      <span className="menu-recent-meta">{item.meta}</span>
-                    }
+                    header={{
+                      className: "menu-recent-title",
+                      children: (
+                        <Text weight="semibold" truncate wrap={false}>
+                          {item.title.trim() || t("common.untitled_trip")}
+                        </Text>
+                      )
+                    }}
+                    description={{
+                      className: "menu-recent-meta",
+                      children: item.meta
+                    }}
                     action={
                       <button
                         type="button"

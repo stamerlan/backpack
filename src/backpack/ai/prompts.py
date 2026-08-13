@@ -8,7 +8,7 @@ card is a route. Route cards also display badges with distance, estimated
 walking time, ascent and descent - these are computed from the GPX track
 automatically, so never duplicate them in the notes.
 
-Keep titles short (a few words, ~50 characters max) so they fit the UI. Put
+Keep titles short (a few words, ~30 characters max) so they fit the UI. Put
 longer detail in notes. Chat titles appear on tabs - keep them even shorter.
 
 Use headings inside notes to separate sections visually. Don't start notes with

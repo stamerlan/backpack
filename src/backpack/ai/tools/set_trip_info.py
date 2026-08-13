@@ -15,7 +15,7 @@ def set_trip_info(
     Only provided arguments are changed; omit to keep the current value.
 
     Args:
-        title: new trip title (~50 chars max). Omit to keep current.
+        title: new trip title (~30 chars max). Omit to keep current.
         notes: new trip notes (markdown). Omit to keep current.
 
     Returns the updated trip info (same shape as get_trip_info).

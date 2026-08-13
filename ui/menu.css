@@ -20,6 +20,17 @@
   gap: 6px;
 }
 
+/* CardHeader lays out header/description/action in a grid whose items default
+ * to min-width: auto. Without this a long title refuses to shrink and pushes
+ * the remove cross out of view, so let these slots shrink and let the title
+ * truncate instead.
+ */
+.menu-recent-title,
+.menu-recent-meta {
+  min-width: 0;
+  overflow: hidden;
+}
+
 .menu-recent-meta {
   font-size: var(--fontSizeBase200);
   color: var(--colorNeutralForeground3);
