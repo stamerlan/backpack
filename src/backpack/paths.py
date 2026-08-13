@@ -46,6 +46,21 @@ def appcache() -> Path:
     return Path(root) / APP_NAME
 
 
+def applogs() -> Path:
+    """Directory for log files, mirroring appcache conventions."""
+    match sys.platform:
+        case "win32":
+            root = os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")
+            return Path(root) / APP_NAME / "Logs"
+        case "darwin":
+            return Path.home() / "Library/Logs" / APP_NAME
+        case _:
+            root = os.environ.get(
+                "XDG_STATE_HOME", Path.home() / ".local/state"
+            )
+            return Path(root) / APP_NAME
+
+
 def assets_dir() -> Path:
     """Locate the bundled assets directory.
 
