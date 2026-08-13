@@ -113,6 +113,11 @@ window.addEventListener("set_locale", (event) => {
 
 window.set_locale = (tag, units) => {
   void i18n.changeLanguage(tag).then(() => {
+    /* Keep the document language in step with the active locale so the
+     * browser and assistive tech read the page in the right language;
+     * index.html only seeds the "en" default.
+     */
+    document.documentElement.lang = tag;
     window.dispatchEvent(
       new CustomEvent<LocaleDetail>("set_locale", { detail: { tag, units } })
     );
