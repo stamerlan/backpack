@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import logging.handlers
+import platform
 import sys
 import threading
 import webview
@@ -9,7 +10,7 @@ from concurrent.futures import Future
 from dataclasses import replace
 from datetime import datetime
 
-from . import APP_NAME
+from . import APP_NAME, APP_VERSION
 from backpack.app import App
 from backpack.paths import (
     app_icon_path, app_settings_path, applogs, assets_dir
@@ -65,6 +66,13 @@ def main() -> None:
     logging.getLogger("httpcore").setLevel(logging.INFO)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("google_genai").setLevel(logging.ERROR)
+
+    logger.info(
+        f"Starting {APP_NAME} {APP_VERSION} ("
+        f"{sys.platform}-{platform.machine().lower()} "
+        f"python-{platform.python_version()} "
+        f"frozen:{getattr(sys, 'frozen', False)})"
+    )
 
     url = args.dev or str(assets_dir() / "index.html")
     logger.debug(f"url:{url}")
@@ -154,7 +162,7 @@ def main() -> None:
         except OSError as e:
             logger.warning(f"Could not store settings: {e}")
 
-        logger.debug("exit")
+        logger.info("Exit\n")
 
 
 def _run_mainloop(loop: asyncio.AbstractEventLoop) -> None:
