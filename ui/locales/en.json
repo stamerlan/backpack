@@ -41,6 +41,13 @@
       "en": "English",
       "ru": "Русский"
     },
+    "units": {
+      "label": "Units",
+      "hint": "Choose how distances and elevations are shown.",
+      "auto": "Follow system",
+      "metric": "Metric (km, m)",
+      "imperial": "Imperial (mi, ft)"
+    },
     "poi": {
       "label": "Cached points of interest",
       "hint_clearing": "Will be cleared when you save.",

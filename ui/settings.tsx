@@ -63,6 +63,10 @@ interface Request {
    * put back whatever was active when it opened.
    */
   initial_locale: string;
+  /* Picking a units system previews it live too, so a dismissed dialog has
+   * to put back whatever was active when it opened.
+   */
+  initial_units: string;
   /* Whether the credential store holds a key. Only then is there something
    * to replace or remove.
    */
@@ -89,6 +93,16 @@ const LOCALE_OPTIONS = [
   { value: "system", key: "settings.locale.system" },
   { value: "en", key: "settings.locale.en" },
   { value: "ru", key: "settings.locale.ru" },
+] as const;
+
+/* Units values and their catalog keys; labels are translated at render time
+ * so a locale switch relabels the dropdown. "auto" lets the backend follow
+ * the OS, or the locale region when the OS reports none.
+ */
+const UNITS_OPTIONS = [
+  { value: "auto", key: "settings.units.auto" },
+  { value: "metric", key: "settings.units.metric" },
+  { value: "imperial", key: "settings.units.imperial" },
 ] as const;
 
 /* Read a string field from the untyped settings, falling back to a default. */
@@ -127,6 +141,7 @@ export function SettingsDialog() {
         resolve,
         initial_theme: theme,
         initial_locale: locale,
+        initial_units: units,
         key_set: settings?.gemini_api_key_set === true,
         poi_cache_bytes,
         version: get_str(settings?.version, ""),
@@ -146,6 +161,8 @@ export function SettingsDialog() {
     THEME_OPTIONS.find((o) => o.value === theme) ?? THEME_OPTIONS[0];
   const selected_locale =
     LOCALE_OPTIONS.find((o) => o.value === locale) ?? LOCALE_OPTIONS[0];
+  const selected_units =
+    UNITS_OPTIONS.find((o) => o.value === units) ?? UNITS_OPTIONS[0];
   /* The remove button doubles as its own undo, so the removal stays pending
    * until the dialog is saved and Cancel needs no special handling.
    */
@@ -165,7 +182,7 @@ export function SettingsDialog() {
   const close = (values: SettingsValues | null): void => {
     if (values === null) {
       void api.set_theme(req.initial_theme);
-      void api.set_locale(req.initial_locale, req.values.units);
+      void api.set_locale(req.initial_locale, req.initial_units);
     }
     set_open(false);
     req.resolve(values);
@@ -301,6 +318,44 @@ export function SettingsDialog() {
                       }}
                     >
                       {LOCALE_OPTIONS.map((option) => (
+                        <Option key={option.value} value={option.value}>
+                          {t(option.key)}
+                        </Option>
+                      ))}
+                    </Dropdown>
+                  </div>
+                </div>
+              </Card>
+
+              <Card>
+                <div className="settings-row">
+                  <div className="settings-text">
+                    <Label className="settings-label"
+                      htmlFor="settings-units">
+                      {t("settings.units.label")}
+                    </Label>
+                    <span className="settings-hint">
+                      {t("settings.units.hint")}
+                    </span>
+                  </div>
+                  <div className="settings-control-group">
+                    <Dropdown
+                      id="settings-units"
+                      className="settings-control"
+                      inlinePopup
+                      positioning={{ strategy: "fixed" }}
+                      value={t(selected_units.key)}
+                      selectedOptions={[selected_units.value]}
+                      onOptionSelect={(_event, data) => {
+                        const system = data.optionValue ?? "auto";
+                        set_value({ units: system });
+                        /* Preview it through the backend so it resolves "auto"
+                         * and re-pushes the locale.
+                         */
+                        void api.set_locale(locale, system);
+                      }}
+                    >
+                      {UNITS_OPTIONS.map((option) => (
                         <Option key={option.value} value={option.value}>
                           {t(option.key)}
                         </Option>
