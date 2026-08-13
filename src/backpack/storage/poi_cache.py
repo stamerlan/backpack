@@ -149,7 +149,8 @@ class PoiCache:
         """
         now = int(time.time())
         with self._lock:
-            assert self._conn is not None
+            if self._conn is None:
+                return
             conn = self._conn
             with conn:
                 conn.execute(
@@ -191,7 +192,8 @@ class PoiCache:
         now = int(time.time())
         threshold = now - TOUCH_MIN_INTERVAL_S
         with self._lock:
-            assert self._conn is not None
+            if self._conn is None:
+                return
             conn = self._conn
             with conn:
                 for tile in tiles:
@@ -216,7 +218,8 @@ class PoiCache:
         cutoff = now - MAX_AGE_S
         deleted = 0
         with self._lock:
-            assert self._conn is not None
+            if self._conn is None:
+                return 0
             conn = self._conn
             with conn:
                 cur = conn.execute(
@@ -287,7 +290,8 @@ class PoiCache:
         stale: set[PoiTile] = set()
 
         with self._lock:
-            assert self._conn is not None
+            if self._conn is None:
+                return {}, frozenset(tiles), frozenset()
             conn = self._conn
             for tile in tiles:
                 row = conn.execute(
