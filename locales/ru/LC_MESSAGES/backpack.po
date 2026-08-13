@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version:  Backpack\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-13 19:14+0200\n"
+"POT-Creation-Date: 2026-08-13 23:24+0200\n"
 "PO-Revision-Date: 2026-08-12 14:59+0200\n"
 "Last-Translator: Backpack\n"
 "Language: ru\n"
@@ -18,49 +18,57 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: src/backpack/app.py:220 src/backpack/app.py:310
+#: src/backpack/app.py:244 src/backpack/app.py:359
 msgid "Json files (*.json)"
 msgstr "Файлы Json (*.json)"
 
-#: src/backpack/app.py:221 src/backpack/app.py:311 src/backpack/app.py:639
+#: src/backpack/app.py:245 src/backpack/app.py:360 src/backpack/app.py:715
 msgid "All files (*.*)"
 msgstr "Все файлы (*.*)"
 
-#: src/backpack/app.py:239
+#: src/backpack/app.py:263
 msgid "Could not open trip"
 msgstr "Не удалось открыть поход"
 
-#: src/backpack/app.py:330
+#: src/backpack/app.py:315 src/backpack/app.py:661
+msgid "Assistant unavailable"
+msgstr "Помощник недоступен"
+
+#: src/backpack/app.py:379
 msgid "Could not save trip"
 msgstr "Не удалось сохранить поход"
 
-#: src/backpack/app.py:347
+#: src/backpack/app.py:398
 msgid "Save changes?"
 msgstr "Сохранить изменения?"
 
-#: src/backpack/app.py:349
+#: src/backpack/app.py:400
 msgid "This trip has unsaved changes. Save them before continuing?"
 msgstr ""
 "В этом походе есть несохранённые изменения. Сохранить их перед "
 "продолжением?"
 
-#: src/backpack/app.py:352
+#: src/backpack/app.py:403
 msgid "Cancel"
 msgstr "Отмена"
 
-#: src/backpack/app.py:353
+#: src/backpack/app.py:404
 msgid "Don't save"
 msgstr "Не сохранять"
 
-#: src/backpack/app.py:355
+#: src/backpack/app.py:406
 msgid "Save"
 msgstr "Сохранить"
 
-#: src/backpack/app.py:381
+#: src/backpack/app.py:440
+msgid "Untitled trip"
+msgstr ""
+
+#: src/backpack/app.py:448
 msgid "no routes"
 msgstr "нет маршрутов"
 
-#: src/backpack/app.py:382
+#: src/backpack/app.py:449
 #, python-brace-format
 msgid "{n} route"
 msgid_plural "{n} routes"
@@ -68,31 +76,31 @@ msgstr[0] "{n} маршрут"
 msgstr[1] "{n} маршрута"
 msgstr[2] "{n} маршрутов"
 
-#: src/backpack/app.py:492
+#: src/backpack/app.py:556
 msgid "Could not open settings"
 msgstr "Не удалось открыть настройки"
 
-#: src/backpack/app.py:526
+#: src/backpack/app.py:587
 msgid "Could not open logs"
 msgstr "Не удалось открыть журналы"
 
-#: src/backpack/app.py:638
+#: src/backpack/app.py:714
 msgid "GPX files (*.gpx)"
 msgstr "Файлы GPX (*.gpx)"
 
-#: src/backpack/app.py:645
+#: src/backpack/app.py:721
 msgid "Loading routes..."
 msgstr "Загрузка маршрутов..."
 
-#: src/backpack/app.py:667
+#: src/backpack/app.py:745
 msgid "Could not load route"
 msgstr "Не удалось загрузить маршрут"
 
-#: src/backpack/app.py:709
+#: src/backpack/app.py:785
 msgid "Could not load route details"
 msgstr "Не удалось загрузить сведения о маршруте"
 
-#: src/backpack/ai/assist_run.py:146 src/backpack/app.py:711
+#: src/backpack/ai/assist_run.py:146 src/backpack/app.py:787
 msgid "Retry"
 msgstr "Повторить"
 

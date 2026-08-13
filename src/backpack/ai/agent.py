@@ -1,11 +1,17 @@
 import logging
+from dataclasses import dataclass
 from typing import Any, Callable, TYPE_CHECKING
 
 import pydantic_ai
 import pydantic_ai.capabilities
 from babel import Locale
+from google.genai.types import HttpRetryOptions
+from pydantic_ai.models import Model
+from pydantic_ai.models.google import GoogleModel
+from pydantic_ai.providers.google import GoogleProvider
+from pydantic_ai.settings import ModelSettings
 
-from . import prompts, provider, tools
+from . import prompts, tools
 from .errors import AiError
 from .assist_run import AssistRun
 from ..i18n import i18n
@@ -19,7 +25,65 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class AiModel:
+    id: str
+    name: str
+
+
 class Agent:
+    @staticmethod
+    async def enum_models() -> tuple[AiModel, ...]:
+        """Return available model descriptors."""
+        return (
+            AiModel("google:gemini-3.6-flash", "Gemini 3.6 Flash"),
+            AiModel("google:gemini-3.5-flash", "Gemini 3.5 Flash"),
+            AiModel("google:gemini-3.1-flash-lite", "Gemini 3.1 Flash-Lite"),
+            AiModel(
+                "google:gemini-3.1-pro-preview-customtools", "Gemini 3.1 Pro"
+            ),
+        )
+
+    @staticmethod
+    async def build_model(
+        model_id: str,
+        storage: "Storage",
+        model_settings: ModelSettings | None = None,
+    ) -> Model:
+        """Build a pydantic-ai Model from a model id string.
+
+        Loads the required API key from the OS credential store (async) and
+        constructs the provider. No network connection is opened until the
+        model is actually used.
+        """
+        if model_settings is None:
+            model_settings = ModelSettings(timeout=180.0)
+        provider_name, _, name = model_id.partition(":")
+
+        match provider_name:
+            case "google":
+                api_key = storage.vault.get("gemini_api_key")
+                if not api_key:
+                    api_key = await storage.load_key("gemini_api_key")
+                if not api_key:
+                    raise AiError("No Gemini API key")
+                return GoogleModel(
+                    name,
+                    settings=model_settings,
+                    provider=GoogleProvider(
+                        api_key=api_key,
+                        retry_options=HttpRetryOptions(
+                            attempts=5,
+                            initial_delay=1.0,
+                            max_delay=30.0,
+                            exp_base=2.0,
+                            http_status_codes=[408, 429, 500, 502, 503, 504]
+                        ),
+                    ),
+                )
+            case _:
+                raise AiError(f"Unknown provider {provider_name!r}")
+
     def __init__(self, storage: "Storage", nominatim: "Nominatim") -> None:
         self.storage = storage
         self.nominatim = nominatim
@@ -67,7 +131,7 @@ class Agent:
         invokes a tool, so the caller can emit a status card.
         """
         logger.debug(f"chat_id:{chat_id} model_id:{model_id!r}")
-        llm = await provider.build_model(model_id, self.storage)
+        llm = await self.build_model(model_id, self.storage)
         if (chat := doc.chat(chat_id)) is None:
             raise AiError(f"No chat id:{chat_id}")
 

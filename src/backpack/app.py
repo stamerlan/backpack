@@ -10,10 +10,10 @@ import webview
 from collections.abc import Coroutine
 from concurrent.futures import CancelledError, Future
 from dataclasses import replace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
-from backpack import APP_VERSION, ai, model, route
+from backpack import APP_VERSION, model, route
 from backpack.api import Api
 from backpack.i18n import i18n, system_locales
 from backpack.js_worker import JsWorker
@@ -24,6 +24,9 @@ from backpack.storage import Storage
 from backpack.storage.settings import Settings
 from backpack.theme import Theme
 from backpack.ui import UI, DialogAction, NotifyAction, RecentItem
+
+if TYPE_CHECKING:
+    from backpack import ai
 
 logger = logging.getLogger(__name__)
 
@@ -42,10 +45,12 @@ class App:
         self.nominatim = Nominatim()
         self.route_details = RouteDetails(storage.poi_cache)
         self.poi: dict[str, tuple[model.Poi, ...]] = {}
-        self.ai = ai.Agent(storage, self.nominatim)
-        self.ai_models: asyncio.Future[tuple[ai.AiModel, ...]] = (
-            mainloop.create_future()
-        )
+        # The ai package pulls in pydantic-ai and google-genai, about a second
+        # of imports. Load it and build the agent on a background thread so the
+        # window can come up meanwhile. The future settles with the agent, or
+        # with the exception if the load failed; async callers await it and
+        # only block if it is not ready yet.
+        self._ai: Future[ai.Agent] = Future()
         self.doc = model.Document()
         self.filepath: str | None = None
         self.running = threading.Event()
@@ -54,6 +59,11 @@ class App:
         self._settings_task: asyncio.Task[None] | None = None
         self._tasks: set[asyncio.Task[None]] = set()
 
+        self._ai_thread = threading.Thread(
+            target=self._import_ai, name="app.ai_import", daemon=True
+        )
+        self._ai_thread.start()
+
     def start(self, window: webview.Window) -> None:
         """Bind the window and start application tasks."""
         self.window = window
@@ -61,6 +71,32 @@ class App:
         self.js.start(window)
         self.running.set()
         logger.debug("app started")
+
+    def _import_ai(self) -> None:
+        """Import the ai package and build the agent off the startup path.
+
+        Runs on a background thread started in __init__ and settles the _ai
+        future with the agent, or with the exception if the import or build
+        failed. Only Python object construction happens here, no event loop,
+        so it is safe off the mainloop.
+
+        Marks the future running first: a shutdown before the import lands
+        cancels the awaiting tasks, which propagates a cancel to this future,
+        and set_running_or_notify_cancel both bails out on that cancel and
+        blocks a later one so set_result/set_exception cannot race with it.
+        """
+        if not self._ai.set_running_or_notify_cancel():
+            logger.debug("ai preload canceled before it finished")
+            return
+        try:
+            from backpack import ai
+            agent = ai.Agent(self.storage, self.nominatim)
+        except Exception as e:
+            self._ai.set_exception(e)
+            logger.exception("ai preload failed")
+        else:
+            self._ai.set_result(agent)
+            logger.debug("ai preload done")
 
     def add_task(self, coro: Coroutine[Any, Any, None]) -> None:
         """Schedule coro as a detached, tracked mainloop task.
@@ -160,8 +196,6 @@ class App:
             self.storage.settings.locale, self.storage.settings.units
         )
 
-        # enumerate models in the background; it might take a while
-        self.ai_models = asyncio.ensure_future(ai.enum_models())
         asyncio.ensure_future(self._evict_poi_cache())
 
         await self.set_theme(self.storage.settings.theme)
@@ -196,8 +230,7 @@ class App:
         self.doc = doc
         self.poi = {}
         self.filepath = None
-        models = await self.ai_models
-        self._reset_ui(doc, models)
+        self._reset_ui(doc)
         chat = model.ChatData()
         with doc.edit(self.api) as ed:
             ed.apply(model.AddChat(chat))
@@ -247,8 +280,7 @@ class App:
         self.doc = doc
         self.poi = {}
         self.filepath = filepath
-        models = await self.ai_models
-        self._reset_ui(doc, models)
+        self._reset_ui(doc)
         if not doc.chats():
             chat = model.ChatData()
             with doc.edit(self.api) as ed:
@@ -265,10 +297,32 @@ class App:
         )
         return True
 
-    def _reset_ui(
-        self, doc: model.Document, models: tuple[ai.AiModel, ...]
-    ) -> None:
-        """Render the whole UI to match doc: trip, routes and chats."""
+    def _reset_ui(self, doc: model.Document) -> None:
+        """Render the whole UI to match doc: trip, routes and chats.
+
+        The assistant model list is not needed to draw the document, so it is
+        pushed separately when the background ai import lands, keeping the
+        render off that import.
+        """
+        async def enum_llm() -> None:
+            """Fill the composer once the model list is ready.
+
+            Scheduled from _reset_ui so the document paints without waiting for
+            the background ai import; the models arrive a moment later.
+            """
+            try:
+                agent = await asyncio.wrap_future(self._ai)
+                self.ui.assist.set_models(await agent.enum_models())
+            except asyncio.CancelledError:
+                return
+            except Exception as e:
+                logger.exception("failed to enumerate assistant models")
+                self.ui.notify(
+                    str(e) or type(e).__name__,
+                    intent="error",
+                    title=i18n.gettext("Assistant unavailable"),
+                )
+
         self.ui.clear_notify()
         self.ui.clear_doc()
         self.ui.add_trip_card(f"trip-{uuid4().hex}", doc.title, doc.notes)
@@ -278,7 +332,7 @@ class App:
                 route.RouteStats.from_track(r.track) if r.track else None,
             )
         self.ui.assist.clear()
-        self.ui.assist.set_models(models)
+        self.add_task(enum_llm())
         for chat in doc.chats():
             self.ui.assist.new_chat(chat.id, chat.title)
             for turn in chat.turns:
@@ -596,8 +650,28 @@ class App:
         turn_id = model.ChatTurn.unique_id()
         self.ui.assist.new_turn(chat_id, turn_id, prompt)
 
+        # The agent is normally loaded well before the first prompt, but wait
+        # for the background import here in case it is not, so the very first
+        # turn still works instead of failing.
         try:
-            items = await self.ai.ask(
+            agent = await asyncio.wrap_future(self._ai)
+        except asyncio.CancelledError:
+            self.ui.assist.del_turn(chat_id, turn_id)
+            self.ui.assist.end_turn(chat_id)
+            return
+        except Exception as e:
+            logger.exception("assistant unavailable")
+            self.ui.assist.del_turn(chat_id, turn_id)
+            self.ui.assist.end_turn(chat_id)
+            self.ui.notify(
+                str(e) or type(e).__name__,
+                intent="error",
+                title=i18n.gettext("Assistant unavailable"),
+            )
+            return
+
+        try:
+            items = await agent.ask(
                 self.doc, self.poi, chat_id, model_id, prompt,
                 on_text=lambda text: self.ui.assist.append_reply(chat_id, text),
                 on_think=(
@@ -612,7 +686,7 @@ class App:
             return
 
         turn = model.ChatTurn(turn_id, prompt, items)
-        with self.doc.edit(self.ai) as ed:
+        with self.doc.edit(agent) as ed:
             ed.apply(model.AppendChatTurn(chat_id, turn))
 
         for item in items:
@@ -627,7 +701,10 @@ class App:
         The stopped run drops its streamed turn and clears the busy state,
         leaving the chat ready for the next prompt.
         """
-        self.ai.stop(chat_id)
+        # Nothing can be running before the agent exists, so a stop that races
+        # the background load is a no-op rather than a wait.
+        if self._ai.done() and self._ai.exception() is None:
+            self._ai.result().stop(chat_id)
 
     async def set_trip_info(self, card_id: str, title: str, notes: str) -> None:
         with self.doc.edit(self.api) as ed:
