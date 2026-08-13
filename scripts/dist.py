@@ -92,6 +92,13 @@ def main() -> None:
         # at import time, which PyInstaller drops unless asked to copy it for
         # the whole tree.
         "--recursive-copy-metadata", "pydantic-ai-slim",
+        # setuptools, pkg_resources and pip are build-time only; nothing in the
+        # app imports them at runtime. Excluding them drops the setuptools
+        # PyInstaller runtime hook and a large vendored module tree, trimming
+        # interpreter boot.
+        "--exclude-module", "setuptools",
+        "--exclude-module", "pkg_resources",
+        "--exclude-module", "pip",
     ]
     # Only the compiled catalogs (.mo) are read at runtime; the .po sources and
     # .pot template are build artifacts. Ship just the .mo files, keeping the
