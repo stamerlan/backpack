@@ -54,6 +54,11 @@
       "keep": "Keep",
       "clear": "Clear"
     },
+    "logs": {
+      "label": "Logs",
+      "hint": "Open the folder holding log files.",
+      "show": "Show logs"
+    },
     "version": {
       "label": "Version",
       "hint": "The running build of the app."

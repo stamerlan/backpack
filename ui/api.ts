@@ -32,6 +32,7 @@ interface Api {
   open_doc(filename?: string): Promise<unknown>;
   save_doc(filename?: string | null, save_as?: boolean): Promise<unknown>;
   open_settings(): Promise<unknown>;
+  open_logs(): Promise<unknown>;
   remove_recent(filename: string): Promise<unknown>;
   set_theme(mode: string): Promise<unknown>;
   set_locale(locale: string, units: string): Promise<unknown>;

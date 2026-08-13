@@ -394,6 +394,28 @@ export function SettingsDialog() {
                 </div>
               </Card>
 
+              <Card>
+                <div className="settings-row">
+                  <div className="settings-text">
+                    <Label className="settings-label">
+                      {t("settings.logs.label")}
+                    </Label>
+                    <span className="settings-hint">
+                      {t("settings.logs.hint")}
+                    </span>
+                  </div>
+                  <div className="settings-control-group">
+                    <Button
+                      appearance="subtle"
+                      icon={icon("folder-open")}
+                      onClick={() => void api.open_logs()}
+                    >
+                      {t("settings.logs.show")}
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+
               {req.version && (
                 <Card>
                   <div className="settings-row">

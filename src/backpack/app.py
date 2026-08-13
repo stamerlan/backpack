@@ -1,7 +1,10 @@
 import asyncio
 import json
 import logging
+import os
 import pathlib
+import subprocess
+import sys
 import threading
 import webview
 from collections.abc import Coroutine
@@ -15,6 +18,7 @@ from backpack.api import Api
 from backpack.i18n import i18n, system_locales
 from backpack.js_worker import JsWorker
 from backpack.nominatim import Nominatim
+from backpack.paths import applogs
 from backpack.route_details import RouteDetails
 from backpack.storage import Storage
 from backpack.storage.settings import Settings
@@ -490,6 +494,34 @@ class App:
 
         self._settings_task = asyncio.ensure_future(do_show_settings_dialog())
         self._settings_task.add_done_callback(on_settings_dialog_close)
+
+    async def open_logs(self) -> None:
+        """Reveal the log folder in the OS file manager.
+
+        The directory is created first so a reveal never fails just because
+        nothing has been logged to disk yet. The reveal runs off the mainloop
+        since it spawns the file manager, and any failure is logged and surfaced
+        as a notification rather than raised to the frontend.
+        """
+        def reveal() -> None:
+            path = applogs()
+            path.mkdir(parents=True, exist_ok=True)
+            if sys.platform == "win32":
+                os.startfile(path)
+            elif sys.platform == "darwin":
+                subprocess.run(["open", str(path)], check=True)
+            else:
+                subprocess.run(["xdg-open", str(path)], check=True)
+
+        try:
+            await asyncio.to_thread(reveal)
+        except Exception as e:
+            logger.exception("Failed to open logs")
+            self.ui.notify(
+                str(e) or type(e).__name__,
+                intent="error",
+                title=i18n.gettext("Could not open logs")
+            )
 
     async def add_chat(self) -> None:
         logger.debug("")

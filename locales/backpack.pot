@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-12 14:59+0200\n"
+"POT-Creation-Date: 2026-08-13 19:14+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,31 +17,31 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: src/backpack/app.py:217 src/backpack/app.py:307
+#: src/backpack/app.py:220 src/backpack/app.py:310
 msgid "Json files (*.json)"
 msgstr ""
 
-#: src/backpack/app.py:218 src/backpack/app.py:308 src/backpack/app.py:616
+#: src/backpack/app.py:221 src/backpack/app.py:311 src/backpack/app.py:639
 msgid "All files (*.*)"
 msgstr ""
 
-#: src/backpack/app.py:236
+#: src/backpack/app.py:239
 msgid "Could not open trip"
 msgstr ""
 
-#: src/backpack/app.py:327
+#: src/backpack/app.py:330
 msgid "Could not save trip"
 msgstr ""
 
-#: src/backpack/app.py:344
+#: src/backpack/app.py:347
 msgid "Save changes?"
 msgstr ""
 
-#: src/backpack/app.py:346
+#: src/backpack/app.py:349
 msgid "This trip has unsaved changes. Save them before continuing?"
 msgstr ""
 
-#: src/backpack/app.py:350
+#: src/backpack/app.py:352
 msgid "Cancel"
 msgstr ""
 
@@ -49,42 +49,46 @@ msgstr ""
 msgid "Don't save"
 msgstr ""
 
-#: src/backpack/app.py:356
+#: src/backpack/app.py:355
 msgid "Save"
 msgstr ""
 
-#: src/backpack/app.py:382
+#: src/backpack/app.py:381
 msgid "no routes"
 msgstr ""
 
-#: src/backpack/app.py:383
+#: src/backpack/app.py:382
 #, python-brace-format
 msgid "{n} route"
 msgid_plural "{n} routes"
 msgstr[0] ""
 msgstr[1] ""
 
-#: src/backpack/app.py:500
+#: src/backpack/app.py:492
 msgid "Could not open settings"
 msgstr ""
 
-#: src/backpack/app.py:615
+#: src/backpack/app.py:526
+msgid "Could not open logs"
+msgstr ""
+
+#: src/backpack/app.py:638
 msgid "GPX files (*.gpx)"
 msgstr ""
 
-#: src/backpack/app.py:622
+#: src/backpack/app.py:645
 msgid "Loading routes..."
 msgstr ""
 
-#: src/backpack/app.py:644
+#: src/backpack/app.py:667
 msgid "Could not load route"
 msgstr ""
 
-#: src/backpack/app.py:686
+#: src/backpack/app.py:709
 msgid "Could not load route details"
 msgstr ""
 
-#: src/backpack/ai/assist_run.py:146 src/backpack/app.py:688
+#: src/backpack/ai/assist_run.py:146 src/backpack/app.py:711
 msgid "Retry"
 msgstr ""
 

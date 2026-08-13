@@ -78,6 +78,10 @@ class Api:
         return self._app.open_settings()
 
     @api_method
+    def open_logs(self) -> Coroutine[Any, Any, Any]:
+        return self._app.open_logs()
+
+    @api_method
     def remove_recent(self, filepath: str) -> Coroutine[Any, Any, Any]:
         return self._app.remove_recent(filepath)
 
