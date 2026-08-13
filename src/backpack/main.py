@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import logging.handlers
 import sys
 import threading
 import webview
@@ -10,7 +11,9 @@ from datetime import datetime
 
 from . import APP_NAME
 from backpack.app import App
-from backpack.paths import app_icon_path, app_settings_path, assets_dir
+from backpack.paths import (
+    app_icon_path, app_settings_path, applogs, assets_dir
+)
 from backpack.storage import Storage
 
 
@@ -37,11 +40,27 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    log_handler = logging.StreamHandler()
-    log_handler.setFormatter(
-        LogFormatter("%(asctime)s %(name)s.%(funcName)s(): %(message)s")
+    log_formatter = LogFormatter(
+        "%(asctime)s %(name)s.%(funcName)s(): %(message)s"
     )
-    logging.basicConfig(level=logging.DEBUG, handlers=[log_handler])
+    log_handler = logging.StreamHandler()
+    log_handler.setFormatter(log_formatter)
+    handlers: list[logging.Handler] = [log_handler]
+
+    try:
+        log_dir = applogs()
+        log_dir.mkdir(parents=True, exist_ok=True)
+        file_handler = logging.handlers.RotatingFileHandler(
+            log_dir / "backpack.log", maxBytes=1_000_000, backupCount=3,
+            encoding="utf-8"
+        )
+        file_handler.setFormatter(log_formatter)
+        handlers.append(file_handler)
+    except OSError:
+        # A read-only home must never block startup; keep stream-only.
+        pass
+
+    logging.basicConfig(level=logging.DEBUG, handlers=handlers)
     logging.getLogger("pywebview").handlers.clear()
     logging.getLogger("httpcore").setLevel(logging.INFO)
     logging.getLogger("httpx").setLevel(logging.WARNING)
