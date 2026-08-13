@@ -116,20 +116,20 @@ language to the backend ``SUPPORTED_LANG`` and the frontend
 Packaging
 ---------
 
-Standalone packages are built with PyInstaller, which cannot cross compile, so
-build on the target OS. Install the packaging tools once::
+Standalone packages are built with PyInstaller (installed with the ``dev``
+extras above), which cannot cross compile, so build on the target OS.
 
-    .venv\Scripts\python.exe -m pip install --editable ".[pkg]"
+The bundle ships the built frontend and the compiled catalogs, so build them
+first. From ``ui/`` run ``npm run build``, then from the root compile the
+catalogs with ``pybabel compile -d locales -D backpack`` (see Translations).
+Then build the package::
 
-Then build the frontend and the package in one step::
+    .venv\Scripts\python.exe scripts\dist.py
 
-    .venv\Scripts\python.exe scripts\build.py
-
-The result lands in ``dist/``: a ``backpack`` folder with
-``backpack.exe`` on Windows and a ``backpack.app`` bundle on macOS. Pass
-``--onefile`` for a single executable, ``--archive`` to zip a versioned
-copy, ``--console`` to keep a console window for debugging, and
-``--skip-frontend`` to reuse an existing ``assets/`` build.
+The result lands in ``dist/``: a ``backpack`` folder holding ``backpack.exe``
+and an ``app`` support folder on Windows, or a ``backpack.app`` bundle on
+macOS, next to a versioned ``.zip`` archive of it. Pass ``--console`` to keep a
+console window for debugging.
 
 Remove the build output and caches with::
 

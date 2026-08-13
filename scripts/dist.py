@@ -77,16 +77,14 @@ def main() -> None:
         sys.executable, "-m", "PyInstaller",
         "--noconfirm",
         "--clean",
-        "--onefile",
+        "--onedir",
+        "--contents-directory", "app",
         "--name", args.name,
         "--distpath", args.distpath,
         "--workpath", args.workpath,
         "--specpath", args.workpath,
         "--paths", str(SRCTREE / "src"),
         "--add-data", f"{SRCTREE / "assets"}{os.pathsep}assets",
-        # Compiled gettext catalogs (.mo) live under locales/; ship the tree so
-        # locales_dir() can find them at runtime. Run "make locales" first.
-        "--add-data", f"{SRCTREE / "locales"}{os.pathsep}locales",
         # pywebview loads its native backend and, on Windows, the bundled
         # WebView2 loader at runtime, so pull in the whole package.
         "--collect-all", "webview",
@@ -95,6 +93,12 @@ def main() -> None:
         # the whole tree.
         "--recursive-copy-metadata", "pydantic-ai-slim",
     ]
+    # Only the compiled catalogs (.mo) are read at runtime; the .po sources and
+    # .pot template are build artifacts. Ship just the .mo files, keeping the
+    # <lang>/LC_MESSAGES layout locales_dir() expects. Run "make locales" first.
+    for mo in sorted((SRCTREE / "locales").rglob("*.mo")):
+        dest = mo.parent.relative_to(SRCTREE)
+        cmd += ["--add-data", f"{mo}{os.pathsep}{dest}"]
     cmd.append("--console" if args.console else "--windowed")
     if (icon := icon_path()) is not None:
         cmd += ["--icon", str(icon)]
@@ -118,9 +122,10 @@ def main() -> None:
             check=True
         )
     else:
-        filename = args.name + (".exe" if sys.platform == "win32" else "")
+        # onedir emits the executable and its support files in a folder named
+        # after the app, so archive the whole folder, not just the binary.
         shutil.make_archive(
-            str(distpath / ar_basename), "zip", distpath, filename
+            str(distpath / ar_basename), "zip", distpath, args.name
         )
 
 if __name__ == "__main__":
