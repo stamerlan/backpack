@@ -127,6 +127,15 @@ class UI:
     def set_recent(self, items: Iterable[RecentItem]) -> "Future[Any]":
         return self.js.submit("menu.set_recent", (list(items),))
 
+    def set_doc_state(self, filename: str | None, dirty: bool) -> "Future[Any]":
+        """Tell the app bar which file is open and whether it has edits.
+
+        :param filename: the open file's base name, or None for a trip that has
+            not been saved to a file yet.
+        :param dirty: whether the document has unsaved changes.
+        """
+        return self.js.submit("set_doc_state", (filename, dirty))
+
     def notify(
         self,
         message: str,

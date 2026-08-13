@@ -2,17 +2,45 @@
   flex: none;
   display: flex;
   align-items: center;
-  gap: 8px;
   height: 40px;
-  padding: 0 8px;
   background-color: var(--colorNeutralBackground1);
   border-bottom: 1px solid var(--colorNeutralStroke2);
 }
 
-.app-bar-title {
+/* The Fluent Toolbar fills the bar and carries the roving focus for the menu
+ * and assistant buttons. Its own padding is dropped so the bar keeps the slim
+ * height and the title still centers across the whole width. */
+.app-bar-toolbar {
   flex: 1 1 auto;
   min-width: 0;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  background-color: transparent;
+}
+
+/* The centered stack: trip title with its dirty dot over the file name. */
+.app-bar-heading {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.15;
+}
+
+.app-bar-titleline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.app-bar-title {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -23,5 +51,24 @@
 /* The placeholder standing in for a trip with no name yet. */
 .app-bar-title.untitled {
   font-weight: var(--fontWeightRegular);
+  color: var(--colorNeutralForeground3);
+}
+
+/* The dot marking unsaved changes, kept out of the title's ellipsis so it
+ * never gets clipped. */
+.app-bar-dirty {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--colorBrandForeground1);
+}
+
+.app-bar-filename {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fontSizeBase200);
   color: var(--colorNeutralForeground3);
 }

@@ -203,6 +203,7 @@ class App:
             ed.apply(model.AddChat(chat))
         self.ui.assist.set_active_chat(chat.id)
         doc.mark_saved()
+        self._push_doc_state()
 
     async def open_doc(self, filepath: str | None = None) -> bool:
         if self.window is None:
@@ -257,6 +258,7 @@ class App:
             self.add_task(self.load_route_details(r.id, r.track))
         doc.mark_saved()
         self._add_recent_item(filepath, doc)
+        self._push_doc_state()
         logger.info(
             f"opened {filepath!r}: {len(doc.routes())} routes, "
             f"{len(doc.chats())} chats"
@@ -335,6 +337,7 @@ class App:
         self.filepath = filepath
         doc.mark_saved()
         self._add_recent_item(filepath, doc)
+        self._push_doc_state()
         logger.info(f"saved {filepath!r}")
         return True
 
@@ -375,6 +378,22 @@ class App:
     def _remove_recent_item(self, filepath: str) -> None:
         self.storage.settings = self.storage.settings.remove_recent(filepath)
         self._update_recent_items_view()
+
+    def _push_doc_state(self) -> None:
+        """Reflect the open file and dirty flag in the app bar and title.
+
+        The frontend draws the file name and a dirty dot from this, and the
+        native window title mirrors both so the source and unsaved state show
+        even when the window is not focused.
+        """
+        name = pathlib.Path(self.filepath).name if self.filepath else None
+        dirty = self.doc.has_edits
+        self.ui.set_doc_state(name, dirty)
+        if self.window is not None:
+            trip = self.doc.title.strip()
+            label = trip or name or i18n.gettext("Untitled trip")
+            prefix = "* " if dirty else ""
+            self.window.title = f"{prefix}{label} - Backpack"
 
     def _update_recent_items_view(self) -> None:
         self.ui.set_recent(
@@ -724,6 +743,9 @@ class App:
             return
 
     def on_change(self, change: model.Change, origin: model.Origin) -> None:
+        # Any committed change marks the document dirty, and a trip rename
+        # also moves the title, so refresh the app bar and window title here.
+        self._push_doc_state()
         if isinstance(change, model.AddRoute):
             track = change.route.track
             self.ui.add_route_card(

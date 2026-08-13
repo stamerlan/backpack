@@ -36,6 +36,7 @@ declare global {
     set_busy(busy: boolean, label?: string): void;
     set_theme_mode(mode: string): void;
     set_locale(tag: string, units: string): void;
+    set_doc_state(filename: string | null, dirty: boolean): void;
   }
 }
 
@@ -54,3 +55,4 @@ window.clear_notify = () => {};
 window.set_busy = () => {};
 window.set_theme_mode = () => {};
 window.set_locale = () => {};
+window.set_doc_state = () => {};

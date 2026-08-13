@@ -8,6 +8,9 @@
  * State:
  *   - menu_open: Whether the slide-out menu is showing.
  *   - title: Trip title for the app bar, as the document reports it.
+ *   - filename: Base name of the open file, or null for a trip not saved to
+ *     a file yet. The backend pushes it through the bridge.
+ *   - dirty: Whether the document has unsaved changes, pushed by the backend.
  *   - assist_open: Whether the assistant panel is slid out.
  *   - theme_mode: The theme the user picked, which the backend sets through
  *     the bridge: system, light or dark.
@@ -44,6 +47,8 @@ interface Locale {
 export function App() {
   const [menu_open, set_menu_open] = useState(false);
   const [title, set_title] = useState("");
+  const [filename, set_filename] = useState<string | null>(null);
+  const [dirty, set_dirty] = useState(false);
   const [assist_open, set_assist_open] = useState(false);
   const [theme_mode, set_theme_mode] = useState<ThemeMode>("system");
   const [sys_theme_dark, set_sys_theme_dark] = useState(
@@ -71,6 +76,14 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    window.set_doc_state = (name, is_dirty) => {
+      set_filename(name);
+      set_dirty(is_dirty);
+    };
+    return () => { window.set_doc_state = () => {}; };
+  }, []);
+
+  useEffect(() => {
     const on_locale = (event: CustomEvent<LocaleDetail>): void => {
       const { tag, units } = event.detail;
       set_locale({ tag, units });
@@ -92,6 +105,8 @@ export function App() {
     >
       <AppBar
         title={title}
+        filename={filename}
+        dirty={dirty}
         assist_open={assist_open}
         on_menu_click={() => set_menu_open(true)}
         on_assist_toggle={() => set_assist_open((o) => !o) }

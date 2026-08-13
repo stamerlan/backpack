@@ -65,9 +65,11 @@
     }
   },
   "app_bar": {
+    "label": "App toolbar",
     "open_menu": "Open menu",
     "show_assistant": "Show assistant",
-    "hide_assistant": "Hide assistant"
+    "hide_assistant": "Hide assistant",
+    "unsaved": "Unsaved changes"
   },
   "menu": {
     "close_menu": "Close menu",
