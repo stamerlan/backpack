@@ -4,6 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { FluentProvider, webLightTheme } from "@fluentui/react-components";
 import { Doc } from "./doc";
 import type { RouteStats } from "./route-card";
+import { dist_str, elev_str } from "./i18n";
+import { t } from "./test-utils";
 
 function mount_host(on_title_change: (title: string) => void = () => {}) {
   return render(
@@ -75,7 +77,7 @@ describe("document view", () => {
     const on_title_change = vi.fn();
     mount_host(on_title_change);
     window.doc!.add_trip_card("trip-1", "", "");
-    const field = await screen.findByPlaceholderText("Untitled trip");
+    const field = await screen.findByPlaceholderText(t("common.untitled_trip"));
     await user.type(field, "Hi");
     expect(on_title_change).toHaveBeenLastCalledWith("Hi");
   });
@@ -119,9 +121,13 @@ describe("document view", () => {
     window.doc!.add_route_card(
       "route-1", "Day 1", "", [], sample_stats
     );
-    expect(await screen.findByText("12.34 km")).toBeInTheDocument();
+    expect(await screen.findByText(dist_str(sample_stats.dist_m)))
+      .toBeInTheDocument();
     expect(screen.getByText("3:45")).toBeInTheDocument();
-    expect(screen.getByText("\u2197512 \u2198488 m")).toBeInTheDocument();
+    const ascent = elev_str(sample_stats.ascent_m, false);
+    const descent = elev_str(sample_stats.descent_m);
+    expect(screen.getByText(`\u2197${ascent} \u2198${descent}`))
+      .toBeInTheDocument();
   });
 
   it("hides route stats badges when stats are null", async () => {
@@ -136,11 +142,11 @@ describe("document view", () => {
     mount_host();
     window.doc!.add_route_card("route-1", "Day 1", "A to B", [], null);
     await screen.findByDisplayValue("Day 1");
-    await user.click(screen.getByLabelText("Fold route"));
+    await user.click(screen.getByLabelText(t("route_card.fold")));
     expect(
       screen.queryByDisplayValue("A to B")
     ).not.toBeInTheDocument();
-    await user.click(screen.getByLabelText("Unfold route"));
+    await user.click(screen.getByLabelText(t("route_card.unfold")));
     expect(
       await screen.findByDisplayValue("A to B")
     ).toBeInTheDocument();
@@ -152,7 +158,7 @@ describe("document view", () => {
     window.doc!.add_trip_card("trip-1", "Alps hike", "");
     window.doc!.add_route_card("route-1", "Day 1", "", [], null);
     await screen.findByDisplayValue("Day 1");
-    await user.click(screen.getByLabelText("Delete route"));
+    await user.click(screen.getByLabelText(t("route_card.delete")));
     await waitFor(() =>
       expect(screen.queryByDisplayValue("Day 1")).not.toBeInTheDocument()
     );
@@ -161,7 +167,7 @@ describe("document view", () => {
 
   function route_order(): string[] {
     return screen
-      .getAllByPlaceholderText("Untitled route")
+      .getAllByPlaceholderText(t("route_card.untitled"))
       .map((input) => (input as HTMLInputElement).value);
   }
 

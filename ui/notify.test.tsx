@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FluentProvider, webLightTheme } from "@fluentui/react-components";
 import { NotifyHost } from "./notify";
+import { t } from "./test-utils";
 
 function mount_host() {
   render(
@@ -55,7 +56,9 @@ describe("notify", () => {
     mount_host();
     const user = userEvent.setup();
     const answer = window.notify("Heads up");
-    await user.click(await screen.findByRole("button", { name: "Dismiss" }));
+    await user.click(
+      await screen.findByRole("button", { name: t("notify.dismiss") }),
+    );
     await expect(answer).resolves.toBeNull();
   });
 
@@ -63,7 +66,9 @@ describe("notify", () => {
     mount_host();
     const user = userEvent.setup();
     void window.notify("Temporary");
-    await user.click(await screen.findByRole("button", { name: "Dismiss" }));
+    await user.click(
+      await screen.findByRole("button", { name: t("notify.dismiss") }),
+    );
     await waitFor(() =>
       expect(screen.queryByText("Temporary")).not.toBeInTheDocument(),
     );

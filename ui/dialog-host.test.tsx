@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FluentProvider, webLightTheme } from "@fluentui/react-components";
 import { DialogHost } from "./dialog-host";
+import { t } from "./test-utils";
 
 function mount_host() {
   render(
@@ -44,7 +45,9 @@ describe("show_dialog", () => {
     mount_host();
     const user = userEvent.setup();
     const answer = window.show_dialog("T", "B");
-    await user.click(await screen.findByRole("button", { name: "Close" }));
+    await user.click(
+      await screen.findByRole("button", { name: t("dialog.close") }),
+    );
     await expect(answer).resolves.toBeNull();
   });
 
@@ -62,7 +65,7 @@ describe("show_dialog", () => {
     void window.show_dialog("T", "B");
     await screen.findByRole("dialog");
     expect(
-      screen.getByRole("button", { name: "Close" }),
+      screen.getByRole("button", { name: t("dialog.close") }),
     ).toBeInTheDocument();
     expect(screen.getAllByRole("button")).toHaveLength(1);
   });
