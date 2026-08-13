@@ -9,29 +9,14 @@
   display: none;
 }
 
-/* A centered reading column holding both the log and the composer so the
- * input lines up under the messages. Its width fits three suggestion buttons
- * (min 190px, 4px gap) in a row but never four: three need 578px, four would
- * need 772px, so a width in between locks the grid to three.
+/* The log scrolls across the full panel width so its scrollbar sits on the
+ * panel's right edge, while an inner column keeps the content centered.
  */
-.chat-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  width: 100%;
-  max-width: 700px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-}
-
 .chat-log {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   padding: 0 12px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
 }
 
 /* An empty chat shrinks the log to its content so the welcome text and the
@@ -39,6 +24,20 @@
  */
 .chat-log.empty {
   flex: 0 1 auto;
+}
+
+/* A centered reading column holding both the log content and the composer so
+ * the input lines up under the messages. Its width fits three suggestion
+ * buttons (min 190px, 4px gap) in a row but never four: three need 578px,
+ * four would need 772px, so a width in between locks the grid to three.
+ */
+.chat-inner {
+  width: 100%;
+  max-width: 700px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .chat-welcome {
@@ -149,10 +148,16 @@
 
 .chat-composer {
   flex: none;
+  padding: 10px 12px 12px;
+}
+
+.chat-composer-inner {
+  width: 100%;
+  max-width: 700px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 10px 12px 12px;
 }
 
 .chat-input-row {

@@ -252,11 +252,11 @@ export function Chat(props: {
 
   return (
     <div className={mergeClasses("chat", !props.visible && "hidden")}>
-      <div className="chat-body">
-        <div
-          ref={log_ref}
-          className={mergeClasses("chat-log", turns.length === 0 && "empty")}
-        >
+      <div
+        ref={log_ref}
+        className={mergeClasses("chat-log", turns.length === 0 && "empty")}
+      >
+        <div className="chat-inner">
           {turns.length === 0 && (
             <div className="chat-welcome">
               <Text size={500} weight="bold" align="center" block>
@@ -319,8 +319,10 @@ export function Chat(props: {
             );
           })}
         </div>
+      </div>
 
-        <div className="chat-composer">
+      <div className="chat-composer">
+        <div className="chat-composer-inner">
           <div className="chat-input-row">
             <textarea
               ref={input_ref}
