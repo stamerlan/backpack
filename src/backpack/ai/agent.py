@@ -3,10 +3,12 @@ from typing import Any, Callable, TYPE_CHECKING
 
 import pydantic_ai
 import pydantic_ai.capabilities
+from babel import Locale
 
 from . import prompts, provider, tools
 from .errors import AiError
 from .assist_run import AssistRun
+from ..i18n import i18n
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -31,6 +33,7 @@ class Agent:
             ],
         )
 
+        self.agent.instructions(self._get_locale)
         self.agent.instructions(self._get_chat_title)
         self.agent.tool(tools.geocode)
         self.agent.tool(tools.get_poi)
@@ -100,9 +103,19 @@ class Agent:
         if (run := self._runs.get(chat_id)) is not None:
             run.stop()
 
-    def _get_chat_title(
-        self, ctx: pydantic_ai.RunContext[AssistRun]
-    ) -> str:
+    def _get_locale(self, ctx: pydantic_ai.RunContext[AssistRun]) -> str:
+        language = Locale(i18n.lang).get_display_name("en") or i18n.lang
+        if i18n.units == "imperial":
+            units = "imperial units (miles, feet, pounds, ounces)"
+        else:
+            units = "metric units (kilometers, meters, kilograms, grams)"
+        return (
+            f"Write all user-facing text (titles, notes and replies) in "
+            f"{language}. Express every quantity in {units}, converting "
+            f"figures from web searches or other sources into them."
+        )
+
+    def _get_chat_title(self, ctx: pydantic_ai.RunContext[AssistRun]) -> str:
         chat = ctx.deps.doc.chat(ctx.deps.chat_id)
         if chat is None or not chat.title:
             return (
