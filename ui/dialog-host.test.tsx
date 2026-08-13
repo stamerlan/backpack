@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FluentProvider, webLightTheme } from "@fluentui/react-components";
 import { DialogHost } from "./dialog-host";
-import { t } from "./test-utils";
+import { act_bridge, t } from "./test-utils";
 
 function mount_host() {
   render(
@@ -16,7 +16,7 @@ function mount_host() {
 describe("show_dialog", () => {
   it("shows the title and text", async () => {
     mount_host();
-    void window.show_dialog("Title", "Body text");
+    void act_bridge(() => window.show_dialog("Title", "Body text"));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText("Title")).toBeInTheDocument();
     expect(screen.getByText("Body text")).toBeInTheDocument();
@@ -25,10 +25,12 @@ describe("show_dialog", () => {
   it("resolves with the chosen action result", async () => {
     mount_host();
     const user = userEvent.setup();
-    const answer = window.show_dialog("Save?", "Save changes?", [
-      { title: "Yes", result: "yes" },
-      { title: "No", result: "no" },
-    ]);
+    const answer = act_bridge(() =>
+      window.show_dialog("Save?", "Save changes?", [
+        { title: "Yes", result: "yes" },
+        { title: "No", result: "no" },
+      ]),
+    );
     await user.click(await screen.findByRole("button", { name: "Yes" }));
     await expect(answer).resolves.toBe("yes");
   });
@@ -36,7 +38,9 @@ describe("show_dialog", () => {
   it("defaults a missing result to null", async () => {
     mount_host();
     const user = userEvent.setup();
-    const answer = window.show_dialog("T", "B", [{ title: "OK" }]);
+    const answer = act_bridge(() =>
+      window.show_dialog("T", "B", [{ title: "OK" }]),
+    );
     await user.click(await screen.findByRole("button", { name: "OK" }));
     await expect(answer).resolves.toBeNull();
   });
@@ -44,7 +48,7 @@ describe("show_dialog", () => {
   it("resolves null via the close button", async () => {
     mount_host();
     const user = userEvent.setup();
-    const answer = window.show_dialog("T", "B");
+    const answer = act_bridge(() => window.show_dialog("T", "B"));
     await user.click(
       await screen.findByRole("button", { name: t("dialog.close") }),
     );
@@ -54,7 +58,7 @@ describe("show_dialog", () => {
   it("resolves null on Escape", async () => {
     mount_host();
     const user = userEvent.setup();
-    const answer = window.show_dialog("T", "B");
+    const answer = act_bridge(() => window.show_dialog("T", "B"));
     await screen.findByRole("dialog");
     await user.keyboard("{Escape}");
     await expect(answer).resolves.toBeNull();
@@ -62,7 +66,7 @@ describe("show_dialog", () => {
 
   it("renders no action buttons for a message-only dialog", async () => {
     mount_host();
-    void window.show_dialog("T", "B");
+    void act_bridge(() => window.show_dialog("T", "B"));
     await screen.findByRole("dialog");
     expect(
       screen.getByRole("button", { name: t("dialog.close") }),
@@ -72,8 +76,10 @@ describe("show_dialog", () => {
 
   it("stacks multiple dialogs", async () => {
     mount_host();
-    void window.show_dialog("First", "one");
-    void window.show_dialog("Second", "two");
+    act_bridge(() => {
+      void window.show_dialog("First", "one");
+      void window.show_dialog("Second", "two");
+    });
     expect(await screen.findByText("First")).toBeInTheDocument();
     expect(screen.getByText("Second")).toBeInTheDocument();
   });
@@ -81,9 +87,9 @@ describe("show_dialog", () => {
   it("closes the dialog once an action is chosen", async () => {
     const user = userEvent.setup();
     mount_host();
-    const answer = window.show_dialog("Bye", "closing", [
-      { title: "OK", result: 1 },
-    ]);
+    const answer = act_bridge(() =>
+      window.show_dialog("Bye", "closing", [{ title: "OK", result: 1 }]),
+    );
     await user.click(await screen.findByRole("button", { name: "OK" }));
     await expect(answer).resolves.toBe(1);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

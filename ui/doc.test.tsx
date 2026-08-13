@@ -5,7 +5,7 @@ import { FluentProvider, webLightTheme } from "@fluentui/react-components";
 import { Doc } from "./doc";
 import type { RouteStats } from "./route-card";
 import { dist_str, elev_str } from "./i18n";
-import { t } from "./test-utils";
+import { act_bridge, t } from "./test-utils";
 
 function mount_host(on_title_change: (title: string) => void = () => {}) {
   return render(
@@ -30,24 +30,28 @@ const sample_stats: RouteStats = {
 describe("document view", () => {
   it("adds a trip card with its title and notes", async () => {
     mount_host();
-    window.doc!.add_trip_card("trip-1", "Alps hike", "Three days out");
+    act_bridge(() =>
+      window.doc!.add_trip_card("trip-1", "Alps hike", "Three days out"),
+    );
     expect(await screen.findByDisplayValue("Alps hike")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Three days out")).toBeInTheDocument();
   });
 
   it("appends cards in the order they arrive", async () => {
     mount_host();
-    window.doc!.add_trip_card("trip-1", "First", "");
-    window.doc!.add_trip_card("trip-2", "Second", "");
+    act_bridge(() => {
+      window.doc!.add_trip_card("trip-1", "First", "");
+      window.doc!.add_trip_card("trip-2", "Second", "");
+    });
     expect(await screen.findByDisplayValue("First")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Second")).toBeInTheDocument();
   });
 
   it("clears every card", async () => {
     mount_host();
-    window.doc!.add_trip_card("trip-1", "Doomed", "");
+    act_bridge(() => window.doc!.add_trip_card("trip-1", "Doomed", ""));
     await screen.findByDisplayValue("Doomed");
-    window.doc!.clear();
+    act_bridge(() => window.doc!.clear());
     await waitFor(() =>
       expect(screen.queryByDisplayValue("Doomed")).not.toBeInTheDocument()
     );
@@ -56,7 +60,9 @@ describe("document view", () => {
   it("reports a new trip card title to the app bar", async () => {
     const on_title_change = vi.fn();
     mount_host(on_title_change);
-    window.doc!.add_trip_card("trip-1", "Alps hike", "");
+    act_bridge(() =>
+      window.doc!.add_trip_card("trip-1", "Alps hike", ""),
+    );
     await screen.findByDisplayValue("Alps hike");
     await waitFor(() =>
       expect(on_title_change).toHaveBeenCalledWith("Alps hike")
@@ -66,9 +72,11 @@ describe("document view", () => {
   it("clears the app bar title when the document is cleared", async () => {
     const on_title_change = vi.fn();
     mount_host(on_title_change);
-    window.doc!.add_trip_card("trip-1", "Alps hike", "");
+    act_bridge(() =>
+      window.doc!.add_trip_card("trip-1", "Alps hike", ""),
+    );
     await screen.findByDisplayValue("Alps hike");
-    window.doc!.clear();
+    act_bridge(() => window.doc!.clear());
     await waitFor(() => expect(on_title_change).toHaveBeenLastCalledWith(""));
   });
 
@@ -76,7 +84,7 @@ describe("document view", () => {
     const user = userEvent.setup();
     const on_title_change = vi.fn();
     mount_host(on_title_change);
-    window.doc!.add_trip_card("trip-1", "", "");
+    act_bridge(() => window.doc!.add_trip_card("trip-1", "", ""));
     const field = await screen.findByPlaceholderText(t("common.untitled_trip"));
     await user.type(field, "Hi");
     expect(on_title_change).toHaveBeenLastCalledWith("Hi");
@@ -84,7 +92,9 @@ describe("document view", () => {
 
   it("adds a route card with its title and notes", async () => {
     mount_host();
-    window.doc!.add_route_card("route-1", "Day 1", "A to B", [], null);
+    act_bridge(() =>
+      window.doc!.add_route_card("route-1", "Day 1", "A to B", [], null),
+    );
     expect(await screen.findByDisplayValue("Day 1")).toBeInTheDocument();
     expect(screen.getByDisplayValue("A to B")).toBeInTheDocument();
   });
@@ -92,34 +102,38 @@ describe("document view", () => {
   it("keeps the app bar title when a route card arrives", async () => {
     const on_title_change = vi.fn();
     mount_host(on_title_change);
-    window.doc!.add_route_card("route-1", "Day 1", "", [], null);
+    act_bridge(() =>
+      window.doc!.add_route_card("route-1", "Day 1", "", [], null),
+    );
     await screen.findByDisplayValue("Day 1");
     expect(on_title_change).toHaveBeenLastCalledWith("");
   });
 
   it("shows the map for an unfolded route card", async () => {
     const { container } = mount_host();
-    window.doc!.add_route_card("route-1", "Day 1", "", [], null);
+    act_bridge(() =>
+      window.doc!.add_route_card("route-1", "Day 1", "", [], null),
+    );
     await screen.findByDisplayValue("Day 1");
     expect(container.querySelector(".route-map")).toBeInTheDocument();
   });
 
   it("adds a route card carrying its track from the backend", async () => {
     mount_host();
-    expect(() =>
+    act_bridge(() =>
       window.doc!.add_route_card("route-1", "Day 1", "", [
         { lat: 53.9, long: 18.0, elev_m: 132, slope: 0, dist_m: 0, dur_s: 0 },
         { lat: 53.8, long: 18.1, elev_m: 140, slope: 2, dist_m: 900,
           dur_s: 600 },
-      ], sample_stats)
-    ).not.toThrow();
+      ], sample_stats),
+    );
     expect(await screen.findByDisplayValue("Day 1")).toBeInTheDocument();
   });
 
   it("shows route stats badges when stats are provided", async () => {
     mount_host();
-    window.doc!.add_route_card(
-      "route-1", "Day 1", "", [], sample_stats
+    act_bridge(() =>
+      window.doc!.add_route_card("route-1", "Day 1", "", [], sample_stats),
     );
     expect(await screen.findByText(dist_str(sample_stats.dist_m)))
       .toBeInTheDocument();
@@ -132,7 +146,9 @@ describe("document view", () => {
 
   it("hides route stats badges when stats are null", async () => {
     mount_host();
-    window.doc!.add_route_card("route-1", "Day 1", "", [], null);
+    act_bridge(() =>
+      window.doc!.add_route_card("route-1", "Day 1", "", [], null),
+    );
     await screen.findByDisplayValue("Day 1");
     expect(screen.queryByText(/km$/)).not.toBeInTheDocument();
   });
@@ -140,7 +156,9 @@ describe("document view", () => {
   it("folds a route card away", async () => {
     const user = userEvent.setup();
     mount_host();
-    window.doc!.add_route_card("route-1", "Day 1", "A to B", [], null);
+    act_bridge(() =>
+      window.doc!.add_route_card("route-1", "Day 1", "A to B", [], null),
+    );
     await screen.findByDisplayValue("Day 1");
     await user.click(screen.getByLabelText(t("route_card.fold")));
     expect(
@@ -155,8 +173,10 @@ describe("document view", () => {
   it("drops the route card the user deletes", async () => {
     const user = userEvent.setup();
     mount_host();
-    window.doc!.add_trip_card("trip-1", "Alps hike", "");
-    window.doc!.add_route_card("route-1", "Day 1", "", [], null);
+    act_bridge(() => {
+      window.doc!.add_trip_card("trip-1", "Alps hike", "");
+      window.doc!.add_route_card("route-1", "Day 1", "", [], null);
+    });
     await screen.findByDisplayValue("Day 1");
     await user.click(screen.getByLabelText(t("route_card.delete")));
     await waitFor(() =>
@@ -173,42 +193,50 @@ describe("document view", () => {
 
   it("moves a route to the front when after_id is null", async () => {
     mount_host();
-    window.doc!.add_trip_card("trip-1", "Alps hike", "");
-    window.doc!.add_route_card("route-1", "R1", "", [], null);
-    window.doc!.add_route_card("route-2", "R2", "", [], null);
-    window.doc!.add_route_card("route-3", "R3", "", [], null);
+    act_bridge(() => {
+      window.doc!.add_trip_card("trip-1", "Alps hike", "");
+      window.doc!.add_route_card("route-1", "R1", "", [], null);
+      window.doc!.add_route_card("route-2", "R2", "", [], null);
+      window.doc!.add_route_card("route-3", "R3", "", [], null);
+    });
     await screen.findByDisplayValue("R3");
-    window.doc!.move_card("route-3", null);
+    act_bridge(() => window.doc!.move_card("route-3", null));
     await waitFor(() => expect(route_order()).toEqual(["R3", "R1", "R2"]));
     expect(screen.getByDisplayValue("Alps hike")).toBeInTheDocument();
   });
 
   it("moves a route to sit just after another route", async () => {
     mount_host();
-    window.doc!.add_route_card("route-1", "R1", "", [], null);
-    window.doc!.add_route_card("route-2", "R2", "", [], null);
-    window.doc!.add_route_card("route-3", "R3", "", [], null);
+    act_bridge(() => {
+      window.doc!.add_route_card("route-1", "R1", "", [], null);
+      window.doc!.add_route_card("route-2", "R2", "", [], null);
+      window.doc!.add_route_card("route-3", "R3", "", [], null);
+    });
     await screen.findByDisplayValue("R3");
-    window.doc!.move_card("route-1", "route-2");
+    act_bridge(() => window.doc!.move_card("route-1", "route-2"));
     await waitFor(() => expect(route_order()).toEqual(["R2", "R1", "R3"]));
   });
 
   it("moves a route to the end past the last route", async () => {
     mount_host();
-    window.doc!.add_route_card("route-1", "R1", "", [], null);
-    window.doc!.add_route_card("route-2", "R2", "", [], null);
-    window.doc!.add_route_card("route-3", "R3", "", [], null);
+    act_bridge(() => {
+      window.doc!.add_route_card("route-1", "R1", "", [], null);
+      window.doc!.add_route_card("route-2", "R2", "", [], null);
+      window.doc!.add_route_card("route-3", "R3", "", [], null);
+    });
     await screen.findByDisplayValue("R3");
-    window.doc!.move_card("route-1", "route-3");
+    act_bridge(() => window.doc!.move_card("route-1", "route-3"));
     await waitFor(() => expect(route_order()).toEqual(["R2", "R3", "R1"]));
   });
 
   it("leaves the order untouched for an unknown target", async () => {
     mount_host();
-    window.doc!.add_route_card("route-1", "R1", "", [], null);
-    window.doc!.add_route_card("route-2", "R2", "", [], null);
+    act_bridge(() => {
+      window.doc!.add_route_card("route-1", "R1", "", [], null);
+      window.doc!.add_route_card("route-2", "R2", "", [], null);
+    });
     await screen.findByDisplayValue("R2");
-    window.doc!.move_card("route-1", "route-nope");
+    act_bridge(() => window.doc!.move_card("route-1", "route-nope"));
     await waitFor(() => expect(route_order()).toEqual(["R1", "R2"]));
   });
 

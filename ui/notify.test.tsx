@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FluentProvider, webLightTheme } from "@fluentui/react-components";
 import { NotifyHost } from "./notify";
-import { t } from "./test-utils";
+import { act_bridge, t } from "./test-utils";
 
 function mount_host() {
   render(
@@ -21,13 +21,15 @@ describe("notify", () => {
 
   it("shows the message", async () => {
     mount_host();
-    void window.notify("Route loaded");
+    void act_bridge(() => window.notify("Route loaded"));
     expect(await screen.findByText("Route loaded")).toBeInTheDocument();
   });
 
   it("shows an optional title above the message", async () => {
     mount_host();
-    void window.notify("bad.gpx could not be parsed", "error", "Load failed");
+    void act_bridge(() =>
+      window.notify("bad.gpx could not be parsed", "error", "Load failed"),
+    );
     expect(await screen.findByText("Load failed")).toBeInTheDocument();
     expect(
       screen.getByText("bad.gpx could not be parsed"),
@@ -37,9 +39,11 @@ describe("notify", () => {
   it("resolves with the chosen action result", async () => {
     mount_host();
     const user = userEvent.setup();
-    const answer = window.notify("No home set", "warning", "", [
-      { title: "Settings", result: "settings" },
-    ]);
+    const answer = act_bridge(() =>
+      window.notify("No home set", "warning", "", [
+        { title: "Settings", result: "settings" },
+      ]),
+    );
     await user.click(await screen.findByRole("button", { name: "Settings" }));
     await expect(answer).resolves.toBe("settings");
   });
@@ -47,7 +51,9 @@ describe("notify", () => {
   it("defaults a missing action result to null", async () => {
     mount_host();
     const user = userEvent.setup();
-    const answer = window.notify("Pick one", "info", "", [{ title: "OK" }]);
+    const answer = act_bridge(() =>
+      window.notify("Pick one", "info", "", [{ title: "OK" }]),
+    );
     await user.click(await screen.findByRole("button", { name: "OK" }));
     await expect(answer).resolves.toBeNull();
   });
@@ -55,7 +61,7 @@ describe("notify", () => {
   it("resolves null via the dismiss button", async () => {
     mount_host();
     const user = userEvent.setup();
-    const answer = window.notify("Heads up");
+    const answer = act_bridge(() => window.notify("Heads up"));
     await user.click(
       await screen.findByRole("button", { name: t("notify.dismiss") }),
     );
@@ -65,7 +71,7 @@ describe("notify", () => {
   it("removes the banner once dismissed", async () => {
     mount_host();
     const user = userEvent.setup();
-    void window.notify("Temporary");
+    void act_bridge(() => window.notify("Temporary"));
     await user.click(
       await screen.findByRole("button", { name: t("notify.dismiss") }),
     );
@@ -76,8 +82,10 @@ describe("notify", () => {
 
   it("stacks multiple banners", async () => {
     mount_host();
-    void window.notify("First");
-    void window.notify("Second");
+    act_bridge(() => {
+      void window.notify("First");
+      void window.notify("Second");
+    });
     expect(await screen.findByText("First")).toBeInTheDocument();
     expect(screen.getByText("Second")).toBeInTheDocument();
   });
@@ -85,8 +93,10 @@ describe("notify", () => {
   it("closes only the chosen banner", async () => {
     mount_host();
     const user = userEvent.setup();
-    void window.notify("Keep me");
-    void window.notify("Close me", "info", "", [{ title: "Go", result: 1 }]);
+    act_bridge(() => {
+      void window.notify("Keep me");
+      void window.notify("Close me", "info", "", [{ title: "Go", result: 1 }]);
+    });
     await user.click(await screen.findByRole("button", { name: "Go" }));
     await waitFor(() =>
       expect(screen.queryByText("Close me")).not.toBeInTheDocument(),
@@ -96,10 +106,11 @@ describe("notify", () => {
 
   it("clears every banner and resolves them null", async () => {
     mount_host();
-    const first = window.notify("First");
-    const second = window.notify("Second");
+    const [first, second] = act_bridge(
+      () => [window.notify("First"), window.notify("Second")] as const,
+    );
     expect(await screen.findByText("First")).toBeInTheDocument();
-    window.clear_notify();
+    act_bridge(() => window.clear_notify());
     await waitFor(() => {
       expect(screen.queryByText("First")).not.toBeInTheDocument();
       expect(screen.queryByText("Second")).not.toBeInTheDocument();
@@ -110,7 +121,7 @@ describe("notify", () => {
 
   it("is a no-op when there is nothing to clear", () => {
     mount_host();
-    expect(() => window.clear_notify()).not.toThrow();
+    act_bridge(() => expect(() => window.clear_notify()).not.toThrow());
   });
 
   it("throws when the host is not mounted", () => {

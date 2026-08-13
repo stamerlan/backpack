@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { FluentProvider, webLightTheme } from "@fluentui/react-components";
 import { Busy } from "./busy";
+import { act_bridge } from "./test-utils";
 
 function mount_busy() {
   render(
@@ -19,16 +20,16 @@ describe("set_busy", () => {
 
   it("shows the overlay with a label", async () => {
     mount_busy();
-    window.set_busy(true, "Loading routes...");
+    act_bridge(() => window.set_busy(true, "Loading routes..."));
     expect(await screen.findByRole("progressbar")).toBeInTheDocument();
     expect(screen.getByText("Loading routes...")).toBeInTheDocument();
   });
 
   it("clears the overlay", async () => {
     mount_busy();
-    window.set_busy(true, "Loading routes...");
+    act_bridge(() => window.set_busy(true, "Loading routes..."));
     await screen.findByRole("progressbar");
-    window.set_busy(false);
+    act_bridge(() => window.set_busy(false));
     await waitFor(() =>
       expect(screen.queryByRole("progressbar")).not.toBeInTheDocument(),
     );

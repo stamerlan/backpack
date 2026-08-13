@@ -3,7 +3,9 @@
  * uses, and set_locale drives the very bridge the backend calls, waiting for
  * the async catalog swap so the next assertion sees the new language and
  * units. t is bound to the shared instance so specs assert against catalog
- * keys instead of hardcoded English.
+ * keys instead of hardcoded English. act_bridge fires any backend bridge
+ * inside act so the state update it triggers never escapes a spec's act(...)
+ * scope.
  */
 import type { ReactElement } from "react";
 import { act, render, type RenderResult } from "@testing-library/react";
@@ -44,4 +46,23 @@ export function set_locale(tag: string, units: string): Promise<void> {
 /* Return to the English, metric defaults every other spec assumes. */
 export function reset_locale(): Promise<void> {
   return set_locale("en", "metric");
+}
+
+/* Run a backend bridge call inside act and return its value. Bridges like
+ * window.set_busy, window.notify or window.doc push straight into component
+ * state, so a bare call updates React outside a test act(...) scope. Under
+ * heavy load that update races the next findBy flush and prints a "not
+ * wrapped in act" warning; committing it inside act first closes the race.
+ *
+ * This stays synchronous and hands the raw value back. The bridges that open a
+ * banner or dialog return a promise that only settles on a later click, so it
+ * must reach the caller unawaited; an async wrapper would make the caller await
+ * that pending promise and hang the test. Callers keep the value as-is, exactly
+ * as they would a bare bridge call. */
+export function act_bridge<T>(fn: () => T): T {
+  let result!: T;
+  act(() => {
+    result = fn();
+  });
+  return result;
 }
