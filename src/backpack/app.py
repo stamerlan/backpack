@@ -13,13 +13,11 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
-from backpack import APP_VERSION, model, route
+from backpack import APP_VERSION, model
 from backpack.api import Api
 from backpack.i18n import i18n, system_locales
 from backpack.js_worker import JsWorker
-from backpack.nominatim import Nominatim
 from backpack.paths import applogs
-from backpack.route_details import RouteDetails
 from backpack.storage import Storage
 from backpack.storage.settings import Settings
 from backpack.theme import Theme
@@ -27,6 +25,8 @@ from backpack.ui import UI, DialogAction, NotifyAction, RecentItem
 
 if TYPE_CHECKING:
     from backpack import ai
+    from backpack.nominatim import Nominatim
+    from backpack.route_details import RouteDetails
 
 logger = logging.getLogger(__name__)
 
@@ -42,15 +42,18 @@ class App:
         self.js = JsWorker()
         self.ui = UI(self.js)
         self.storage = storage
-        self.nominatim = Nominatim()
-        self.route_details = RouteDetails(storage.poi_cache)
         self.poi: dict[str, tuple[model.Poi, ...]] = {}
-        # The ai package pulls in pydantic-ai and google-genai, about a second
-        # of imports. Load it and build the agent on a background thread so the
-        # window can come up meanwhile. The future settles with the agent, or
-        # with the exception if the load failed; async callers await it and
+
+        # geopy (geocoding, distance math), overpy and the ai package
+        # (pydantic-ai, google-genai) are well over a second of imports the
+        # window does not need to paint. Build them on one background thread so
+        # the window comes up meanwhile. Each future settles with its object,
+        # or with the exception if the build failed; async callers await it and
         # only block if it is not ready yet.
+        self._nominatim: Future[Nominatim] = Future()
+        self._route_details: Future[RouteDetails] = Future()
         self._ai: Future[ai.Agent] = Future()
+
         self.doc = model.Document()
         self.filepath: str | None = None
         self.running = threading.Event()
@@ -59,10 +62,10 @@ class App:
         self._settings_task: asyncio.Task[None] | None = None
         self._tasks: set[asyncio.Task[None]] = set()
 
-        self._ai_thread = threading.Thread(
-            target=self._import_ai, name="app.ai_import", daemon=True
+        self._bg_load_thread = threading.Thread(
+            target=self._bg_load, name="app.bg_load", daemon=True
         )
-        self._ai_thread.start()
+        self._bg_load_thread.start()
 
     def start(self, window: webview.Window) -> None:
         """Bind the window and start application tasks."""
@@ -72,31 +75,43 @@ class App:
         self.running.set()
         logger.debug("app started")
 
-    def _import_ai(self) -> None:
-        """Import the ai package and build the agent off the startup path.
+    def _bg_load(self) -> None:
+        """Import and build the heavy services off the startup path.
 
-        Runs on a background thread started in __init__ and settles the _ai
-        future with the agent, or with the exception if the import or build
-        failed. Only Python object construction happens here, no event loop,
-        so it is safe off the mainloop.
-
-        Marks the future running first: a shutdown before the import lands
-        cancels the awaiting tasks, which propagates a cancel to this future,
-        and set_running_or_notify_cancel both bails out on that cancel and
-        blocks a later one so set_result/set_exception cannot race with it.
+        Runs on a background thread started in __init__ and settles each service
+        future with its object, or with the exception if the import or build
+        failed. Only Python object construction happens here, no event loop, so
+        it is safe off the mainloop. The agent is built last since it needs th
+        geocoder.
         """
-        if not self._ai.set_running_or_notify_cancel():
-            logger.debug("ai preload canceled before it finished")
-            return
-        try:
-            from backpack import ai
-            agent = ai.Agent(self.storage, self.nominatim)
-        except Exception as e:
-            self._ai.set_exception(e)
-            logger.exception("ai preload failed")
-        else:
-            self._ai.set_result(agent)
-            logger.debug("ai preload done")
+        if self._nominatim.set_running_or_notify_cancel():
+            try:
+                from backpack.nominatim import Nominatim
+                self._nominatim.set_result(Nominatim())
+            except Exception as e:
+                self._nominatim.set_exception(e)
+                logger.exception("nominatim load failed")
+
+        if self._route_details.set_running_or_notify_cancel():
+            try:
+                from backpack.route_details import RouteDetails
+                self._route_details.set_result(
+                    RouteDetails(self.storage.poi_cache)
+                )
+            except Exception as e:
+                self._route_details.set_exception(e)
+                logger.exception("route_details load failed")
+
+        if self._ai.set_running_or_notify_cancel():
+            try:
+                from backpack import ai
+                self._ai.set_result(
+                    ai.Agent(self.storage, self._nominatim.result())
+                )
+            except Exception as e:
+                self._ai.set_exception(e)
+                logger.exception("ai load failed")
+        logger.debug("background load done")
 
     def add_task(self, coro: Coroutine[Any, Any, None]) -> None:
         """Schedule coro as a detached, tracked mainloop task.
@@ -140,8 +155,14 @@ class App:
                 for task in list(self._tasks):
                     self.mainloop.call_soon_threadsafe(task.cancel)
 
-                self.nominatim.cancel()
-                self.route_details.cancel()
+                # Drop a pending build so its awaiters wake, or cancel the
+                # built service; a build still in flight cannot be cancelled
+                # and just finishes on the daemon thread.
+                for svc in (self._nominatim, self._route_details):
+                    if svc.cancel():
+                        continue
+                    if svc.done() and svc.exception() is None:
+                        svc.result().cancel()
                 self.storage.poi_cache.close()
                 self.theme.close()
                 self.running.clear()
@@ -322,6 +343,8 @@ class App:
                     intent="error",
                     title=i18n.gettext("Assistant unavailable"),
                 )
+
+        from backpack import route
 
         self.ui.clear_notify()
         self.ui.clear_doc()
@@ -711,6 +734,8 @@ class App:
             ed.apply(model.SetDocInfo(title=title, notes=notes))
 
     async def add_route(self) -> None:
+        from backpack import route
+
         window = self.window
         if window is None:
             return
@@ -801,10 +826,18 @@ class App:
                 return False
             return bool(action == "retry")
 
+        try:
+            route_details = await asyncio.wrap_future(self._route_details)
+        except CancelledError:
+            return
+        except Exception:
+            logger.exception("route details unavailable")
+            return
+
         while True:
             self.ui.set_route_loading(route_id, True)
             try:
-                poi = await self.route_details.load_poi(track)
+                poi = await route_details.load_poi(track)
             except CancelledError:
                 self.ui.set_route_loading(route_id, False)
                 return
@@ -824,6 +857,8 @@ class App:
         # also moves the title, so refresh the app bar and window title here.
         self._push_doc_state()
         if isinstance(change, model.AddRoute):
+            from backpack import route
+
             track = change.route.track
             self.ui.add_route_card(
                 change.route.id,
