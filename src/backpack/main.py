@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import logging.handlers
+import os
 import platform
 import sys
 import threading
@@ -93,6 +94,19 @@ def main() -> None:
             info["CFBundleName"] = "Backpack"
         except Exception:
             logger.exception("could not set macOS app name")
+
+    # The stdlib ssl module (http.client, urllib) has no usable trust store on
+    # macOS, so it fails with CERTIFICATE_VERIFY_FAILED. certifi ships a bundle
+    # and OpenSSL honors SSL_CERT_FILE when building the default context. This
+    # is additive on Windows.
+    try:
+        import certifi
+        ca = certifi.where()
+        os.environ.setdefault("SSL_CERT_FILE", ca)
+        os.environ.setdefault("REQUESTS_CA_BUNDLE", ca)
+        logger.debug(f"TLS CA bundle: {ca}")
+    except Exception:
+        logger.exception("could not configure certifi CA bundle")
 
     storage = Storage()
     try:
