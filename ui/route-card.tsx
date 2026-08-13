@@ -98,6 +98,26 @@ export function RouteCard(props: {
     void api.set_route_info(props.id, props.title, props.notes);
   };
 
+  /* Deleting a route is destructive, so ask before telling the backend. */
+  const remove = async (): Promise<void> => {
+    const confirmed = await window.show_dialog(
+      t("route_card.delete_confirm_title"),
+      t("route_card.delete_confirm_text"),
+      [
+        { title: t("route_card.delete_confirm_cancel"), result: false },
+        {
+          title: t("route_card.delete_confirm_ok"),
+          result: true,
+          appearance: "primary",
+        },
+      ],
+    );
+    if (!confirmed)
+      return;
+    void api.remove_route(props.id);
+    props.on_remove(props.id);
+  };
+
   return (
     <Card className="route-card">
       <div className="route-card-header">
@@ -177,10 +197,7 @@ export function RouteCard(props: {
           title={t("route_card.delete")}
           aria-label={t("route_card.delete")}
           icon={icon("trash", 16)}
-          onClick={() => {
-            void api.remove_route(props.id);
-            props.on_remove(props.id);
-          }}
+          onClick={() => void remove()}
         />
       </div>
       {!folded && (

@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FluentProvider, webLightTheme } from "@fluentui/react-components";
 import { Doc } from "./doc";
+import { DialogHost } from "./dialog-host";
 import type { RouteStats } from "./route-card";
 import { dist_str, elev_str } from "./i18n";
 import { act_bridge, t } from "./test-utils";
@@ -11,6 +12,7 @@ function mount_host(on_title_change: (title: string) => void = () => {}) {
   return render(
     <FluentProvider theme={webLightTheme}>
       <Doc on_title_change={on_title_change} />
+      <DialogHost />
     </FluentProvider>,
   );
 }
@@ -179,10 +181,39 @@ describe("document view", () => {
     });
     await screen.findByDisplayValue("Day 1");
     await user.click(screen.getByLabelText(t("route_card.delete")));
+    await user.click(
+      await screen.findByRole("button", {
+        name: t("route_card.delete_confirm_ok"),
+      })
+    );
     await waitFor(() =>
       expect(screen.queryByDisplayValue("Day 1")).not.toBeInTheDocument()
     );
     expect(screen.getByDisplayValue("Alps hike")).toBeInTheDocument();
+  });
+
+  it("keeps the route card when the delete is cancelled", async () => {
+    const user = userEvent.setup();
+    mount_host();
+    act_bridge(() => {
+      window.doc!.add_trip_card("trip-1", "Alps hike", "");
+      window.doc!.add_route_card("route-1", "Day 1", "", [], null);
+    });
+    await screen.findByDisplayValue("Day 1");
+    await user.click(screen.getByLabelText(t("route_card.delete")));
+    await user.click(
+      await screen.findByRole("button", {
+        name: t("route_card.delete_confirm_cancel"),
+      })
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", {
+          name: t("route_card.delete_confirm_cancel"),
+        })
+      ).not.toBeInTheDocument()
+    );
+    expect(screen.getByDisplayValue("Day 1")).toBeInTheDocument();
   });
 
   function route_order(): string[] {

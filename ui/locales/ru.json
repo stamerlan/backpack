@@ -97,6 +97,10 @@
     "elevation_hint": "Итого {{net}} при наборе {{vertical}} по вертикали\nМинимум {{min}}, максимум {{max}}, среднее {{mean}}",
     "loading": "Загрузка сведений о маршруте...",
     "delete": "Удалить маршрут",
+    "delete_confirm_title": "Удалить маршрут?",
+    "delete_confirm_text": "Маршрут и его заметки будут удалены из похода.",
+    "delete_confirm_ok": "Удалить",
+    "delete_confirm_cancel": "Отмена",
     "notes_placeholder": "Заметки к маршруту..."
   },
   "route_profile": {

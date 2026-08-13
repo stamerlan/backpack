@@ -97,6 +97,10 @@
     "elevation_hint": "Net {{net}} over {{vertical}} of vertical\nLowest {{min}}, highest {{max}}, average {{mean}}",
     "loading": "Loading route details...",
     "delete": "Delete route",
+    "delete_confirm_title": "Delete route?",
+    "delete_confirm_text": "This removes the route and its notes from the trip.",
+    "delete_confirm_ok": "Delete",
+    "delete_confirm_cancel": "Cancel",
     "notes_placeholder": "Notes for this route..."
   },
   "route_profile": {
