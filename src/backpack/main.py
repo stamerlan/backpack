@@ -40,6 +40,10 @@ def main() -> None:
         "--dev", metavar="URL", nargs="?", const=DEV_SERVER_URL,
         help="load the UI from a Vite dev server instead of assets",
     )
+    parser.add_argument(
+        "-d", "--debug", action="store_true",
+        help="log at debug level and open the web view with dev tools",
+    )
     args = parser.parse_args()
 
     log_formatter = LogFormatter(
@@ -62,7 +66,10 @@ def main() -> None:
         # A read-only home must never block startup; keep stream-only.
         pass
 
-    logging.basicConfig(level=logging.DEBUG, handlers=handlers)
+    logging.basicConfig(
+        level=logging.DEBUG if args.debug else logging.INFO,
+        handlers=handlers
+    )
     logging.getLogger("pywebview").handlers.clear()
     logging.getLogger("httpcore").setLevel(logging.INFO)
     logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -156,7 +163,7 @@ def main() -> None:
         )
 
         webview.start(
-            debug=logger.isEnabledFor(logging.DEBUG),
+            debug=args.debug,
             icon=app_icon_path(),
         )
     finally:
