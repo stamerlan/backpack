@@ -32,6 +32,10 @@ assets: bin/node_modules
 	$(NPM) --prefix bin exec -- tsc --noEmit -p ui
 	$(NPM) --prefix bin exec -- vite build --config ui/vite.config.ts
 
+.PHONY: dev
+dev: bin/node_modules
+	$(NPM) --prefix bin exec -- vite --config ui/vite.config.ts
+
 .PHONY: locales
 locales:
 	-$(call RMDIR,bin/locales)
