@@ -12,7 +12,14 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "*": [
+        "../bin/node_modules/@types/*",
+        "../bin/node_modules/*"
+      ]
+    }
   },
-  "include": ["."]
+  "include": ["."],
+  "exclude": ["vite.config.ts"]
 }
