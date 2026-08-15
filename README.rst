@@ -10,28 +10,25 @@ with its dev extras::
     python -m venv .venv
     .venv\Scripts\python.exe -m pip install --editable ".[dev]"
 
-From ``ui/``, install the frontend packages and build them once so the app has
-assets to load::
+Build the frontend once so the app has assets to load. Node packages and
+the compiled UI land under ``bin/``::
 
-    cd ui
-    npm install
-    npm run build
+    make assets
 
 Development
 -----------
 
-Use two terminals. The first, in ``ui/``, serves the frontend with hot reload::
+Use two terminals. The first serves the frontend with hot reload::
 
-    cd ui
-    npm run dev
+    npm --prefix bin exec -- vite --config ui/vite.config.ts
 
-The second, in the repository root, runs the app pointed at that dev server, so
-edits refresh without a rebuild::
+The second runs the app pointed at that dev server, so edits refresh
+without a rebuild::
 
     .venv\Scripts\python.exe -m backpack --dev
 
-Without ``--dev`` the app loads the built ``assets/index.html``, so run
-``npm run build`` in ``ui/`` after frontend changes when testing that path.
+Without ``--dev`` the app loads the built ``bin/assets/index.html``, so
+run ``make assets`` after frontend changes when testing that path.
 
 Checks
 ------
@@ -41,10 +38,9 @@ one item per file::
 
     .venv\Scripts\python.exe -m pytest
 
-From ``ui/``, TypeScript is checked separately::
+TypeScript is checked separately::
 
-    cd ui
-    npm run check
+    npm --prefix bin exec -- tsc --noEmit -p ui
 
 Tests
 -----
@@ -54,12 +50,13 @@ type checks the sources through pytest-mypy)::
 
     .venv\Scripts\python.exe -m pytest
 
-From ``ui/``, Vitest runs the frontend tests once::
+Vitest runs the frontend tests once::
 
-    cd ui
-    npm test
+    make vitest
 
-Use ``npm run test:watch`` from ``ui/`` to re-run them as files change.
+Use this to re-run them as files change::
+
+    npm --prefix bin exec -- vitest --config ui/vite.config.ts
 
 Translations
 ------------
@@ -113,27 +110,42 @@ i18next ``resources`` map. Both sides negotiate against the same tag, so add a
 language to the backend ``SUPPORTED_LANG`` and the frontend
 ``supported_languages`` together.
 
+Building
+--------
+
+All build tasks are driven by the top-level ``Makefile``. On Windows you need
+GNU Make (the CI installs GnuWin32). Common targets::
+
+    make assets    # compile frontend into bin/assets
+    make locales   # compile catalogs into bin/locales
+    make test      # run pytest + vitest (reports in bin/{os}-{arch}/)
+    make pytest    # python tests only
+    make vitest    # UI tests only
+    make dist      # full package (assets + locales + PyInstaller + zip)
+    make clean     # remove bin/ and caches
+    make devenv    # rebuild assets and refresh the venv
+
+Artifacts are placed under ``bin/{os}-{arch}/`` where ``{os}`` is ``windows``,
+``linux``, or ``macos`` and ``{arch}`` is ``x64`` or ``arm64``. Node modules are
+shared at ``bin/node_modules/``.
+
 Packaging
 ---------
 
 Standalone packages are built with PyInstaller (installed with the ``dev``
-extras above), which cannot cross compile, so build on the target OS.
+extras above), which cannot cross-compile, so build on the target OS::
 
-The bundle ships the built frontend and the compiled catalogs, so build them
-first. From ``ui/`` run ``npm run build``, then from the root compile the
-catalogs with ``pybabel compile -d locales -D backpack`` (see Translations).
-Then build the package::
+    make dist
 
-    .venv\Scripts\python.exe scripts\dist.py
+The result lands in ``bin/{os}-{arch}/dist/``: a ``backpack`` folder
+holding ``backpack.exe`` and an ``app`` support folder on Windows, or
+a ``backpack.app`` bundle on macOS, next to a versioned ``.zip``
+archive. Pass ``WINDOW=--console`` to keep a console window for
+debugging (``make dist WINDOW=--console``).
 
-The result lands in ``dist/``: a ``backpack`` folder holding ``backpack.exe``
-and an ``app`` support folder on Windows, or a ``backpack.app`` bundle on
-macOS, next to a versioned ``.zip`` archive of it. Pass ``--console`` to keep a
-console window for debugging.
+Remove all build output and caches with::
 
-Remove the build output and caches with::
-
-    .venv\Scripts\python.exe scripts\clean.py
+    make clean
 
 macOS Gatekeeper
 ----------------

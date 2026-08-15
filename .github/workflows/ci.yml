@@ -28,14 +28,14 @@ jobs:
         run: python -m pip install --upgrade pip && pip install -e ".[dev]"
 
       - name: Run pytest
-        run: make pytest EXTRA_PYTEST_ARGS="--junitxml=pytest-report.xml"
+        run: make pytest
 
       - name: Upload pytest report
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: pytest-report
-          path: pytest-report.xml
+          path: bin/*/pytest-report.xml
 
   ui-tests:
     name: UI tests
@@ -50,21 +50,15 @@ jobs:
           cache: npm
           cache-dependency-path: ui/package-lock.json
 
-      - name: Install dependencies
-        run: npm ci
-        working-directory: ui
-
       - name: Run Vitest
-        run: >-
-          make vitest EXTRA_VITEST_ARGS="--reporter=default --reporter=junit
-          --outputFile.junit=vitest-report.xml"
+        run: make vitest
 
       - name: Upload Vitest report
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: vitest-report
-          path: ui/vitest-report.xml
+          path: bin/*/vitest-report.xml
 
   build:
     name: Build ${{ matrix.os }} package
@@ -118,7 +112,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
-          path: dist/*.zip
+          path: bin/**/*.zip
 
   release:
     name: Publish release
