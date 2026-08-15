@@ -64,28 +64,31 @@ def applogs() -> Path:
 def assets_dir() -> Path:
     """Locate the bundled assets directory.
 
-    Works both for a normal run (source tree or installed wheel), where
-    the directory is looked up in the parents of this file, and for a
-    PyInstaller build, where data files are unpacked under sys._MEIPASS.
+    Works both for a normal run (source tree or installed wheel), where the
+    directory is looked up in the parents of this file, and for a PyInstaller
+    build, where data files are unpacked under sys._MEIPASS.
     """
     base = getattr(sys, "_MEIPASS", None)
     dirs = [Path(base)] if base else Path(__file__).resolve().parents
     for d in dirs:
-        assets = d / "assets"
-        if (assets / "index.html").is_file():
-            return assets
-    raise FileNotFoundError("assets not found, run: npm run build")
+        for sub in ("assets", "bin/assets"):
+            assets = d / sub
+            if (assets / "index.html").is_file():
+                return assets
+    raise FileNotFoundError("assets not found, run: make assets")
 
 
 def locales_dir() -> Path:
     """Locate the bundled gettext catalogs, <tag>/LC_MESSAGES within."""
     base = getattr(sys, "_MEIPASS", None)
-    dirs = [Path(base)] if base else Path(__file__).resolve().parents
-    for d in dirs:
-        locales = d / "locales"
-        if locales.is_dir():
-            return locales
-    return dirs[0] / "locales"
+    if base:
+        return Path(base) / "locales"
+    for d in Path(__file__).resolve().parents:
+        for sub in ("bin/locales", "locales"):
+            locales = d / sub
+            if locales.is_dir():
+                return locales
+    return Path(__file__).resolve().parents[0] / "locales"
 
 
 def app_icon_path(name: str | None = None) -> str | None:
