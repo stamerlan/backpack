@@ -3,9 +3,7 @@ __pycache__/
 .pytest_cache/
 .venv/
 .vscode/
-assets/
-build/
-dist/
+bin/
 ui/node_modules/
 src/backpack/_version.py
 

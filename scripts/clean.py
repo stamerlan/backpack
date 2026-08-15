@@ -18,6 +18,7 @@ def main() -> None:
             ".mypy_cache/",
             ".pytest_cache/",
             "assets/",
+            "bin/",
             "build/",
             "dist/",
             "ui/node_modules/",
