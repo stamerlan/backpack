@@ -327,7 +327,6 @@ export function Doc(props: {
         })}
         <Button
           className="doc-add-route"
-          appearance="subtle"
           onClick={() => { void api.add_route(); }}
         >
           + {t("doc.add_route")}
