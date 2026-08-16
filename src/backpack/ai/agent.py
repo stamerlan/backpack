@@ -36,6 +36,7 @@ class Agent:
     async def enum_models() -> tuple[AiModel, ...]:
         """Return available model descriptors."""
         return (
+            AiModel("google:gemini-3.7-flash", "Gemini 3.7 Flash"),
             AiModel("google:gemini-3.6-flash", "Gemini 3.6 Flash"),
             AiModel("google:gemini-3.5-flash", "Gemini 3.5 Flash"),
             AiModel("google:gemini-3.1-flash-lite", "Gemini 3.1 Flash-Lite"),
