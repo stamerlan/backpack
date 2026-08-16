@@ -133,13 +133,12 @@ class Agent:
         invokes a tool, so the caller can emit a status card.
         """
         logger.debug(f"chat_id:{chat_id} model_id:{model_id!r}")
-        llm = await self.build_model(model_id, self.storage)
-        if (chat := doc.chat(chat_id)) is None:
-            raise AiError(f"No chat id:{chat_id}")
 
         # Register the run so stop() can cancel it. Only one run per chat is
-        # expected, but cancel any earlier one to stay safe.
-        run = AssistRun(self, doc, poi, chat_id, model_id, prompt, llm,
+        # expected, but cancel any earlier one to stay safe. The model is
+        # built inside the try below so a build failure (e.g. a missing API
+        # key) becomes an error card on this run instead of escaping unshown.
+        run = AssistRun(self, doc, poi, chat_id, model_id, prompt,
             on_text=on_text, on_think=on_think, on_tool=on_tool,
         )
         if (prev := self._runs.get(chat_id)) is not None:
@@ -147,6 +146,9 @@ class Agent:
         self._runs[chat_id] = run
 
         try:
+            run.model = await self.build_model(model_id, self.storage)
+            if (chat := doc.chat(chat_id)) is None:
+                raise AiError(f"No chat id:{chat_id}")
             await run.stream(chat)
             if not run.has_reply():
                 raise AiError(

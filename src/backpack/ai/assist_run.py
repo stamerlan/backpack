@@ -30,7 +30,7 @@ class AssistRun:
     chat_id: str
     model_id: str
     prompt: str
-    model: Model
+    model: Model | None = None
     on_text: Callable[[str], Any] = lambda text: None
     on_think: Callable[[str], Any] = lambda text: None
     on_tool: Callable[[str], Any] = lambda text: None
@@ -78,24 +78,26 @@ class AssistRun:
         asyncio.CancelledError, and any failure, to the caller. An outer
         cancellation tears the owned task down through the finally.
         """
+
+        async def stream_task() -> None:
+            """Open the streamed run and dispatch each event into this run."""
+            assert self.model is not None
+            async with self.model:
+                async with self.agent.agent.run_stream_events(
+                    self.prompt,
+                    deps=self,
+                    model=self.model,
+                    message_history=history
+                ) as events:
+                    async for ev in events:
+                        self._dispatch_event(ev)
+
         history = self.build_history(chat)
-        self._task = asyncio.ensure_future(self._drive(history))
+        self._task = asyncio.ensure_future(stream_task())
         try:
             await self._task
         finally:
             self._task.cancel()
-
-    async def _drive(self, history: list[pydantic_ai.ModelMessage]) -> None:
-        """Open the streamed run and dispatch each event into this run."""
-        async with self.model:
-            async with self.agent.agent.run_stream_events(
-                self.prompt,
-                deps=self,
-                model=self.model,
-                message_history=history,
-            ) as events:
-                async for ev in events:
-                    self._dispatch_event(ev)
 
     def _dispatch_event(self, ev: object) -> None:
         match ev:
