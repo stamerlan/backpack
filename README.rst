@@ -148,10 +148,13 @@ A specific tag is the same file on that release. macOS::
 
     curl -fsSL https://github.com/stamerlan/backpack/releases/download/v0.1.0/run.sh | sh
 
-The launcher unpacks to a temp directory, runs the app, and deletes the temp
-files when the app exits. No extra tools are needed. Windows ARM uses a
-``windows-arm64`` zip when that release has one, otherwise the ``windows-x64``
-zip.
+The launcher caches the downloaded zip and unpacked app under a per user cache
+directory, keyed by the release SHA256. A later run reuses the cached image when
+the SHA still matches and only downloads again when it does not, so repeated
+runs start without a fresh download. The cache lives at
+``$XDG_CACHE_HOME/backpack`` (default ``~/.cache/backpack``) on macOS and
+``%LOCALAPPDATA%\backpack\cache`` on Windows; set ``BACKPACK_CACHE`` to
+override it.
 
 Packaging
 ---------

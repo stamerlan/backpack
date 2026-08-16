@@ -53,35 +53,66 @@ if (-not $url -or -not $sha -or -not $asset) {
     throw "no windows-$arch build in Backpack $Tag"
 }
 
-$tmp = Join-Path $env:TEMP ('backpack-' + [guid]::NewGuid().ToString('N'))
-New-Item -ItemType Directory -Path $tmp | Out-Null
+$cacheDir = $env:BACKPACK_CACHE
+if (-not $cacheDir) {
+    $base = $env:LOCALAPPDATA
+    if (-not $base) {
+        $base = $env:TEMP
+    }
+    $cacheDir = Join-Path $base 'backpack\cache'
+}
+New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null
+
+function Test-Sha($file) {
+    if (-not (Test-Path -LiteralPath $file)) {
+        return $false
+    }
+    $got = (Get-FileHash -Path $file -Algorithm SHA256).Hash
+    return $got.ToLowerInvariant() -eq $sha.ToLowerInvariant()
+}
 
 $exitCode = 0
 try {
-    $zip = Join-Path $tmp $asset
-    Write-Host "Downloading Backpack $Tag (windows-$arch)"
-    & curl.exe -fL -A $UA -o $zip $url
-    if ($LASTEXITCODE -ne 0) {
-        throw "failed to download $asset"
-    }
-    $actual = (Get-FileHash -Path $zip -Algorithm SHA256).Hash
-    $actual = $actual.ToLowerInvariant()
-    if ($sha.ToLowerInvariant() -ne $actual) {
-        throw "checksum mismatch for $asset`nexpected: $sha`nactual:   $actual"
-    }
-    Write-Host 'Checksum OK'
-
-    Push-Location $tmp
-    try {
-        & tar.exe -xf $zip
+    $zip = Join-Path $cacheDir $asset
+    if (Test-Sha $zip) {
+        Write-Host "Using cached $asset"
+    } else {
+        Write-Host "Downloading Backpack $Tag (windows-$arch)"
+        $dl = Join-Path $cacheDir ('download-' + [guid]::NewGuid().ToString('N'))
+        & curl.exe -fL -A $UA -o $dl $url
         if ($LASTEXITCODE -ne 0) {
-            throw "failed to extract $asset"
+            Remove-Item -LiteralPath $dl -Force -ErrorAction SilentlyContinue
+            throw "failed to download $asset"
         }
-    } finally {
-        Pop-Location
+        if (-not (Test-Sha $dl)) {
+            $got = (Get-FileHash -Path $dl -Algorithm SHA256).Hash
+            $got = $got.ToLowerInvariant()
+            Remove-Item -LiteralPath $dl -Force -ErrorAction SilentlyContinue
+            throw "checksum mismatch for $asset`nexpected: $sha`nactual:   $got"
+        }
+        Move-Item -LiteralPath $dl -Destination $zip -Force
+        Write-Host 'Checksum OK'
     }
 
-    $exe = Join-Path $tmp 'backpack\backpack.exe'
+    $appDir = Join-Path $cacheDir $sha
+    $exe = Join-Path $appDir 'backpack\backpack.exe'
+    if (-not (Test-Path -LiteralPath $exe)) {
+        if (Test-Path -LiteralPath $appDir) {
+            Remove-Item -LiteralPath $appDir -Recurse -Force
+        }
+        $ex = Join-Path $cacheDir ('extract-' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $ex | Out-Null
+        Push-Location $ex
+        try {
+            & tar.exe -xf $zip
+            if ($LASTEXITCODE -ne 0) {
+                throw "failed to extract $asset"
+            }
+        } finally {
+            Pop-Location
+        }
+        Move-Item -LiteralPath $ex -Destination $appDir
+    }
     if (-not (Test-Path -LiteralPath $exe)) {
         throw "could not find $exe"
     }
@@ -93,21 +124,10 @@ try {
     if ($null -ne $proc) {
         $exitCode = $proc.ExitCode
     }
-    Write-Host 'Backpack exited, cleaning up'
+    Write-Host 'Backpack exited'
 } catch {
     [Console]::Error.WriteLine($_.Exception.Message)
     $exitCode = 1
-} finally {
-    for ($i = 0; $i -lt 10; $i++) {
-        try {
-            if (Test-Path -LiteralPath $tmp) {
-                Remove-Item -LiteralPath $tmp -Recurse -Force
-            }
-            break
-        } catch {
-            Start-Sleep -Milliseconds 500
-        }
-    }
 }
 
 exit $exitCode

@@ -45,27 +45,46 @@ if [ -z "$url" ] || [ -z "$sha" ] || [ -z "$asset" ]; then
     exit 1
 fi
 
-tmp=$(mktemp -d -t backpack)
-cleanup() {
-    rm -rf "$tmp"
+cache_dir=${BACKPACK_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/backpack}
+mkdir -p "$cache_dir"
+zip="$cache_dir/$asset"
+
+verify() {
+    got=$(shasum -a 256 "$1")
+    got=${got%% *}
+    [ "$got" = "$sha" ]
 }
-trap cleanup EXIT INT TERM HUP
 
-echo "Downloading Backpack $TAG (macos-$arch)"
-curl -fL -A "$UA" -o "$tmp/$asset" "$url"
-
-actual=$(shasum -a 256 "$tmp/$asset")
-actual=${actual%% *}
-if [ "$sha" != "$actual" ]; then
-    echo "checksum mismatch for $asset" >&2
-    echo "expected: $sha" >&2
-    echo "actual:   $actual" >&2
-    exit 1
+if [ -f "$zip" ] && verify "$zip"; then
+    echo "Using cached $asset"
+else
+    echo "Downloading Backpack $TAG (macos-$arch)"
+    tmp=$(mktemp "$cache_dir/download.XXXXXX")
+    trap 'rm -f "$tmp"' EXIT INT TERM HUP
+    curl -fL -A "$UA" -o "$tmp" "$url"
+    if ! verify "$tmp"; then
+        got=$(shasum -a 256 "$tmp")
+        got=${got%% *}
+        echo "checksum mismatch for $asset" >&2
+        echo "expected: $sha" >&2
+        echo "actual:   $got" >&2
+        exit 1
+    fi
+    mv -f "$tmp" "$zip"
+    trap - EXIT INT TERM HUP
+    echo "Checksum OK"
 fi
-echo "Checksum OK"
 
-ditto -x -k "$tmp/$asset" "$tmp"
-bin=$tmp/backpack.app/Contents/MacOS/backpack
+app_dir="$cache_dir/$sha"
+bin="$app_dir/backpack.app/Contents/MacOS/backpack"
+if [ ! -x "$bin" ]; then
+    rm -rf "$app_dir"
+    tmp_dir=$(mktemp -d "$cache_dir/extract.XXXXXX")
+    trap 'rm -rf "$tmp_dir"' EXIT INT TERM HUP
+    ditto -x -k "$zip" "$tmp_dir"
+    mv "$tmp_dir" "$app_dir"
+    trap - EXIT INT TERM HUP
+fi
 if [ ! -x "$bin" ]; then
     echo "could not find $bin" >&2
     exit 1
@@ -73,4 +92,4 @@ fi
 
 echo "Starting Backpack $TAG"
 "$bin"
-echo "Backpack exited, cleaning up"
+echo "Backpack exited"
