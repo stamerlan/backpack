@@ -9,30 +9,36 @@ from pydantic_ai.exceptions import (
 )
 
 from ..i18n import i18n
+from ..model import ChatCardAction
 
 
 class AiError(Exception):
     def __init__(
-        self, message: str, retryable: bool = False
+        self,
+        message: str,
+        actions: ChatCardAction | tuple[ChatCardAction, ...] = ()
     ) -> None:
         super().__init__(message)
         self.message = message
-        self.retryable = retryable
+        self.actions: tuple[ChatCardAction, ...] = (
+            actions if isinstance(actions, tuple) else (actions,)
+        )
 
     @classmethod
     def convert(cls, exc: BaseException) -> "AiError":
         if isinstance(exc, cls):
             return exc
         if isinstance(exc, BaseExceptionGroup):
-            inner = [cls.convert(e) for e in exc.exceptions] or [
-                cls(str(exc), False)
-            ]
-            retry = any(e.retryable for e in inner)
-            return cls(inner[-1].message, retry)
+            inner = [cls.convert(e) for e in exc.exceptions] or [cls(str(exc))]
+            return cls(inner[-1].message, inner[-1].actions)
+
+        retry_action = ChatCardAction(
+            id="retry", label=i18n.gettext("Retry"), appearance="primary"
+        )
 
         match exc:
             case ModelHTTPError():
-                retry = exc.status_code == 429 or exc.status_code >= 500
+                can_retry = exc.status_code == 429 or exc.status_code >= 500
                 try:
                     details = (
                         exc.body["error"]["message"].strip()    # type: ignore
@@ -46,22 +52,22 @@ class AiError(Exception):
                         "{model}: status {status}",
                         model=exc.model_name, status=exc.status_code
                     )
-                return cls(msg, retry)
+                return cls(msg, retry_action if can_retry else ())
             case ContentFilterError():
                 return cls(i18n.gettext(
                     "The reply was blocked by content filters."
-                ), False)
+                ))
             case IncompleteToolCall():
                 return cls(i18n.gettext(
                     "The model ran out of tokens mid tool call."
-                ), True)
+                ), retry_action)
             case UnexpectedModelBehavior():
-                return cls(exc.message, True)
+                return cls(exc.message, retry_action)
             case UsageLimitExceeded():
-                return cls(exc.message, False)
+                return cls(exc.message)
             case ModelAPIError():
-                return cls(getattr(exc, "message", str(exc)), True)
+                return cls(getattr(exc, "message", str(exc)), retry_action)
             case AgentRunError():
-                return cls(exc.message, True)
+                return cls(exc.message, retry_action)
             case _:
-                return cls(str(exc) or type(exc).__name__, False)
+                return cls(str(exc) or type(exc).__name__)

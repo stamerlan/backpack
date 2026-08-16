@@ -6,7 +6,6 @@ from typing import Any, TYPE_CHECKING
 import pydantic_ai
 from pydantic_ai.models import Model
 
-from ..i18n import i18n
 from ..model import ChatCard, ChatCardAction, ChatItem, ChatReply, ChatThinking
 
 if TYPE_CHECKING:
@@ -135,18 +134,12 @@ class AssistRun:
             self.items.append(ChatThinking(text))
         self.on_think(text)
 
-    def add_error(self, message: str, retryable: bool) -> None:
-        """Append an error card, with a retry action when retryable."""
+    def add_error(
+        self, message: str, actions: tuple[ChatCardAction, ...] = ()
+    ) -> None:
+        """Append an error card carrying the given actions."""
         self.items.append(ChatCard(
-            card_kind="error",
-            text=message,
-            actions=(
-                ChatCardAction(
-                    id="retry",
-                    label=i18n.gettext("Retry"),
-                    appearance="primary"
-                ),
-            ) if retryable else ()
+            card_kind="error", text=message, actions=actions
         ))
 
     def has_reply(self) -> bool:

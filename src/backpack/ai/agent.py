@@ -15,6 +15,7 @@ from . import prompts, tools
 from .errors import AiError
 from .assist_run import AssistRun
 from ..i18n import i18n
+from ..model import ChatCardAction
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -148,14 +149,21 @@ class Agent:
         try:
             await run.stream(chat)
             if not run.has_reply():
-                raise AiError("The model returned an empty reply.", True)
+                raise AiError(
+                    "The model returned an empty reply.",
+                    ChatCardAction(
+                        id="retry",
+                        label=i18n.gettext("Retry"),
+                        appearance="primary"
+                    )
+                )
         except AiError as e:
             logger.exception(e.message)
-            run.add_error(e.message, e.retryable)
+            run.add_error(e.message, e.actions)
         except Exception as e:
             logger.exception("assist run failed")
             err = AiError.convert(e)
-            run.add_error(err.message, err.retryable)
+            run.add_error(err.message, err.actions)
         finally:
             if self._runs.get(chat_id) is run:
                 del self._runs[chat_id]
