@@ -102,6 +102,10 @@ ignore_missing_imports = true
 module = "google.*"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "gen_run"
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 addopts = "--mypy"
 testpaths = ["src", "tests"]
