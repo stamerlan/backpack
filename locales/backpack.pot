@@ -100,6 +100,10 @@ msgstr ""
 msgid "Retry"
 msgstr ""
 
+#: src/backpack/ai/agent.py:70
+msgid "No Gemini API key"
+msgstr ""
+
 #: src/backpack/ai/errors.py:41
 #, python-brace-format
 msgid "{details} (status: {status})"

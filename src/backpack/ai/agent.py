@@ -67,7 +67,7 @@ class Agent:
                 if not api_key:
                     api_key = await storage.load_key("gemini_api_key")
                 if not api_key:
-                    raise AiError("No Gemini API key")
+                    raise AiError(i18n.gettext("No Gemini API key"))
                 return GoogleModel(
                     name,
                     settings=model_settings,

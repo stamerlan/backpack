@@ -100,6 +100,10 @@ msgstr "Could not load route details"
 msgid "Retry"
 msgstr "Retry"
 
+#: src/backpack/ai/agent.py:70
+msgid "No Gemini API key"
+msgstr "No Gemini API key"
+
 #: src/backpack/ai/errors.py:41
 #, python-brace-format
 msgid "{details} (status: {status})"

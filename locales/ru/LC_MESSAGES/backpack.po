@@ -104,6 +104,10 @@ msgstr "Не удалось загрузить сведения о маршру�
 msgid "Retry"
 msgstr "Повторить"
 
+#: src/backpack/ai/agent.py:70
+msgid "No Gemini API key"
+msgstr "Нет ключа API Gemini"
+
 #: src/backpack/ai/errors.py:41
 #, python-brace-format
 msgid "{details} (status: {status})"
