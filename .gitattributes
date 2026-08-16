@@ -1,0 +1,3 @@
+scripts/*.sh.in text eol=lf
+scripts/*.ps1.in text eol=lf
+scripts/gen_run.py text eol=lf

@@ -129,6 +129,30 @@ Artifacts are placed under ``bin/{os}-{arch}/`` where ``{os}`` is ``windows``,
 ``linux``, or ``macos`` and ``{arch}`` is ``x64`` or ``arm64``. Node modules are
 shared at ``bin/node_modules/``.
 
+Running a release
+-----------------
+
+Each GitHub release includes a generated launcher with that tag's version, zip
+URL, and SHA256 hardcoded. Fetching it with curl also skips macOS quarantine
+and Windows SmartScreen, which hit a browser-downloaded unsigned zip.
+
+macOS, latest::
+
+    curl -fsSL https://github.com/stamerlan/backpack/releases/latest/download/run.sh | sh
+
+Windows 11, latest (use ``curl.exe``, not ``curl``)::
+
+    curl.exe -fsSL https://github.com/stamerlan/backpack/releases/latest/download/run.ps1 | powershell -NoProfile -ExecutionPolicy Bypass -Command -
+
+A specific tag is the same file on that release. macOS::
+
+    curl -fsSL https://github.com/stamerlan/backpack/releases/download/v0.1.0/run.sh | sh
+
+The launcher unpacks to a temp directory, runs the app, and deletes the temp
+files when the app exits. No extra tools are needed. Windows ARM uses a
+``windows-arm64`` zip when that release has one, otherwise the ``windows-x64``
+zip.
+
 Packaging
 ---------
 
@@ -146,14 +170,3 @@ debugging (``make dist WINDOW=--console``).
 Remove all build output and caches with::
 
     make clean
-
-macOS Gatekeeper
-----------------
-
-The macOS package is not signed with an Apple Developer ID or notarized, so a
-downloaded ``backpack.app`` is quarantined and macOS refuses to open it with a
-"damaged and can't be opened" message. Clear the quarantine flag once, then open
-it normally::
-
-    xattr -dr com.apple.quarantine /path/to/backpack.app
-    open /path/to/backpack.app

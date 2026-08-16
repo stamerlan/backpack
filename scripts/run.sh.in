@@ -1,0 +1,76 @@
+#!/bin/sh
+# Generated launcher for Backpack @TAG@. Checksum, version, and zip URL
+# are hardcoded for this release. Pipe this file to sh.
+set -e
+
+TAG=@TAG@
+VERSION=@VERSION@
+UA=backpack-run
+
+if [ "$(uname -s)" != Darwin ]; then
+    echo "this script is for macOS" >&2
+    exit 1
+fi
+
+if ! command -v curl >/dev/null; then
+    echo "curl is required" >&2
+    exit 1
+fi
+
+arch=$(uname -m)
+case $arch in
+    arm64|aarch64) arch=arm64 ;;
+    x86_64) arch=x64 ;;
+    *)
+        echo "unsupported architecture: $arch" >&2
+        exit 1
+        ;;
+esac
+
+case $arch in
+    arm64)
+        url='@URL_MACOS_ARM64@'
+        sha='@SHA_MACOS_ARM64@'
+        asset='@ASSET_MACOS_ARM64@'
+        ;;
+    x64)
+        url='@URL_MACOS_X64@'
+        sha='@SHA_MACOS_X64@'
+        asset='@ASSET_MACOS_X64@'
+        ;;
+esac
+
+if [ -z "$url" ] || [ -z "$sha" ] || [ -z "$asset" ]; then
+    echo "no macos-$arch build in Backpack $TAG" >&2
+    exit 1
+fi
+
+tmp=$(mktemp -d -t backpack)
+cleanup() {
+    rm -rf "$tmp"
+}
+trap cleanup EXIT INT TERM HUP
+
+echo "Downloading Backpack $TAG (macos-$arch)"
+curl -fL -A "$UA" -o "$tmp/$asset" "$url"
+
+actual=$(shasum -a 256 "$tmp/$asset")
+actual=${actual%% *}
+if [ "$sha" != "$actual" ]; then
+    echo "checksum mismatch for $asset" >&2
+    echo "expected: $sha" >&2
+    echo "actual:   $actual" >&2
+    exit 1
+fi
+echo "Checksum OK"
+
+ditto -x -k "$tmp/$asset" "$tmp"
+bin=$tmp/backpack.app/Contents/MacOS/backpack
+if [ ! -x "$bin" ]; then
+    echo "could not find $bin" >&2
+    exit 1
+fi
+
+echo "Starting Backpack $TAG"
+"$bin"
+echo "Backpack exited, cleaning up"

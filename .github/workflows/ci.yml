@@ -112,7 +112,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
-          path: bin/**/*.zip
+          path: bin/**/backpack-*.zip
 
   release:
     name: Publish release
@@ -123,6 +123,8 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v5
+
       - name: Download packages
         uses: actions/download-artifact@v8
         with:
@@ -130,11 +132,26 @@ jobs:
           path: packages
           merge-multiple: true
 
+      - name: Stage packages
+        run: |
+          mkdir -p release
+          find packages -name 'backpack-*.zip' -exec cp -v {} release/ \;
+
+      - name: Generate launchers
+        run: |
+          python scripts/gen_run.py release \
+            "${GITHUB_REF_NAME}" "${GITHUB_REPOSITORY}" release
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          files: packages/*.zip
+          files: |
+            release/*.zip
+            release/run.sh
+            release/run.ps1
           fail_on_unmatched_files: true
+          # Keep /releases/latest on the last stable tag.
+          prerelease: ${{ contains(github.ref_name, 'rc') }}
 
   report:
     name: Test report
