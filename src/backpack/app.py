@@ -506,10 +506,8 @@ class App:
         :param str locale: "system" to follow the OS, or a tag, e.g. "en-US".
         :param str units: "auto" to follow the OS, or "metric" or "imperial".
         """
-        i18n.load([locale] + system_locales())
-        if units not in ("metric", "imperial"):
-            units = i18n.units
-        self.ui.set_locale(i18n.tag, units)
+        i18n.load([locale] + system_locales(), units)
+        self.ui.set_locale(i18n.tag, i18n.units)
         self._update_recent_items_view()
 
     async def open_settings(self) -> None:

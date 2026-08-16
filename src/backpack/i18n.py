@@ -24,7 +24,7 @@ class I18n:
         self._translations: NullTranslations = NullTranslations()
         self._lang: str = "en"
         self._tag: str = "en"
-        self._units: str = "metric"
+        self.units: str = "metric"
 
     @property
     def lang(self) -> str:
@@ -41,30 +41,29 @@ class I18n:
         """
         return self._tag
 
-    @property
-    def units(self) -> str:
-        """Default measurement system, "metric" or "imperial".
-
-        Taken from the OS preference when available, otherwise from the
-        preferred locale region (imperial for US, metric elsewhere).
-        """
-        return self._units
-
-    def load(self, locale: str | Sequence[str]) -> None:
+    def load(
+        self, locale: str | Sequence[str], units: str | None = None
+    ) -> None:
         """Negotiate locale against SUPPORTED and load the catalog.
 
         *locale* is a single BCP-47 tag or a sequence ordered by priority.
         An unrecognized tag negotiates to ``en``. A region subtag is kept in
         ``tag`` so the frontend can pick a dialect, and a matching regional
         catalog (``en_GB``) is loaded in preference to the base language
-        (``en``) when one is present. Default units follow the OS preference,
-        falling back to the region of the preferred locale.
+        (``en``) when one is present.
+
+        *units* is an explicit measurement system, "metric" or "imperial",
+        that wins when set. Anything else, including None or "auto", follows
+        the OS preference and falls back to the region of the preferred locale.
         """
         if isinstance(locale, str):
             locale = [locale]
         self._lang, region = _pick_locale(locale)
         self._tag = f"{self._lang}-{region}" if region else self._lang
-        self._units = system_units() or _get_region_units(region)
+        if units in ("metric", "imperial"):
+            self.units = units
+        else:
+            self.units = system_units() or _get_region_units(region)
         names = (
             [f"{self._lang}_{region}", self._lang] if region
             else [self._lang]
