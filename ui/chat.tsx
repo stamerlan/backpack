@@ -370,15 +370,6 @@ export function Chat(props: {
                 </MenuList>
               </MenuPopover>
             </Menu>
-            <button
-              type="button"
-              className="icon-btn"
-              title={t("chat.delete")}
-              aria-label={t("chat.delete_aria")}
-              onClick={() => void api.del_chat(props.chat_id)}
-            >
-              {icon("trash", 15)}
-            </button>
           </div>
         </div>
       </div>

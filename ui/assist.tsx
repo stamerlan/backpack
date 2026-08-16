@@ -240,9 +240,40 @@ export function Assist(props: {
             >
               {chats.map((c) => {
                 const label = c.title || t("assist.new_chat");
+                const shown =
+                  label.length > 30 ? label.slice(0, 28) + "..." : label;
+                const close = t("assist.close_chat");
+                const do_close = () => { void api.del_chat(c.id); };
                 return (
                   <Tab key={c.id} value={c.id} title={label}>
-                    {label.length > 30 ? label.slice(0, 28) + "..." : label}
+                    <span
+                      className={mergeClasses(
+                        "assist-tab",
+                        c.id === active_id && "selected",
+                      )}
+                    >
+                      <span className="assist-tab-label">{shown}</span>
+                      <span
+                        className="assist-tab-close"
+                        role="button"
+                        tabIndex={0}
+                        title={close}
+                        aria-label={close}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          do_close();
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            do_close();
+                          }
+                        }}
+                      >
+                        {icon("close", 12)}
+                      </span>
+                    </span>
                   </Tab>
                 );
               })}

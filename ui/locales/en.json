@@ -126,7 +126,8 @@
   "assist": {
     "label": "AI assistant",
     "resize": "Drag to resize",
-    "new_chat": "New chat"
+    "new_chat": "New chat",
+    "close_chat": "Close chat"
   },
   "chat": {
     "thinking": "Thinking",
@@ -137,8 +138,6 @@
     "send_aria": "Send message",
     "stop": "Stop",
     "stop_aria": "Stop assistant",
-    "delete": "Delete chat",
-    "delete_aria": "Delete current chat",
     "suggest": {
       "overview": {
         "title": "Trip overview",

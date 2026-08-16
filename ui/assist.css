@@ -93,3 +93,40 @@
   box-sizing: border-box;
   scrollbar-width: thin;
 }
+
+/* The label and close live in this wrapper rather than straight in the tab,
+ * so the layout hangs off a class this file owns instead of a Fluent slot.
+ */
+.assist-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Browser-style close: it holds its slot always, so the tab width does not
+ * jump, and it only shows while the tab is hovered or focused and on the
+ * selected tab, which Assist marks rather than reading Fluent's state.
+ */
+.assist-tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  color: var(--colorNeutralForeground3);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.1s ease;
+}
+
+.assist-tab:hover .assist-tab-close,
+.assist-tab:focus-within .assist-tab-close,
+.assist-tab.selected .assist-tab-close {
+  opacity: 1;
+}
+
+.assist-tab-close:hover {
+  background-color: var(--colorNeutralBackground1Hover);
+  color: var(--colorNeutralForeground1);
+}
