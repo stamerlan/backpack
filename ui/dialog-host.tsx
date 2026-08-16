@@ -24,6 +24,7 @@ import type { ButtonProps } from "@fluentui/react-components";
 import { useTranslation } from "react-i18next";
 import { not_mounted } from "./ui-api";
 import { icon } from "./icon";
+import "./dialog-host.css";
 
 export interface DialogAction {
   title: string;
@@ -70,7 +71,7 @@ function DialogView(props: {
   };
 
   const footer = props.actions.length > 0 ? (
-    <DialogActions>
+    <DialogActions fluid className="dialog-actions">
       {props.actions.map((action, index) => (
         <Button
           key={index}

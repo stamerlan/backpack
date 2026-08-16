@@ -1,0 +1,20 @@
+/* Footer buttons share the width of the longest label so a translated title
+ * stays on one line. Fluent's default end slot is only half the dialog, which
+ * wraps a long label. fluid plus max-content gives the row the full surface,
+ * then sizes it to the labels.
+ *
+ * Fluent injects its own styles after this file, so overriding one of its
+ * components needs the extra specificity its fui-* class provides.
+ */
+.fui-DialogActions.dialog-actions {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  width: max-content;
+  max-width: 100%;
+  margin-inline-start: auto;
+}
+
+.fui-DialogActions.dialog-actions > .fui-Button {
+  white-space: nowrap;
+}
