@@ -372,6 +372,10 @@ class App:
         chats = doc.chats()
         if chats:
             self.ui.assist.set_active_chat(chats[0].id)
+            # Replaying saved turns above runs end_turn per chat, which flags
+            # every non-active chat unread. Opening a document is not new
+            # activity, so clear those flags once the restore is done.
+            self.ui.assist.mark_read([c.id for c in chats])
 
     async def save_doc(
         self, filepath: str | None = None, show_dialog: bool = False

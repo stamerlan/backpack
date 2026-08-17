@@ -69,6 +69,11 @@ export interface AssistApi {
    */
   add_card(chat_id: string, card: ChatCardData): Promise<string | null>;
   end_turn(chat_id: string): void;
+  /* Drop the unread flag from one chat or a list of them, so opening a
+   * document can clear the flags the end_turn calls replaying saved turns
+   * leave on its restored chats.
+   */
+  mark_read(chat_ids: string | string[]): void;
 }
 
 function drop_key<V>(rec: Record<string, V>, key: string): Record<string, V> {
@@ -187,6 +192,10 @@ export function Assist(props: {
         set_busy((all) => ({ ...all, [chat_id]: false }));
         if (chat_id !== active_ref.current)
           set_unread((all) => ({ ...all, [chat_id]: true }));
+      },
+      mark_read(chat_ids) {
+        const ids = Array.isArray(chat_ids) ? chat_ids : [chat_ids];
+        set_unread((all) => ids.reduce(drop_key, all));
       },
     };
   }, []);

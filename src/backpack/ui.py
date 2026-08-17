@@ -84,6 +84,10 @@ class Assist:
     def end_turn(self, chat_id: str) -> "Future[Any]":
         return self.js.submit("assist.end_turn", (chat_id,))
 
+    def mark_read(self, chat_ids: str | Iterable[str]) -> "Future[Any]":
+        ids = [chat_ids] if isinstance(chat_ids, str) else list(chat_ids)
+        return self.js.submit("assist.mark_read", (ids,))
+
 
 class UI:
     """Outbound bridge: methods Python may call on the frontend."""
