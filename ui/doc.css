@@ -33,26 +33,10 @@
   position: relative;
 }
 
+/* The lifted card fades and rides above its siblings while dnd-kit slides
+ * the rest apart to open the gap it would drop into.
+ */
 .doc-route.dragging {
   opacity: 0.5;
-}
-
-/* The line marking where the dragged card would land. */
-.doc-route.drop-before::before,
-.doc-route.drop-after::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--colorBrandStroke1);
-  border-radius: 2px;
-}
-
-.doc-route.drop-before::before {
-  top: -6px;
-}
-
-.doc-route.drop-after::after {
-  bottom: -6px;
+  z-index: 1;
 }

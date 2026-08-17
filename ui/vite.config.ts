@@ -40,6 +40,19 @@ export default {
   root: dir,
   base: "./",
   plugins: [react(), extraNm()],
+  /* extraNm routes the app's own imports to bin/node_modules, but the esbuild
+   * pre-bundler does not run that Rollup hook, so a library resolves react
+   * from ui/node_modules and the app ends up with two React copies, which
+   * breaks hooks. Pin react and react-dom to the single bin copy so every
+   * import, pre-bundled or not, lands on the same module.
+   */
+  resolve: {
+    dedupe: ["react", "react-dom"],
+    alias: {
+      react: path.join(binNm, "react"),
+      "react-dom": path.join(binNm, "react-dom"),
+    },
+  },
   build: {
     outDir: "../bin/assets",
     assetsDir: "static",

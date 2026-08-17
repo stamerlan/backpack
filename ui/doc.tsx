@@ -10,20 +10,39 @@
  *   - cards: The trip card and the route cards, in display order.
  *   - tracks: Sampled points per route id, held apart from the cards so
  *     every map can draw the whole trip rather than just its own leg.
- *   - drag_id: Route card being dragged, null when nothing is in flight.
- *   - drop_after: Route the dragged card would land after, null for first.
- *   - grip_card_id: The card whose grip handle is currently pressed. Only
- *     that card's wrapper is draggable, so a pointer drag starting in a text
- *     field selects text instead of lifting the card.
+ *
+ * Reordering runs through dnd-kit: a DndContext with pointer, touch and
+ * keyboard sensors wraps a vertical SortableContext of the route cards, so a
+ * drag started from a card's grip works the same on a mouse or a finger and
+ * auto-scrolls the document when it reaches an edge.
  */
 import {
   useEffect,
   useMemo,
   useState,
-  type DragEvent as ReactDragEvent,
+  type ButtonHTMLAttributes,
 } from "react";
 import { Button, mergeClasses } from "@fluentui/react-components";
 import { useTranslation } from "react-i18next";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  pointerWithin,
+  useSensor,
+  useSensors,
+  type CollisionDetection,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import api from "./api";
 import { RouteCard, type RouteStats } from "./route-card";
 import type { MapOverlay, TrackPoint } from "./route-map";
@@ -122,15 +141,87 @@ function route_overlay(route_id: string, tracks: RouteTracks): MapOverlay {
   return overlay;
 }
 
+/* Reorder the moment the pointer moves into a neighbour card, instead of
+ * waiting for the lifted card's centre to pass theirs, so a tall expanded
+ * card no longer needs a long drag to trade places with a folded one.
+ * closestCenter is the fallback for the gaps and the instants the pointer
+ * sits over no card, so the drop target never goes blank mid-drag.
+ */
+const track_pointer: CollisionDetection = (args) => {
+  const hits = pointerWithin(args);
+  return hits.length > 0 ? hits : closestCenter(args);
+};
+
+/* One route card as a sortable item. useSortable must run in a component of
+ * its own since it is a hook, so this holds the drag wiring the document map
+ * cannot: the grip becomes the drag activator, and the wrapper carries the
+ * transform dnd-kit uses to slide siblings apart while a card is in flight.
+ */
+function SortableRoute(props: {
+  card: RouteCardView;
+  track: TrackPoint[];
+  overlay: MapOverlay;
+  on_change: (title: string, notes: string) => void;
+  on_remove: (id: string) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: props.card.id });
+  /* Translate only, never the scaleX/scaleY dnd-kit also packs into the
+   * transform: with folded and expanded cards differing in height, scaling
+   * would squash the lifted card to the size of whichever card it hovers.
+   */
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+  };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={mergeClasses("doc-route", isDragging && "dragging")}
+    >
+      <RouteCard
+        id={props.card.id}
+        title={props.card.title}
+        notes={props.card.notes}
+        stats={props.card.stats}
+        track={props.track}
+        overlay={props.overlay}
+        route_loading={props.card.route_loading}
+        on_change={props.on_change}
+        on_remove={props.on_remove}
+        grip_ref={setActivatorNodeRef}
+        grip_props={{ ...attributes, ...listeners } as
+          ButtonHTMLAttributes<HTMLButtonElement>}
+      />
+    </div>
+  );
+}
+
 export function Doc(props: {
   on_title_change: (title: string) => void;
 }) {
   const { t } = useTranslation();
   const [cards, set_cards] = useState<CardView[]>([]);
   const [tracks, set_tracks] = useState<RouteTracks>({});
-  const [grip_card_id, set_grip_card_id] = useState<string | null>(null);
-  const [drag_id, set_drag_id] = useState<string | null>(null);
-  const [drop_after, set_drop_after] = useState<string | null>(null);
+
+  /* A small distance gate lets a plain tap on the grip fall through as a
+   * click, so a drag only starts once the pointer or finger actually moves.
+   * The keyboard sensor makes the grip reorder with the arrow keys too.
+   */
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
 
   /* Built once: the state setters it closes over never change identity, so
    * the backend always reaches the live document through the same object.
@@ -221,117 +312,76 @@ export function Doc(props: {
   const route_ids = cards
     .filter((card) => card.kind === "route")
     .map((card) => card.id);
-  const last_route = route_ids[route_ids.length - 1] ?? null;
 
-  function end_drag(): void {
-    set_grip_card_id(null);
-    set_drag_id(null);
-    set_drop_after(null);
-  }
-
-  function on_drag_start(
-    event: ReactDragEvent<HTMLDivElement>, id: string,
-  ): void {
-    if (grip_card_id !== id) {
-      event.preventDefault();
+  /* Reorder on drop, then translate the sortable's new neighbour list back
+   * into the backend's after_id contract: the id the card now trails, or
+   * null when it leads the routes.
+   */
+  function on_drag_end(event: DragEndEvent): void {
+    const { active, over } = event;
+    if (over === null || active.id === over.id)
       return;
-    }
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", id);
-    set_drag_id(id);
-    set_drop_after(null);
-  }
-
-  function on_drag_over(
-    event: ReactDragEvent<HTMLDivElement>, over_id: string,
-  ): void {
-    if (drag_id === null)
+    const from = route_ids.indexOf(String(active.id));
+    const to = route_ids.indexOf(String(over.id));
+    if (from === -1 || to === -1)
       return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    const rect = event.currentTarget.getBoundingClientRect();
-    const before = event.clientY < rect.top + rect.height / 2;
-    const at = route_ids.indexOf(over_id);
-    set_drop_after(before ? (at <= 0 ? null : route_ids[at - 1]!) : over_id);
-  }
-
-  function on_drop(event: ReactDragEvent<HTMLDivElement>): void {
-    if (drag_id === null)
-      return;
-    event.preventDefault();
-    const from = route_ids.indexOf(drag_id);
-    const pred = from > 0 ? route_ids[from - 1]! : null;
-    if (drop_after !== drag_id && drop_after !== pred) {
-      doc.move_card(drag_id, drop_after);
-      void api.move_route(drag_id, drop_after);
-    }
-    end_drag();
+    const ordered = arrayMove(route_ids, from, to);
+    const at = ordered.indexOf(String(active.id));
+    const after_id = at === 0 ? null : ordered[at - 1]!;
+    doc.move_card(String(active.id), after_id);
+    void api.move_route(String(active.id), after_id);
   }
 
   return (
     <main className="doc-content">
-      <div className="doc-stack">
-        {cards.map((card) => {
-          switch (card.kind) {
-            case "trip":
-              return (
-                <TripCard
-                  key={card.id}
-                  id={card.id}
-                  title={card.title}
-                  notes={card.notes}
-                  on_change={(title, notes) => doc.set_trip_card(title, notes)}
-                />
-              );
-            case "route": {
-              const ri = route_ids.indexOf(card.id);
-              const before = ri === 0
-                ? drop_after === null
-                : drop_after === route_ids[ri - 1];
-              return (
-                <div
-                  key={card.id}
-                  className={mergeClasses(
-                    "doc-route",
-                    card.id === drag_id && "dragging",
-                    drag_id !== null && before && "drop-before",
-                    drag_id !== null && card.id === last_route &&
-                      drop_after === card.id && "drop-after",
-                  )}
-                  draggable={grip_card_id === card.id}
-                  onDragStart={(event) => on_drag_start(event, card.id)}
-                  onDragOver={(event) => on_drag_over(event, card.id)}
-                  onDrop={on_drop}
-                  onDragEnd={end_drag}
-                >
-                  <RouteCard
-                    id={card.id}
-                    title={card.title}
-                    notes={card.notes}
-                    stats={card.stats}
-                    track={tracks[card.id] ?? EMPTY_TRACK}
-                    overlay={overlays[card.id] ?? EMPTY_OVERLAY}
-                    route_loading={card.route_loading}
-                    on_change={(title, notes) =>
-                      doc.set_route_card(card.id, title, notes)}
-                    on_remove={(id) => doc.remove_card(id)}
-                    on_grip_down={() => { set_grip_card_id(card.id); }}
-                    on_grip_up={() => { set_grip_card_id(null); }}
-                  />
-                </div>
-              );
-            }
-            default:
-              return null;
-          }
-        })}
-        <Button
-          className="doc-add-route"
-          onClick={() => { void api.add_route(); }}
-        >
-          + {t("doc.add_route")}
-        </Button>
-      </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={track_pointer}
+        onDragEnd={on_drag_end}
+      >
+        <div className="doc-stack">
+          <SortableContext
+            items={route_ids}
+            strategy={verticalListSortingStrategy}
+          >
+            {cards.map((card) => {
+              switch (card.kind) {
+                case "trip":
+                  return (
+                    <TripCard
+                      key={card.id}
+                      id={card.id}
+                      title={card.title}
+                      notes={card.notes}
+                      on_change={(title, notes) =>
+                        doc.set_trip_card(title, notes)}
+                    />
+                  );
+                case "route":
+                  return (
+                    <SortableRoute
+                      key={card.id}
+                      card={card}
+                      track={tracks[card.id] ?? EMPTY_TRACK}
+                      overlay={overlays[card.id] ?? EMPTY_OVERLAY}
+                      on_change={(title, notes) =>
+                        doc.set_route_card(card.id, title, notes)}
+                      on_remove={(id) => doc.remove_card(id)}
+                    />
+                  );
+                default:
+                  return null;
+              }
+            })}
+          </SortableContext>
+          <Button
+            className="doc-add-route"
+            onClick={() => { void api.add_route(); }}
+          >
+            + {t("doc.add_route")}
+          </Button>
+        </div>
+      </DndContext>
     </main>
   );
 }

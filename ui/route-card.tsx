@@ -12,14 +12,15 @@
  *   - route_loading: Shows the header spinner while details load.
  *   - on_change: Reports the edited title and notes on every keystroke.
  *   - on_remove: Drops the card once the backend has been told.
- *   - on_grip_down: Arms the grip so the document may lift this card.
- *   - on_grip_up: Disarms the grip.
+ *   - grip_ref: Registers the grip as the drag activator for the sortable.
+ *   - grip_props: dnd-kit attributes and listeners spread onto the grip so
+ *     pointer, touch and keyboard all start a drag from the handle.
  *
  * State:
  *   - folded: Hides the map, profile and notes, leaving only the header.
  *   - hover: Point the profile is hovering, echoed as a dot on the map.
  */
-import { useState } from "react";
+import { useState, type ButtonHTMLAttributes } from "react";
 import {
   Badge,
   Button,
@@ -66,11 +67,12 @@ const useStyles = makeStyles({
     gap: "8px",
     minWidth: 0,
   },
-  /* Narrower than a plain icon button, and dimmer until the pointer is on it,
-   * so it reads as a handle beside the title rather than a third action.
+  /* Dimmer than a plain icon button until the pointer is on it, so it reads
+   * as a handle beside the title rather than a third action. It keeps the
+   * full icon-button footprint though, so touch has a large enough target to
+   * grab, and turns off touch scrolling so a drag starts instead of a pan.
    */
   grip: {
-    width: "22px",
     color: tokens.colorNeutralForeground4,
     cursor: "grab",
     touchAction: "none",
@@ -156,8 +158,8 @@ export function RouteCard(props: {
   route_loading?: boolean;
   on_change: (title: string, notes: string) => void;
   on_remove: (id: string) => void;
-  on_grip_down?: () => void;
-  on_grip_up?: () => void;
+  grip_ref?: (node: HTMLButtonElement | null) => void;
+  grip_props?: ButtonHTMLAttributes<HTMLButtonElement>;
 }) {
   const { t } = useTranslation();
   const styles = useStyles();
@@ -194,11 +196,11 @@ export function RouteCard(props: {
       <div className={styles.header}>
         <button
           type="button"
+          ref={props.grip_ref}
           className={mergeClasses("icon-btn", styles.grip)}
           title={t("route_card.reorder")}
           aria-label={t("route_card.reorder")}
-          onPointerDown={() => props.on_grip_down?.()}
-          onPointerUp={() => props.on_grip_up?.()}
+          {...props.grip_props}
         >
           {icon("grip", 12)}
         </button>
