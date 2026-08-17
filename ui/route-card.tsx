@@ -25,7 +25,10 @@ import {
   Button,
   Card,
   Input,
+  makeStyles,
+  mergeClasses,
   Spinner,
+  tokens,
 } from "@fluentui/react-components";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -40,7 +43,74 @@ import {
   type TrackPoint,
 } from "./route-map";
 import { RouteProfile } from "./route-profile";
-import "./route-card.css";
+
+/* Styling Fluent components through makeStyles keeps the overrides in Griffel's
+ * atomic layer, so they win over the component's own styles without leaning on
+ * the internal fui-* class names for specificity.
+ */
+const useStyles = makeStyles({
+  card: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    padding: "8px 12px 12px",
+  },
+  header: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  body: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    minWidth: 0,
+  },
+  /* Narrower than a plain icon button, and dimmer until the pointer is on it,
+   * so it reads as a handle beside the title rather than a third action.
+   */
+  grip: {
+    width: "22px",
+    color: tokens.colorNeutralForeground4,
+    cursor: "grab",
+    touchAction: "none",
+    ":active": { cursor: "grabbing" },
+  },
+  title: {
+    flex: "1 1 auto",
+    minWidth: 0,
+    border: "none",
+    borderRadius: tokens.borderRadiusSmall,
+    paddingLeft: 0,
+    paddingRight: 0,
+    backgroundColor: "transparent",
+    boxShadow: "inset 0 -1px 0 transparent",
+    "::before": { display: "none" },
+    "::after": { display: "none" },
+    ":hover": {
+      backgroundColor: `color-mix(in srgb, ${
+        tokens.colorNeutralForeground1
+      } 4%, transparent)`,
+    },
+    ":focus-within": {
+      boxShadow: `inset 0 -1px 0 ${tokens.colorNeutralForeground1}`,
+    },
+  },
+  titleInput: {
+    paddingLeft: 0,
+    paddingRight: 0,
+    fontFamily: tokens.fontFamilyBase,
+    fontSize: "17px",
+    lineHeight: "1.3",
+    fontWeight: tokens.fontWeightSemibold,
+  },
+  summary: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    flex: "none",
+  },
+});
 
 export interface RouteStats {
   dist_m: number;
@@ -90,6 +160,7 @@ export function RouteCard(props: {
   on_grip_up?: () => void;
 }) {
   const { t } = useTranslation();
+  const styles = useStyles();
   const [folded, set_folded] = useState(false);
   const [hover, set_hover] = useState<Coord | null>(null);
   const stats = props.stats;
@@ -119,11 +190,11 @@ export function RouteCard(props: {
   };
 
   return (
-    <Card className="route-card">
-      <div className="route-card-header">
+    <Card className={styles.card}>
+      <div className={styles.header}>
         <button
           type="button"
-          className="icon-btn route-card-grip"
+          className={mergeClasses("icon-btn", styles.grip)}
           title={t("route_card.reorder")}
           aria-label={t("route_card.reorder")}
           onPointerDown={() => props.on_grip_down?.()}
@@ -145,7 +216,8 @@ export function RouteCard(props: {
           onClick={() => set_folded((f) => !f)}
         />
         <Input
-          className="route-card-title"
+          className={styles.title}
+          input={{ className: styles.titleInput }}
           appearance="underline"
           placeholder={t("route_card.untitled")}
           value={props.title}
@@ -158,7 +230,7 @@ export function RouteCard(props: {
           onBlur={commit}
         />
         {stats && (
-          <div className="route-card-summary">
+          <div className={styles.summary}>
             <Badge
               appearance="tint"
               color="informative"
@@ -201,7 +273,7 @@ export function RouteCard(props: {
         />
       </div>
       {!folded && (
-        <div className="route-card-body">
+        <div className={styles.body}>
           <RouteMap overlay={props.overlay} hover={hover} />
           {props.track.length > 0 && (
             <RouteProfile
