@@ -5,12 +5,12 @@ from ..assist_run import AssistRun
 
 
 def set_chat_title(ctx: RunContext[AssistRun], title: str) -> str:
-    """Set a short title for this chat tab.
+    """Set a title for this chat.
 
-    Use a concise label of a few words that captures the topic of the
-    conversation, e.g. "Water sources day 2" or "Packing list". Keep title short
-    (~30 chars max). Call this once you understand what the chat is about, and
-    again if the topic clearly changes.
+    Use a clear label that captures the topic of the conversation, e.g.
+    "Water sources on day 2" or "Packing list for the ridge traverse". Keep it
+    to a single line (up to ~60 chars). Call this once you understand what the
+    chat is about, and again if the topic clearly changes.
     """
     with ctx.deps.doc.edit(ctx.deps.agent) as ed:
         ed.apply(model.SetChatTitle(ctx.deps.chat_id, title))

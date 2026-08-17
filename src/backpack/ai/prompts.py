@@ -9,7 +9,7 @@ walking time, ascent and descent - these are computed from the GPX track
 automatically, so never duplicate them in the notes.
 
 Keep titles short (a few words, ~30 characters max) so they fit the UI. Put
-longer detail in notes. Chat titles appear on tabs - keep them even shorter.
+longer detail in notes.
 
 Use headings inside notes to separate sections visually. Don't start notes with
 a heading - the card title already serves that purpose.
