@@ -16,8 +16,9 @@ export NODE_PATH := $(MAKEFILE_DIR)/bin/node_modules
 .PHONY: all
 all: assets locales
 
+.PHONY: bin/node_modules
 bin/node_modules: bin/package.json bin/package-lock.json
-	$(NPM) --prefix bin ci
+	$(NPM) --prefix bin install
 
 bin/package.json: ui/package.json
 	-$(call MKDIR,bin)
