@@ -7,6 +7,12 @@
   --md-focus-ring: calc(var(--strokeWidthThin) + var(--strokeWidthThick));
 }
 
+.md-toolbar {
+  display: flex;
+  gap: var(--spacingHorizontalXXS);
+  margin-bottom: var(--spacingVerticalXXS);
+}
+
 .md-editor,
 .md-preview {
   width: 100%;

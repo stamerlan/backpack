@@ -19,6 +19,12 @@
  *     not shrink as it swaps.
  *   - className: Extra class for the host element.
  *
+ * While editing, a small formatting toolbar rides above the textarea with
+ * bold, italic, bulleted list and link actions. Its buttons prevent the
+ * default mouse down so pressing one does not blur the textarea (a blur
+ * commits and swaps back to preview); each runs a pure transform from
+ * md-edit.ts through execCommand so native undo and the caret survive.
+ *
  * State:
  *   - editing: Which half is showing, the editor or the preview.
  *   - textarea and preview: The two halves, in refs so focus can hop
@@ -33,6 +39,9 @@ import {
 } from "react";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
+import { useTranslation } from "react-i18next";
+import { icon } from "./icon";
+import { make_link, prefix_lines, wrap, type Edit } from "./md-edit";
 import "./md-input.css";
 
 marked.use({
@@ -57,6 +66,7 @@ export function MdInput(props: {
   min_height?: number;
   className?: string;
 }) {
+  const { t } = useTranslation();
   const [editing, set_editing] = useState(false);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const preview = useRef<HTMLDivElement>(null);
@@ -64,11 +74,11 @@ export function MdInput(props: {
 
   /* Grow the textarea to fit its content whenever it is the visible half. */
   function resize(): void {
-    const t = textarea.current;
-    if (t === null)
+    const tarea = textarea.current;
+    if (tarea === null)
       return;
-    t.style.height = "auto";
-    t.style.height = `${t.scrollHeight}px`;
+    tarea.style.height = "auto";
+    tarea.style.height = `${tarea.scrollHeight}px`;
   }
 
   /* When edit mode turns on, reveal the textarea, size it and take focus. */
@@ -81,6 +91,23 @@ export function MdInput(props: {
 
   function enter_edit(): void {
     set_editing(true);
+  }
+
+  /* Run a pure selection transform against the live textarea. The range
+   * replacement goes through execCommand so it joins the native undo stack,
+   * then the reported selection is restored on top of the fresh text.
+   */
+  function apply(
+    action: (value: string, sel_start: number, sel_end: number) => Edit,
+  ): void {
+    const ta = textarea.current;
+    if (ta === null)
+      return;
+    const edit = action(ta.value, ta.selectionStart, ta.selectionEnd);
+    ta.focus();
+    ta.setSelectionRange(edit.start, edit.end);
+    document.execCommand?.("insertText", false, edit.insert);
+    ta.setSelectionRange(edit.sel_start, edit.sel_end);
   }
 
   function on_blur(): void {
@@ -127,6 +154,50 @@ export function MdInput(props: {
 
   return (
     <div className={host_class}>
+      {editing && (
+        <div className="md-toolbar">
+          <button
+            type="button"
+            className="icon-btn"
+            title={t("md.bold")}
+            aria-label={t("md.bold")}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => apply((v, s, e) => wrap(v, s, e, "**"))}
+          >
+            {icon("bold", 16)}
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            title={t("md.italic")}
+            aria-label={t("md.italic")}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => apply((v, s, e) => wrap(v, s, e, "*"))}
+          >
+            {icon("italic", 16)}
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            title={t("md.list")}
+            aria-label={t("md.list")}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => apply((v, s, e) => prefix_lines(v, s, e, "- "))}
+          >
+            {icon("list", 16)}
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            title={t("md.link")}
+            aria-label={t("md.link")}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => apply(make_link)}
+          >
+            {icon("link", 16)}
+          </button>
+        </div>
+      )}
       <textarea
         ref={textarea}
         className="md-editor"
