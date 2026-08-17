@@ -129,7 +129,8 @@
     "new_chat": "New chat",
     "close_chat": "Close chat",
     "chats": "Chats",
-    "unread": "New activity"
+    "unread": "New activity",
+    "working": "Working..."
   },
   "chat": {
     "thinking": "Thinking",

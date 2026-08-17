@@ -26,6 +26,7 @@ import {
   MenuPopover,
   MenuTrigger,
   mergeClasses,
+  Spinner,
 } from "@fluentui/react-components";
 import { useTranslation } from "react-i18next";
 import api from "./api";
@@ -285,35 +286,47 @@ export function Assist(props: {
                         className="assist-chat-item"
                         onClick={() => set_active(c.id)}
                       >
-                        <span className="assist-chat-item-label" title={label}>
-                          {label}
-                        </span>
-                        {unread[c.id] && c.id !== active_id && (
+                        <span className="assist-chat-row">
                           <span
-                            className="assist-unread-dot"
-                            title={t("assist.unread")}
-                            aria-label={t("assist.unread")}
-                          />
-                        )}
-                        <span
-                          className="assist-chat-item-close"
-                          role="button"
-                          tabIndex={0}
-                          title={close}
-                          aria-label={close}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            do_close();
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
+                            className="assist-chat-item-label"
+                            title={label}
+                          >
+                            {label}
+                          </span>
+                          {busy[c.id] ? (
+                            <Spinner
+                              className="assist-chat-spinner"
+                              size="tiny"
+                              title={t("assist.working")}
+                              aria-label={t("assist.working")}
+                            />
+                          ) : unread[c.id] && c.id !== active_id ? (
+                            <span
+                              className="assist-unread-dot"
+                              title={t("assist.unread")}
+                              aria-label={t("assist.unread")}
+                            />
+                          ) : null}
+                          <span
+                            className="assist-chat-item-close"
+                            role="button"
+                            tabIndex={0}
+                            title={close}
+                            aria-label={close}
+                            onClick={(e) => {
                               e.stopPropagation();
                               do_close();
-                            }
-                          }}
-                        >
-                          {icon("close", 12)}
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                do_close();
+                              }
+                            }}
+                          >
+                            {icon("close", 12)}
+                          </span>
                         </span>
                       </MenuItem>
                     );

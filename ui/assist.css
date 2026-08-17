@@ -93,13 +93,21 @@
   white-space: nowrap;
 }
 
-/* One row per chat: the label takes the free space so the dot and close sit
- * flush at the end, and the label ellipsis rather than stretching the menu.
+/* Fluent drops our children into a single content slot that is not a flex
+ * container, so the title, spinner or dot, and close share one line only
+ * once wrapped in this row. The item itself just stops capping its width so
+ * the row can fill the popover.
  */
 .assist-chat-item {
+  max-width: none;
+}
+
+.assist-chat-row {
   display: flex;
   align-items: center;
   gap: 6px;
+  width: 100%;
+  min-width: 0;
 }
 
 .assist-chat-item-label {
@@ -147,4 +155,12 @@
   height: 8px;
   border-radius: 50%;
   background-color: var(--colorBrandForeground1);
+}
+
+/* Shown while a chat's turn is still streaming, on the trigger for any busy
+ * chat and on that chat's menu row, taking the unread dot's slot since a
+ * running chat has nothing unread yet.
+ */
+.assist-chat-spinner {
+  flex: 0 0 auto;
 }
