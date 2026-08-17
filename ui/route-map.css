@@ -100,6 +100,7 @@
   position: relative;
   height: 12px;
   cursor: ns-resize;
+  touch-action: none;
   background: var(--colorNeutralBackground3);
   border: 1px solid var(--colorNeutralStroke2);
   border-top: none;
