@@ -17,7 +17,7 @@
  *   - width: Panel width in pixels, set by dragging the handle.
  *   - resizing: Whether such a drag is running.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { mergeClasses, Tab, TabList } from "@fluentui/react-components";
 import { useTranslation } from "react-i18next";
 import api from "./api";
@@ -61,9 +61,7 @@ export interface AssistApi {
   end_turn(chat_id: string): void;
 }
 
-function drop_key<V>(
-  rec: Record<string, V>, key: string
-): Record<string, V> {
+function drop_key<V>(rec: Record<string, V>, key: string): Record<string, V> {
   if (!(key in rec))
     return rec;
   const { [key]: _removed, ...rest } = rec;
@@ -80,8 +78,10 @@ export function Assist(props: {
   const [selected_model, set_selected_model] = useState("");
   const [turns, set_turns] = useState<Record<string, Turn[]>>({});
   const [busy, set_busy] = useState<Record<string, boolean>>({});
+  const [unread, set_unread] = useState<Record<string, boolean>>({});
   const [width, set_width] = useState(DEFAULT_WIDTH);
   const [resizing, set_resizing] = useState(false);
+  const active_ref = useRef("");
 
   /* Built once: the state setters it closes over never change identity, so
    * the backend always reaches the live panel through the same object.
@@ -124,6 +124,7 @@ export function Assist(props: {
         set_active("");
         set_turns({});
         set_busy({});
+        set_unread({});
       },
       new_chat(chat_id, title) {
         set_chats((all) => [...all, { id: chat_id, title }]);
@@ -132,6 +133,7 @@ export function Assist(props: {
         set_chats((all) => all.filter((c) => c.id !== chat_id));
         set_turns((all) => drop_key(all, chat_id));
         set_busy((all) => drop_key(all, chat_id));
+        set_unread((all) => drop_key(all, chat_id));
         set_active((cur) => cur === chat_id ? "" : cur);
       },
       set_chat_title(chat_id, title) {
@@ -173,6 +175,8 @@ export function Assist(props: {
       },
       end_turn(chat_id) {
         set_busy((all) => ({ ...all, [chat_id]: false }));
+        if (chat_id !== active_ref.current)
+          set_unread((all) => ({ ...all, [chat_id]: true }));
       },
     };
   }, []);
@@ -208,6 +212,14 @@ export function Assist(props: {
    */
   const active_id = active || chats[0]?.id || "";
   const model_id = selected_model || models[0]?.id || "";
+
+  /* Whatever chat is on screen is by definition read: track it for end_turn
+   * and drop its flag the moment it becomes visible.
+   */
+  useEffect(() => {
+    active_ref.current = active_id;
+    set_unread((all) => drop_key(all, active_id));
+  }, [active_id]);
 
   return (
     <aside
@@ -253,6 +265,13 @@ export function Assist(props: {
                       )}
                     >
                       <span className="assist-tab-label">{shown}</span>
+                      {unread[c.id] && c.id !== active_id && (
+                        <span
+                          className="assist-tab-badge"
+                          title={t("assist.unread")}
+                          aria-label={t("assist.unread")}
+                        />
+                      )}
                       <span
                         className="assist-tab-close"
                         role="button"

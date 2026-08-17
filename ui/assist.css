@@ -130,3 +130,15 @@
   background-color: var(--colorNeutralBackground1Hover);
   color: var(--colorNeutralForeground1);
 }
+
+/* A stream finishing on a background chat leaves this dot on its tab until
+ * the user opens it. It sits between label and close, holding no slot of
+ * its own so tabs without it are not padded.
+ */
+.assist-tab-badge {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--colorBrandForeground1);
+}

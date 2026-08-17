@@ -127,7 +127,8 @@
     "label": "AI assistant",
     "resize": "Drag to resize",
     "new_chat": "New chat",
-    "close_chat": "Close chat"
+    "close_chat": "Close chat",
+    "unread": "New activity"
   },
   "chat": {
     "thinking": "Thinking",
