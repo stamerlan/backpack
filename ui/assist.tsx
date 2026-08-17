@@ -1,7 +1,7 @@
-/* The assistant panel: a resizable strip along the right edge holding one tab
- * per chat with that chat's conversation below it. While mounted it publishes
- * window.assist, the surface the backend streams turns through, so the
- * methods of AssistApi mirror Assist in src/backpack/ui.py.
+/* The assistant panel: a resizable strip along the right edge holding a chat
+ * picker dropdown with the active chat's conversation below it. While mounted
+ * it publishes window.assist, the surface the backend streams turns through,
+ * so the methods of AssistApi mirror Assist in src/backpack/ui.py.
  *
  * Properties:
  *   - open: Whether the panel is slid out.
@@ -18,7 +18,15 @@
  *   - resizing: Whether such a drag is running.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { mergeClasses, Tab, TabList } from "@fluentui/react-components";
+import {
+  Menu,
+  MenuButton,
+  MenuItem,
+  MenuList,
+  MenuPopover,
+  MenuTrigger,
+  mergeClasses,
+} from "@fluentui/react-components";
 import { useTranslation } from "react-i18next";
 import api from "./api";
 import { icon } from "./icon";
@@ -244,59 +252,75 @@ export function Assist(props: {
       <div className="assist-inner" style={{ width: `${width}px` }}>
         <div className="assist-header">
           <div className="assist-tabs-row">
-            <TabList
-              className="assist-tabs"
-              size="small"
-              selectedValue={active_id}
-              onTabSelect={(_e, d) => set_active(d.value as string)}
-            >
-              {chats.map((c) => {
-                const label = c.title || t("assist.new_chat");
-                const shown =
-                  label.length > 30 ? label.slice(0, 28) + "..." : label;
-                const close = t("assist.close_chat");
-                const do_close = () => { void api.del_chat(c.id); };
-                return (
-                  <Tab key={c.id} value={c.id} title={label}>
+            <Menu>
+              <MenuTrigger disableButtonEnhancement>
+                <MenuButton
+                  className="assist-chats-btn"
+                  appearance="subtle"
+                  size="small"
+                  aria-label={t("assist.chats")}
+                >
+                  <span className="assist-chats-btn-label">
+                    {chats.find((c) => c.id === active_id)?.title
+                      || t("assist.new_chat")}
+                  </span>
+                  {Object.keys(unread).some((id) => id !== active_id) && (
                     <span
-                      className={mergeClasses(
-                        "assist-tab",
-                        c.id === active_id && "selected",
-                      )}
-                    >
-                      <span className="assist-tab-label">{shown}</span>
-                      {unread[c.id] && c.id !== active_id && (
+                      className="assist-unread-dot"
+                      title={t("assist.unread")}
+                      aria-label={t("assist.unread")}
+                    />
+                  )}
+                </MenuButton>
+              </MenuTrigger>
+              <MenuPopover>
+                <MenuList>
+                  {chats.map((c) => {
+                    const label = c.title || t("assist.new_chat");
+                    const close = t("assist.close_chat");
+                    const do_close = () => { void api.del_chat(c.id); };
+                    return (
+                      <MenuItem
+                        key={c.id}
+                        className="assist-chat-item"
+                        onClick={() => set_active(c.id)}
+                      >
+                        <span className="assist-chat-item-label" title={label}>
+                          {label}
+                        </span>
+                        {unread[c.id] && c.id !== active_id && (
+                          <span
+                            className="assist-unread-dot"
+                            title={t("assist.unread")}
+                            aria-label={t("assist.unread")}
+                          />
+                        )}
                         <span
-                          className="assist-tab-badge"
-                          title={t("assist.unread")}
-                          aria-label={t("assist.unread")}
-                        />
-                      )}
-                      <span
-                        className="assist-tab-close"
-                        role="button"
-                        tabIndex={0}
-                        title={close}
-                        aria-label={close}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          do_close();
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
+                          className="assist-chat-item-close"
+                          role="button"
+                          tabIndex={0}
+                          title={close}
+                          aria-label={close}
+                          onClick={(e) => {
                             e.stopPropagation();
                             do_close();
-                          }
-                        }}
-                      >
-                        {icon("close", 12)}
-                      </span>
-                    </span>
-                  </Tab>
-                );
-              })}
-            </TabList>
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              do_close();
+                            }
+                          }}
+                        >
+                          {icon("close", 12)}
+                        </span>
+                      </MenuItem>
+                    );
+                  })}
+                </MenuList>
+              </MenuPopover>
+            </Menu>
             <button
               type="button"
               className="icon-btn"

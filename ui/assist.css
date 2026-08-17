@@ -77,37 +77,44 @@
   flex-direction: column;
 }
 
-/* Fluent injects its own styles after this file, so overriding one of its
- * components needs the extra specificity its fui-* class provides.
- *
- * The fixed height reserves room for the horizontal scrollbar: when tabs
- * overflow on a new chat the bar eats into this height instead of growing
- * the strip, so the content below never jumps.
+/* The trigger takes the whole row beside the new-chat button and shows the
+ * active chat title, so its label ellipsis rather than widening the strip.
  */
-.fui-TabList.assist-tabs {
+.assist-chats-btn {
   flex: 1 1 auto;
   min-width: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  height: 40px;
-  box-sizing: border-box;
-  scrollbar-width: thin;
+  justify-content: flex-start;
 }
 
-/* The label and close live in this wrapper rather than straight in the tab,
- * so the layout hangs off a class this file owns instead of a Fluent slot.
+.assist-chats-btn-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* One row per chat: the label takes the free space so the dot and close sit
+ * flush at the end, and the label ellipsis rather than stretching the menu.
  */
-.assist-tab {
-  display: inline-flex;
+.assist-chat-item {
+  display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
-/* Browser-style close: it holds its slot always, so the tab width does not
- * jump, and it only shows while the tab is hovered or focused and on the
- * selected tab, which Assist marks rather than reading Fluent's state.
+.assist-chat-item-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Browser-style close: it holds its slot always, so the row width does not
+ * jump, and it only shows while the item is hovered or focused.
  */
-.assist-tab-close {
+.assist-chat-item-close {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -120,22 +127,21 @@
   transition: opacity 0.1s ease;
 }
 
-.assist-tab:hover .assist-tab-close,
-.assist-tab:focus-within .assist-tab-close,
-.assist-tab.selected .assist-tab-close {
+.assist-chat-item:hover .assist-chat-item-close,
+.assist-chat-item:focus-within .assist-chat-item-close {
   opacity: 1;
 }
 
-.assist-tab-close:hover {
+.assist-chat-item-close:hover {
   background-color: var(--colorNeutralBackground1Hover);
   color: var(--colorNeutralForeground1);
 }
 
-/* A stream finishing on a background chat leaves this dot on its tab until
- * the user opens it. It sits between label and close, holding no slot of
- * its own so tabs without it are not padded.
+/* A stream finishing on a background chat leaves this dot until the user opens
+ * it: on the trigger while any hidden chat is unread, and on each such chat's
+ * menu row. It holds no slot of its own so rows without it are not padded.
  */
-.assist-tab-badge {
+.assist-unread-dot {
   flex: 0 0 auto;
   width: 8px;
   height: 8px;
