@@ -3,6 +3,11 @@
  * it again. Both halves stay mounted and take turns being hidden, so the
  * field keeps its place in the layout across the swap.
  *
+ * The preview keeps a default cursor, not a text caret, so it never pretends to
+ * be a plain text field; a subtle hover background hints that it is an editable
+ * region entered by double click or Enter. Its text stays selectable and
+ * copyable.
+ *
  * Properties:
  *   - value: Raw markdown text, owned by the caller.
  *   - on_change: Fired on every keystroke with the new raw text.

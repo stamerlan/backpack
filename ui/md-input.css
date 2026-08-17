@@ -29,9 +29,16 @@
 }
 
 .md-preview {
-  cursor: text;
+  cursor: default;
   font: inherit;
   user-select: text;
+}
+
+.md-preview:hover {
+  background: color-mix(
+    in srgb, var(--colorNeutralForeground1) 4%, transparent
+  );
+  border-radius: var(--borderRadiusSmall);
 }
 
 .md-placeholder {
