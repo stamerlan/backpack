@@ -12,13 +12,13 @@
  *     every map can draw the whole trip rather than just its own leg.
  *   - drag_id: Route card being dragged, null when nothing is in flight.
  *   - drop_after: Route the dragged card would land after, null for first.
- *   - grip_armed: Card whose grip is held. Only that card may be lifted, so
- *     a pointer drag starting in a text field never moves anything.
+ *   - grip_card_id: The card whose grip handle is currently pressed. Only
+ *     that card's wrapper is draggable, so a pointer drag starting in a text
+ *     field selects text instead of lifting the card.
  */
 import {
   useEffect,
   useMemo,
-  useRef,
   useState,
   type DragEvent as ReactDragEvent,
 } from "react";
@@ -128,7 +128,7 @@ export function Doc(props: {
   const { t } = useTranslation();
   const [cards, set_cards] = useState<CardView[]>([]);
   const [tracks, set_tracks] = useState<RouteTracks>({});
-  const grip_armed = useRef<string | null>(null);
+  const [grip_card_id, set_grip_card_id] = useState<string | null>(null);
   const [drag_id, set_drag_id] = useState<string | null>(null);
   const [drop_after, set_drop_after] = useState<string | null>(null);
 
@@ -224,7 +224,7 @@ export function Doc(props: {
   const last_route = route_ids[route_ids.length - 1] ?? null;
 
   function end_drag(): void {
-    grip_armed.current = null;
+    set_grip_card_id(null);
     set_drag_id(null);
     set_drop_after(null);
   }
@@ -232,7 +232,7 @@ export function Doc(props: {
   function on_drag_start(
     event: ReactDragEvent<HTMLDivElement>, id: string,
   ): void {
-    if (grip_armed.current !== id) {
+    if (grip_card_id !== id) {
       event.preventDefault();
       return;
     }
@@ -298,7 +298,7 @@ export function Doc(props: {
                     drag_id !== null && card.id === last_route &&
                       drop_after === card.id && "drop-after",
                   )}
-                  draggable
+                  draggable={grip_card_id === card.id}
                   onDragStart={(event) => on_drag_start(event, card.id)}
                   onDragOver={(event) => on_drag_over(event, card.id)}
                   onDrop={on_drop}
@@ -315,8 +315,8 @@ export function Doc(props: {
                     on_change={(title, notes) =>
                       doc.set_route_card(card.id, title, notes)}
                     on_remove={(id) => doc.remove_card(id)}
-                    on_grip_down={() => { grip_armed.current = card.id; }}
-                    on_grip_up={() => { grip_armed.current = null; }}
+                    on_grip_down={() => { set_grip_card_id(card.id); }}
+                    on_grip_up={() => { set_grip_card_id(null); }}
                   />
                 </div>
               );
