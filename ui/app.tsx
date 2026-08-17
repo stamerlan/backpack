@@ -26,6 +26,7 @@ import {
   webDarkTheme,
   webLightTheme,
 } from "@fluentui/react-components";
+import api from "./api";
 import { AppBar } from "./app-bar";
 import { Assist } from "./assist";
 import { Busy } from "./busy";
@@ -81,6 +82,35 @@ export function App() {
       set_dirty(is_dirty);
     };
     return () => { window.set_doc_state = () => {}; };
+  }, []);
+
+  useEffect(() => {
+    const on_keydown = (e: KeyboardEvent): void => {
+      if (e.altKey || !(e.ctrlKey || e.metaKey)) return;
+      const key = e.key.toLowerCase();
+      /* Notes and titles commit on blur, so flush the focused field
+       * first; api.ts serializes calls, so the action waits for that
+       * commit.
+       */
+      const flush = (): void =>
+        (document.activeElement as HTMLElement | null)?.blur();
+      if (key === "n" && !e.shiftKey) {
+        e.preventDefault();
+        flush();
+        api.new_doc();
+      } else if (key === "o" && !e.shiftKey) {
+        e.preventDefault();
+        flush();
+        api.open_doc();
+      } else if (key === "s") {
+        e.preventDefault();
+        flush();
+        if (e.shiftKey) api.save_doc(null, true);
+        else api.save_doc();
+      }
+    };
+    window.addEventListener("keydown", on_keydown);
+    return () => window.removeEventListener("keydown", on_keydown);
   }, []);
 
   useEffect(() => {
