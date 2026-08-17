@@ -84,6 +84,12 @@
   "doc": {
     "add_route": "Add route"
   },
+  "md": {
+    "bold": "Bold",
+    "italic": "Italic",
+    "list": "Bulleted list",
+    "link": "Link"
+  },
   "trip_card": {
     "notes_placeholder": "Add trip notes..."
   },
