@@ -24,6 +24,8 @@
  * default mouse down so pressing one does not blur the textarea (a blur
  * commits and swaps back to preview); each runs a pure transform from
  * md-edit.ts through execCommand so native undo and the caret survive.
+ * Ctrl/Cmd+B, Ctrl/Cmd+I and Ctrl/Cmd+K run the same bold, italic and
+ * link actions for power users.
  *
  * State:
  *   - editing: Which half is showing, the editor or the preview.
@@ -125,6 +127,18 @@ export function MdInput(props: {
     } else if (event.key === "Tab") {
       event.preventDefault(); /* don't move focus */
       document.execCommand?.("insertText", false, "  ");
+    } else if (event.ctrlKey || event.metaKey) {
+      const key = event.key.toLowerCase();
+      if (key === "b") {
+        event.preventDefault();
+        apply((v, s, e) => wrap(v, s, e, "**"));
+      } else if (key === "i") {
+        event.preventDefault();
+        apply((v, s, e) => wrap(v, s, e, "*"));
+      } else if (key === "k") {
+        event.preventDefault();
+        apply(make_link);
+      }
     }
   }
 
