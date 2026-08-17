@@ -1,4 +1,5 @@
 /* The backend lays the text out itself, so its line breaks have to survive. */
 .chat-card-text {
   white-space: pre-wrap;
+  user-select: text;
 }
