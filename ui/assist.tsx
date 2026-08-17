@@ -37,11 +37,12 @@ import "./assist.css";
 
 const ASSIST_MIN = 300;
 const DEFAULT_WIDTH = 500;
-/* The document keeps at least this width, so at the smallest window (600px)
- * the panel and the document each get half. assist.css caps the panel with
- * the same number.
+/* The document keeps at least this width while the panel sits beside it, so
+ * dragging the handle stops here rather than squeezing the document away.
+ * assist.css caps the panel with the same number. Below 900px the panel is a
+ * full-width overlay, so this clamp no longer applies.
  */
-const DOC_MIN = 300;
+const DOC_MIN = 600;
 
 interface ChatMeta {
   id: string;

@@ -2,13 +2,14 @@
  * the inner block keeps an explicit width and the content does not reflow
  * while the panel animates.
  *
- * Both are capped so the document keeps the 300px minimum width doc.css asks
- * for: dragging the handle past that point, or shrinking the window below
- * it, gives the document its half back rather than squeezing it away.
+ * Both are capped so the document keeps the 600px minimum width doc.css asks
+ * for: dragging the handle past that point gives the document its room back
+ * rather than squeezing it away. Below 900px the media query at the foot of
+ * this file drops the cap and turns the panel into a full-width overlay.
  */
 .assist-panel,
 .assist-inner {
-  max-width: calc(100vw - 300px);
+  max-width: calc(100vw - 600px);
 }
 
 .assist-panel {
@@ -163,4 +164,28 @@
  */
 .assist-chat-spinner {
   flex: 0 0 auto;
+}
+
+/* Below 900px (600px document plus the 300px minimum panel) the strip has no
+ * room to sit beside the document, so when open it lifts out of the flow and
+ * covers the whole work area instead. The inline width assist.tsx sets is
+ * overridden here, so !important is required.
+ */
+@media (max-width: 899.98px) {
+  .assist-panel.open {
+    position: absolute;
+    inset: 0;
+    width: 100% !important;
+    max-width: none;
+    z-index: 3;
+  }
+
+  .assist-inner {
+    width: 100% !important;
+    max-width: none;
+  }
+
+  .assist-handle {
+    display: none;
+  }
 }
