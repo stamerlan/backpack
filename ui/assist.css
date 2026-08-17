@@ -57,6 +57,30 @@
   opacity: 0.45;
 }
 
+/* A 6px edge is too thin to grab with a finger, and touch has no hover to
+ * reveal it, so widen the target and show a faint grip that darkens while
+ * the drag runs. Pointer devices keep the slim edge above.
+ */
+@media (pointer: coarse) {
+  .assist-handle {
+    width: 20px;
+  }
+  .assist-handle::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 4px;
+    height: 40px;
+    margin: -20px 0 0 -2px;
+    border-radius: 2px;
+    background-color: var(--colorNeutralStroke1);
+  }
+  .assist-handle.active::after {
+    background-color: var(--colorBrandForeground2);
+  }
+}
+
 .assist-header {
   display: flex;
   flex-direction: column;

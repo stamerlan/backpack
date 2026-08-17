@@ -127,3 +127,16 @@
 .route-map-handle:active::after {
   background: var(--colorBrandForeground2);
 }
+
+/* Touch pointers cannot aim at a 12px strip, so give the finger a taller
+ * bar with a wider grip. Mouse layouts keep the compact size above.
+ */
+@media (pointer: coarse) {
+  .route-map-handle {
+    height: 24px;
+  }
+  .route-map-handle::after {
+    width: 48px;
+    height: 5px;
+  }
+}
