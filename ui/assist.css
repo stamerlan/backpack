@@ -158,6 +158,13 @@
   background-color: var(--colorBrandForeground1);
 }
 
+/* The trigger is not a gapped flex row, so the title and this dot sit flush
+ * without a nudge. Menu rows already space them via .assist-chat-row.
+ */
+.assist-chats-btn .assist-unread-dot {
+  margin-inline-start: 6px;
+}
+
 /* Shown while a chat's turn is still streaming, on the trigger for any busy
  * chat and on that chat's menu row, taking the unread dot's slot since a
  * running chat has nothing unread yet.
