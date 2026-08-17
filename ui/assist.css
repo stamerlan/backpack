@@ -94,13 +94,29 @@
   white-space: nowrap;
 }
 
+/* Fluent caps the popover at 300px and lets each item keep its own width, so
+ * a long title overflows the surface and its close cross is clipped past the
+ * hidden overflow. Drop the cap so the trigger width matchTargetSize sets in
+ * assist.tsx applies, giving a wide surface the item stretches to fill. The
+ * class is doubled for the specificity Fluent's own rule carries.
+ */
+.assist-chats-popover.assist-chats-popover {
+  max-width: none;
+}
+
 /* Fluent drops our children into a single content slot that is not a flex
  * container, so the title, spinner or dot, and close share one line only
- * once wrapped in this row. The item itself just stops capping its width so
- * the row can fill the popover.
+ * once wrapped in this row. The item stops capping its width so the row can
+ * fill the popover, and both the item and its content slot (which carries our
+ * class through the MenuItem content slot) shrink so the label truncates
+ * rather than pushing the close out of view.
  */
-.assist-chat-item {
+.assist-chats-popover .assist-chat-item {
   max-width: none;
+}
+
+.assist-chat-content {
+  min-width: 0;
 }
 
 .assist-chat-row {

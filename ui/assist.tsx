@@ -263,7 +263,9 @@ export function Assist(props: {
       <div className="assist-inner" style={{ width: `${width}px` }}>
         <div className="assist-header">
           <div className="assist-tabs-row">
-            <Menu>
+            <Menu positioning={
+              { position: "below", align: "center", matchTargetSize: "width" }
+            }>
               <MenuTrigger disableButtonEnhancement>
                 <MenuButton
                   className="assist-chats-btn"
@@ -284,7 +286,7 @@ export function Assist(props: {
                   )}
                 </MenuButton>
               </MenuTrigger>
-              <MenuPopover>
+              <MenuPopover className="assist-chats-popover">
                 <MenuList>
                   {chats.map((c) => {
                     const label = c.title || t("assist.new_chat");
@@ -294,6 +296,7 @@ export function Assist(props: {
                       <MenuItem
                         key={c.id}
                         className="assist-chat-item"
+                        content={{ className: "assist-chat-content" }}
                         onClick={() => set_active(c.id)}
                       >
                         <span className="assist-chat-row">
