@@ -40,17 +40,6 @@ version-file = "src/backpack/_version.py"
 [tool.hatch.build.targets.wheel]
 packages = ["src/backpack"]
 
-[tool.hatch.build.targets.wheel.hooks.custom]
-path = "hatch_build.py"
-
-[tool.hatch.build.targets.sdist]
-include = [
-    "src",
-    "ui",
-    "locales",
-    "hatch_build.py",
-]
-
 [tool.mypy]
 strict = true
 
