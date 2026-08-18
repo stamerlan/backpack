@@ -10,7 +10,7 @@
  *   - chats: One entry per chat, in tab order.
  *   - active: Chat the user selected, empty until they pick one.
  *   - models: Assistant models offered in the composer menu.
- *   - selected_model: Model the user picked, empty meaning the first.
+ *   - selected_model: Model picked per chat id, absent meaning the first.
  *   - turns: Turn log per chat id. Held here rather than in each Chat so a
  *     restored chat has its history before that component mounts.
  *   - busy: Whether a turn is still streaming, per chat id.
@@ -55,6 +55,11 @@ const EMPTY_TURNS: Turn[] = [];
 export interface AssistApi {
   clear(): void;
   set_models(models: AiModel[]): void;
+  /* The chat's currently selected model, falling back to the first offered
+   * model. Read on retry so the run follows the live composer choice rather
+   * than the model the failed turn was sent to.
+   */
+  get_model(chat_id: string): string;
   new_chat(chat_id: string, title: string): void;
   del_chat(chat_id: string): void;
   set_active_chat(chat_id: string): void;
@@ -90,13 +95,19 @@ export function Assist(props: {
   const [chats, set_chats] = useState<ChatMeta[]>([]);
   const [active, set_active] = useState("");
   const [models, set_models] = useState<AiModel[]>([]);
-  const [selected_model, set_selected_model] = useState("");
+  const [selected_model, set_selected_model] =
+    useState<Record<string, string>>({});
   const [turns, set_turns] = useState<Record<string, Turn[]>>({});
   const [busy, set_busy] = useState<Record<string, boolean>>({});
   const [unread, set_unread] = useState<Record<string, boolean>>({});
   const [width, set_width] = useState(DEFAULT_WIDTH);
   const [resizing, set_resizing] = useState(false);
   const active_ref = useRef("");
+  /* get_model lives on the once-built assist object, so it reaches the live
+   * selection and model list through refs rather than the captured state.
+   */
+  const models_ref = useRef<AiModel[]>([]);
+  const selected_model_ref = useRef<Record<string, string>>({});
 
   /* Built once: the state setters it closes over never change identity, so
    * the backend always reaches the live panel through the same object.
@@ -134,9 +145,14 @@ export function Assist(props: {
     return {
       set_models,
       set_active_chat: set_active,
+      get_model(chat_id) {
+        return selected_model_ref.current[chat_id]
+          || models_ref.current[0]?.id || "";
+      },
       clear() {
         set_chats([]);
         set_active("");
+        set_selected_model({});
         set_turns({});
         set_busy({});
         set_unread({});
@@ -146,6 +162,7 @@ export function Assist(props: {
       },
       del_chat(chat_id) {
         set_chats((all) => all.filter((c) => c.id !== chat_id));
+        set_selected_model((all) => drop_key(all, chat_id));
         set_turns((all) => drop_key(all, chat_id));
         set_busy((all) => drop_key(all, chat_id));
         set_unread((all) => drop_key(all, chat_id));
@@ -205,6 +222,14 @@ export function Assist(props: {
     return () => { window.assist = null; };
   }, [assist]);
 
+  /* Mirror the live selection and model list into refs so get_model on the
+   * once-built assist object reads the current values.
+   */
+  useEffect(() => { models_ref.current = models; }, [models]);
+  useEffect(() => {
+    selected_model_ref.current = selected_model;
+  }, [selected_model]);
+
   /* Listening only while a drag runs keeps the handlers free of any flag
    * telling them whether this pointer belongs to a resize.
    */
@@ -226,11 +251,10 @@ export function Assist(props: {
     };
   }, [resizing]);
 
-  /* Both fall back to the first entry, so neither needs seeding when the
-   * chats or the models arrive.
+  /* Falls back to the first entry, so it needs no seeding when the chats
+   * arrive.
    */
   const active_id = active || chats[0]?.id || "";
-  const model_id = selected_model || models[0]?.id || "";
 
   /* Whatever chat is on screen is by definition read: track it for end_turn
    * and drop its flag the moment it becomes visible.
@@ -368,8 +392,9 @@ export function Assist(props: {
               turns={turns[c.id] ?? EMPTY_TURNS}
               busy={busy[c.id] ?? false}
               models={models}
-              selected_model={model_id}
-              on_model_change={set_selected_model}
+              selected_model={selected_model[c.id] || models[0]?.id || ""}
+              on_model_change={(id) =>
+                set_selected_model((all) => ({ ...all, [c.id]: id }))}
             />
           ))}
         </div>

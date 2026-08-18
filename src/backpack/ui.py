@@ -52,6 +52,10 @@ class Assist:
     def set_models(self, models: Iterable["AiModel"]) -> "Future[Any]":
         return self.js.submit("assist.set_models", (list(models),))
 
+    def get_model(self, chat_id: str) -> "Future[Any]":
+        """Resolve to the chat's currently selected model id."""
+        return self.js.submit("assist.get_model", (chat_id,))
+
     def new_chat(self, chat_id: str, title: str = "") -> "Future[Any]":
         return self.js.submit("assist.new_chat", (chat_id, title))
 

@@ -663,9 +663,16 @@ class App:
                 async def _retry() -> None:
                     if self.doc.chat(chat_id) is None:
                         return
+                    # Follow the live composer choice, falling back to the
+                    # model the failed turn used if none comes back.
+                    cur_model_id = await asyncio.wrap_future(
+                        self.ui.assist.get_model(chat_id)
+                    )
                     with self.doc.edit(self.api) as ed:
                         ed.apply(model.RemoveChatTurn(chat_id, turn_id))
-                    self.add_task(self.ask_assist(chat_id, model_id, prompt))
+                    self.add_task(self.ask_assist(
+                        chat_id, cur_model_id or model_id, prompt
+                    ))
                 asyncio.run_coroutine_threadsafe(_retry(), self.mainloop)
 
         logger.debug(f"chat_id:{chat_id} model_id:{model_id!r}")
