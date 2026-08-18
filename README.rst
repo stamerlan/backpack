@@ -174,8 +174,8 @@ extras above), which cannot cross-compile, so build on the target OS::
     build.bat --app        # Windows
     sh build.sh --app      # macOS
 
-The result lands in ``bin/{os}-{arch}/dist/``: a ``backpack`` folder
-holding ``backpack.exe`` and an ``app`` support folder on Windows, or
-a ``backpack.app`` bundle on macOS, next to a versioned ``.zip``
-archive. Pass ``--debug`` to keep a console window for debugging
-(``build.bat --app --debug``).
+The build populates ``bin/{os}-{arch}/``. Under ``dist/`` you get the unpacked
+app: a ``backpack`` folder holding ``backpack.exe`` and an ``app`` support
+folder on Windows, or a ``backpack.app`` bundle on macOS. The versioned ``.zip``
+archive is written directly to ``bin/{os}-{arch}/``. Pass ``--debug`` to keep a
+console window for debugging (``build.bat --app --debug``).
