@@ -17,3 +17,15 @@ trim_trailing_whitespace = true
 
 [Makefile]
 indent_size = 8
+
+[*.{c,cc,cpp,h,hpp}]
+indent_style = tab
+indent_size = 8
+tab_width = 8
+
+[*.{vcxproj,filters,slnx,manifest}]
+indent_size = 2
+insert_final_newline = false
+
+[*.bat]
+end_of_line = crlf
