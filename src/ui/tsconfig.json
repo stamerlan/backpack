@@ -15,8 +15,8 @@
     "noEmit": true,
     "paths": {
       "*": [
-        "../bin/node_modules/@types/*",
-        "../bin/node_modules/*"
+        "../../bin/node_modules/@types/*",
+        "../../bin/node_modules/*"
       ]
     }
   },

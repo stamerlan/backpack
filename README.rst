@@ -20,7 +20,7 @@ Development
 
 Use two terminals. The first serves the frontend with hot reload::
 
-    npm --prefix bin exec -- vite --config ui/vite.config.ts
+    npm --prefix bin exec -- vite --config src/ui/vite.config.ts
 
 The second runs the app pointed at that dev server, so edits refresh
 without a rebuild::
@@ -40,7 +40,7 @@ one item per file::
 
 TypeScript is checked separately::
 
-    npm --prefix bin exec -- tsc --noEmit -p ui
+    npm --prefix bin exec -- tsc --noEmit -p src/ui
 
 Tests
 -----
@@ -56,7 +56,7 @@ Vitest runs the frontend tests once::
 
 Use this to re-run them as files change::
 
-    npm --prefix bin exec -- vitest --config ui/vite.config.ts
+    npm --prefix bin exec -- vitest --config src/ui/vite.config.ts
 
 Translations
 ------------
@@ -67,7 +67,7 @@ negotiated at runtime against the OS locale. English is the source language and
 the message id, so a missing catalog or entry falls back to the English text and
 the app runs without any compiled catalog. Supported languages are listed in
 ``SUPPORTED_LANG`` in ``src/backpack/i18n.py``; the frontend keeps its own
-catalogs under ``ui/locales/``.
+catalogs under ``src/ui/locales/``.
 
 Each language owns a catalog at ``locales/<lang>/LC_MESSAGES/backpack.po``.
 The extraction config lives in ``babel.cfg`` and all commands run from the
@@ -96,16 +96,16 @@ any ``.po`` edit and before packaging (``make locales`` wraps it)::
 Commit the ``.pot`` and ``.po`` sources; the generated ``.mo`` files are build
 artifacts.
 
-The frontend keeps its own catalogs as plain JSON under ``ui/locales/``, one
+The frontend keeps its own catalogs as plain JSON under ``src/ui/locales/``, one
 file per language (``en.json``, ``ru.json``), loaded by i18next in
-``ui/i18n.ts``. There is no extraction step: keys are added by hand as strings
+``src/ui/i18n.ts``. There is no extraction step: keys are added by hand as strings
 are wrapped in ``t("...")``, with English as the source and fallback, so a
 missing key renders its English text. After editing a wrapped string, mirror the
-key in every ``ui/locales/*.json`` file.
+key in every ``src/ui/locales/*.json`` file.
 
-To add the same language on the frontend, copy ``ui/locales/en.json`` to
-``ui/locales/<lang>.json``, translate its values, then register the language in
-``ui/i18n.ts`` by adding it to ``supported_languages`` and importing it into the
+To add the same language on the frontend, copy ``src/ui/locales/en.json`` to
+``src/ui/locales/<lang>.json``, translate its values, then register the language in
+``src/ui/i18n.ts`` by adding it to ``supported_languages`` and importing it into the
 i18next ``resources`` map. Both sides negotiate against the same tag, so add a
 language to the backend ``SUPPORTED_LANG`` and the frontend
 ``supported_languages`` together.

@@ -4,7 +4,7 @@ __pycache__/
 .venv/
 .vscode/
 bin/
-ui/node_modules/
+src/ui/node_modules/
 src/backpack/_version.py
 
 *.py[cod]

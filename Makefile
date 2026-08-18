@@ -20,22 +20,22 @@ all: assets locales
 bin/node_modules: bin/package.json bin/package-lock.json
 	$(NPM) --prefix bin install
 
-bin/package.json: ui/package.json
+bin/package.json: src/ui/package.json
 	-$(call MKDIR,bin)
-	$(call CP,ui/package.json,bin/package.json)
+	$(call CP,src/ui/package.json,bin/package.json)
 
-bin/package-lock.json: ui/package-lock.json
+bin/package-lock.json: src/ui/package-lock.json
 	-$(call MKDIR,bin)
-	$(call CP,ui/package-lock.json,bin/package-lock.json)
+	$(call CP,src/ui/package-lock.json,bin/package-lock.json)
 
 .PHONY: assets
 assets: bin/node_modules
-	$(NPM) --prefix bin exec -- tsc --noEmit -p ui
-	$(NPM) --prefix bin exec -- vite build --config ui/vite.config.ts
+	$(NPM) --prefix bin exec -- tsc --noEmit -p src/ui
+	$(NPM) --prefix bin exec -- vite build --config src/ui/vite.config.ts
 
 .PHONY: dev
 dev: bin/node_modules
-	$(NPM) --prefix bin exec -- vite --config ui/vite.config.ts
+	$(NPM) --prefix bin exec -- vite --config src/ui/vite.config.ts
 
 .PHONY: locales
 locales:
@@ -82,7 +82,7 @@ pytest:
 vitest: bin/node_modules
 	-$(call MKDIR,$(OUTDIR))
 	$(NPM) --prefix bin exec -- vitest run \
-	  --config ui/vite.config.ts \
+	  --config src/ui/vite.config.ts \
 	  --reporter=default --reporter=junit \
 	  --outputFile.junit="$(MAKEFILE_DIR)/$(OUTDIR)/vitest-report.xml" \
 	  $(EXTRA_VITEST_ARGS)

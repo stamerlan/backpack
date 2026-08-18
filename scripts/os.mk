@@ -16,7 +16,7 @@ ifeq ($(OS),Windows_NT)
   CPDIR = xcopy /e /i /q /y $(subst /,\,$1) $(subst /,\,$2)
 
   EXE   := .exe
-  ICON  := ui/public/icons/app.ico
+  ICON  := src/ui/public/icons/app.ico
   APP   := backpack$(EXE)
 
   export PATH := .venv/Scripts;bin/node_modules/.bin;$(PATH)
@@ -34,7 +34,7 @@ else
   CPDIR = cp -r $1 $2
 
   EXE   :=
-  ICON  := ui/public/icons/app.$(if $(filter macos,$(HOST_OS)),icns,png)
+  ICON  := src/ui/public/icons/app.$(if $(filter macos,$(HOST_OS)),icns,png)
   APP   := backpack
 
   export PATH := .venv/bin:bin/node_modules/.bin:$(PATH)

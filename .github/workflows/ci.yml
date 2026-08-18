@@ -48,7 +48,7 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: ui/package-lock.json
+          cache-dependency-path: src/ui/package-lock.json
 
       - name: Run Vitest
         run: make vitest
@@ -93,7 +93,7 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: ui/package-lock.json
+          cache-dependency-path: src/ui/package-lock.json
 
       - name: Install package with dev extras
         run: python -m pip install --upgrade pip && pip install -e ".[dev]"
