@@ -15,9 +15,6 @@ indent_style = space
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-[Makefile]
-indent_size = 8
-
 [*.{c,cc,cpp,h,hpp}]
 indent_style = tab
 indent_size = 8
@@ -29,3 +26,6 @@ insert_final_newline = false
 
 [*.bat]
 end_of_line = crlf
+
+[*.sh]
+end_of_line = lf
