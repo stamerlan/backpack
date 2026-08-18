@@ -96,11 +96,20 @@ jobs:
         shell: cmd
         run: build.bat --app
 
+      - name: Get version
+        id: ver
+        shell: bash
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          from importlib.metadata import version
+          print(f"version={version('backpack')}")
+          PY
+
       - name: Upload package
         uses: actions/upload-artifact@v7
         with:
-          name: backpack-windows-x64
-          path: bin/**/backpack-*.zip
+          name: backpack-${{ steps.ver.outputs.version }}-windows-x64
+          path: bin/windows-x64/backpack-*.zip
 
   build-macos-arm64:
     name: Build macos-arm64 package
@@ -134,11 +143,19 @@ jobs:
       - name: Build package
         run: sh build.sh --app
 
+      - name: Get version
+        id: ver
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          from importlib.metadata import version
+          print(f"version={version('backpack')}")
+          PY
+
       - name: Upload package
         uses: actions/upload-artifact@v7
         with:
-          name: backpack-macos-arm64
-          path: bin/**/backpack-*.zip
+          name: backpack-${{ steps.ver.outputs.version }}-macos-arm64
+          path: bin/macos-arm64/backpack-*.zip
 
   release:
     name: Publish release
