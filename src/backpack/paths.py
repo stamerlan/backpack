@@ -75,7 +75,7 @@ def assets_dir() -> Path:
             assets = d / sub
             if (assets / "index.html").is_file():
                 return assets
-    raise FileNotFoundError("assets not found, run: make assets")
+    raise FileNotFoundError("assets not found, run: build.bat / build.sh")
 
 
 def locales_dir() -> Path:

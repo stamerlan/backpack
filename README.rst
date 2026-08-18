@@ -10,25 +10,27 @@ with its dev extras::
     python -m venv .venv
     .venv\Scripts\python.exe -m pip install --editable ".[dev]"
 
-Build the frontend once so the app has assets to load. Node packages and
-the compiled UI land under ``bin/``::
+Build the frontend and message catalogs once so the app has assets to load. Node
+packages and the compiled UI land under ``bin/``. On Windows this also builds
+the native app, which requires ``msvc``::
 
-    make assets
+    build.bat        # Windows
+    sh build.sh      # macOS
 
 Development
 -----------
 
 Use two terminals. The first serves the frontend with hot reload::
 
-    npm --prefix bin exec -- vite --config src/ui/vite.config.ts
+    dev.bat
 
-The second runs the app pointed at that dev server, so edits refresh
-without a rebuild::
+The second runs the app pointed at that dev server, so edits refresh without a
+rebuild::
 
     .venv\Scripts\python.exe -m backpack --dev
 
-Without ``--dev`` the app loads the built ``bin/assets/index.html``, so
-run ``make assets`` after frontend changes when testing that path.
+Without ``--dev`` the app loads the built ``bin/assets/index.html``, so run
+``build.bat`` after frontend changes when testing that path.
 
 Checks
 ------
@@ -52,9 +54,11 @@ type checks the sources through pytest-mypy)::
 
 Vitest runs the frontend tests once::
 
-    make vitest
+    test.bat vitest        # Windows
+    sh test.sh vitest      # macOS
 
-Use this to re-run them as files change::
+Run both suites together with ``test.bat`` / ``sh test.sh`` (no
+argument). Use this to re-run the frontend tests as files change::
 
     npm --prefix bin exec -- vitest --config src/ui/vite.config.ts
 
@@ -89,7 +93,7 @@ translations (``ru`` shown here)::
     pybabel init -i locales/backpack.pot -d locales -D backpack -l ru
 
 Compile every catalog to the binary ``.mo`` files the app loads. Run this after
-any ``.po`` edit and before packaging (``make locales`` wraps it)::
+any ``.po`` edit and before packaging (the build scripts wrap it)::
 
     pybabel compile -d locales -D backpack
 
@@ -113,17 +117,22 @@ language to the backend ``SUPPORTED_LANG`` and the frontend
 Building
 --------
 
-All build tasks are driven by the top-level ``Makefile``. On Windows you need
-GNU Make (the CI installs GnuWin32). Common targets::
+Build tasks are driven by small per OS scripts at the repository root:
+``.bat`` on Windows and ``.sh`` on macOS. Common commands (Windows form
+shown; use ``sh <name>.sh`` on macOS)::
 
-    make assets    # compile frontend into bin/assets
-    make locales   # compile catalogs into bin/locales
-    make test      # run pytest + vitest (reports in bin/{os}-{arch}/)
-    make pytest    # python tests only
-    make vitest    # UI tests only
-    make dist      # full package (assets + locales + PyInstaller + zip)
-    make clean     # remove bin/ and caches
-    make devenv    # rebuild assets and refresh the venv
+    build.bat          # frontend assets + catalogs + native host
+    build.bat --debug  # same, native host built in Debug
+    build.bat --app    # also build the PyInstaller distributable + zip
+    test.bat           # run pytest + vitest (reports in bin/{os}-{arch}/)
+    test.bat pytest    # python tests only
+    test.bat vitest    # UI tests only
+    dev.bat            # serve the frontend with hot reload (Windows only)
+
+The native ``backpack.exe`` host is Windows only and requires ``msvc`` (run from
+a Visual Studio developer prompt, or install the VS Build Tools). On macOS
+``build.sh`` builds the frontend assets and catalogs, and ``--app`` produces the
+distributable.
 
 Artifacts are placed under ``bin/{os}-{arch}/`` where ``{os}`` is ``windows``,
 ``linux``, or ``macos`` and ``{arch}`` is ``x64`` or ``arm64``. Node modules are
@@ -162,14 +171,11 @@ Packaging
 Standalone packages are built with PyInstaller (installed with the ``dev``
 extras above), which cannot cross-compile, so build on the target OS::
 
-    make dist
+    build.bat --app        # Windows
+    sh build.sh --app      # macOS
 
 The result lands in ``bin/{os}-{arch}/dist/``: a ``backpack`` folder
 holding ``backpack.exe`` and an ``app`` support folder on Windows, or
 a ``backpack.app`` bundle on macOS, next to a versioned ``.zip``
-archive. Pass ``WINDOW=--console`` to keep a console window for
-debugging (``make dist WINDOW=--console``).
-
-Remove all build output and caches with::
-
-    make clean
+archive. Pass ``--debug`` to keep a console window for debugging
+(``build.bat --app --debug``).
