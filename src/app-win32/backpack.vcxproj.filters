@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0"
+         xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4d9f8c02-6b1a-4f3e-9a7d-2c8e5b0f1a34}</UniqueIdentifier>
+      <Extensions>cc;cpp;c;cxx</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{9e2a7d13-3c4b-4a5f-8d6e-1f0b7c9a2d45}</UniqueIdentifier>
+      <Extensions>manifest;rc;ico</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="backpack.manifest">
+      <Filter>Resource Files</Filter>
+    </Manifest>
+  </ItemGroup>
+</Project>
