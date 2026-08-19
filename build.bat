@@ -46,6 +46,10 @@ set "PYTHON=%VENV%\Scripts\python.exe"
 call :venv || exit /b 1
 set "PATH=%VENV%\Scripts;%PATH%"
 
+rem Generate build settings
+call :run "%PYTHON%" "%ROOT%\scripts\pyconfig.py" "%OUTDIR%\pyconfig.props" ^
+  || exit /b 1
+
 rem Native Windows host
 call :run msbuild "%ROOT%\src\native\win32\backpack.slnx" ^
   -maxCpuCount ^

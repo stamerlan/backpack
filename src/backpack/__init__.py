@@ -1,6 +1,9 @@
 from importlib.metadata import PackageNotFoundError, version
 
-APP_NAME = __name__
+# The import package is "core", but the product keeps the "backpack" identity:
+# user data directories, the gettext domain and the distribution metadata are
+# all named after it, so pin the name rather than deriving it from __name__.
+APP_NAME = "backpack"
 
 try:
     # Written at build/install time by hatch-vcs and holds the version derived
