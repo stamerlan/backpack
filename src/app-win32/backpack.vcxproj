@@ -34,7 +34,10 @@
   <PropertyGroup>
     <OutDir>$(SolutionDir)..\..\bin\windows-x64\</OutDir>
     <IntDir>$(SolutionDir)..\..\bin\windows-x64\obj\$(ProjectName)\</IntDir>
+    <PythonPropsFile
+      Condition="'$(PythonPropsFile)'==''">$(OutDir)pyconfig.props</PythonPropsFile>
   </PropertyGroup>
+  <Import Project="$(PythonPropsFile)" />
   <ItemDefinitionGroup>
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
@@ -42,12 +45,15 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(PythonIncludeDir);%(ClCompile.AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization Condition="'$(Configuration)'=='Debug'">Disabled</Optimization>
       <Optimization Condition="'$(Configuration)'=='Release'">MaxSpeed</Optimization>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(PythonLibsDir);%(Link.AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>$(PythonLib);%(Link.AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
       <EnableDpiAwareness>false</EnableDpiAwareness>
