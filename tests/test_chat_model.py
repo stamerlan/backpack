@@ -8,9 +8,9 @@ from unittest.mock import MagicMock, call
 
 import webview
 
-from backpack import model
-from backpack.js_worker import JsWorker
-from backpack.model import (
+from core import model
+from core.js_worker import JsWorker
+from core.model import (
     AddChat,
     AppendChatTurn,
     ChatCard,
@@ -24,7 +24,7 @@ from backpack.model import (
     RemoveChatTurn,
     SetChatTitle,
 )
-from backpack.ui import Assist, UI
+from core.ui import Assist, UI
 from tests.fake_window import FakeWindow
 
 

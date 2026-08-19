@@ -28,7 +28,7 @@ Use two terminals. The first serves the frontend with hot reload::
 The second runs the app pointed at that dev server, so edits refresh without a
 rebuild (use the build venv after a first ``build.bat``, or your own)::
 
-    bin\windows-x64\.venv\Scripts\python.exe -m backpack --dev
+    bin\windows-x64\.venv\Scripts\python.exe -m core --dev
 
 Without ``--dev`` the app loads the built ``bin/assets/index.html``, so run
 ``build.bat`` after frontend changes when testing that path.
@@ -73,7 +73,7 @@ plurals), extracted with Babel into gettext catalogs under ``locales/``, and
 negotiated at runtime against the OS locale. English is the source language and
 the message id, so a missing catalog or entry falls back to the English text and
 the app runs without any compiled catalog. Supported languages are listed in
-``SUPPORTED_LANG`` in ``src/backpack/i18n.py``; the frontend keeps its own
+``SUPPORTED_LANG`` in ``src/core/i18n.py``; the frontend keeps its own
 catalogs under ``src/ui/locales/``.
 
 Each language owns a catalog at ``locales/<lang>/LC_MESSAGES/backpack.po``.
@@ -91,7 +91,7 @@ messages into every existing catalog::
 ``.po`` and drop the ``fuzzy`` flag once a translation is confirmed.
 
 To add a new backend language, extend ``SUPPORTED_LANG`` in
-``src/backpack/i18n.py``, create its catalog from the template, then fill in the
+``src/core/i18n.py``, create its catalog from the template, then fill in the
 translations (``ru`` shown here)::
 
     pybabel init -i locales/backpack.pot -d locales -D backpack -l ru

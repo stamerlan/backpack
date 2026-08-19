@@ -8,7 +8,7 @@ from typing import Any, cast
 import pytest
 import webview
 
-from backpack.js_worker import JsWorker
+from core.js_worker import JsWorker
 from tests.fake_window import FakeWindow
 
 

@@ -15,15 +15,15 @@ from unittest.mock import patch
 import overpy
 import pytest
 
-from backpack import model
-from backpack.overpass import Overpass
-from backpack.poi_tiles import (
+from core import model
+from core.overpass import Overpass
+from core.poi_tiles import (
     PoiTile, tile_bbox, tile_of, tiles_for_track,
 )
-from backpack.route_details import (
+from core.route_details import (
     POI_FILTERS, POI_SAMPLE_M, TILE_BATCH, RouteDetails,
 )
-from backpack.storage.poi_cache import (
+from core.storage.poi_cache import (
     CachedPoi, PoiCache, TILE_TTL_S, filters_hash,
 )
 
@@ -439,7 +439,7 @@ def _seed_stale_cache(
     """Populate *cache* with stale tiles."""
     old_ts = time.time() - TILE_TTL_S - 1
     with patch(
-        "backpack.storage.poi_cache.time.time",
+        "core.storage.poi_cache.time.time",
         return_value=old_ts,
     ):
         for tile in tiles:

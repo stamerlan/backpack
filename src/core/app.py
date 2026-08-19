@@ -13,20 +13,20 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
-from backpack import APP_VERSION, model
-from backpack.api import Api
-from backpack.i18n import i18n, system_locales
-from backpack.js_worker import JsWorker
-from backpack.paths import applogs
-from backpack.storage import Storage
-from backpack.storage.settings import Settings
-from backpack.theme import Theme
-from backpack.ui import UI, DialogAction, NotifyAction, RecentItem
+from core import APP_VERSION, model
+from core.api import Api
+from core.i18n import i18n, system_locales
+from core.js_worker import JsWorker
+from core.paths import applogs
+from core.storage import Storage
+from core.storage.settings import Settings
+from core.theme import Theme
+from core.ui import UI, DialogAction, NotifyAction, RecentItem
 
 if TYPE_CHECKING:
-    from backpack import ai
-    from backpack.nominatim import Nominatim
-    from backpack.route_details import RouteDetails
+    from core import ai
+    from core.nominatim import Nominatim
+    from core.route_details import RouteDetails
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +86,7 @@ class App:
         """
         if self._nominatim.set_running_or_notify_cancel():
             try:
-                from backpack.nominatim import Nominatim
+                from core.nominatim import Nominatim
                 self._nominatim.set_result(Nominatim())
             except Exception as e:
                 self._nominatim.set_exception(e)
@@ -94,7 +94,7 @@ class App:
 
         if self._route_details.set_running_or_notify_cancel():
             try:
-                from backpack.route_details import RouteDetails
+                from core.route_details import RouteDetails
                 self._route_details.set_result(
                     RouteDetails(self.storage.poi_cache)
                 )
@@ -104,7 +104,7 @@ class App:
 
         if self._ai.set_running_or_notify_cancel():
             try:
-                from backpack import ai
+                from core import ai
                 self._ai.set_result(
                     ai.Agent(self.storage, self._nominatim.result())
                 )
@@ -344,7 +344,7 @@ class App:
                     title=i18n.gettext("Assistant unavailable"),
                 )
 
-        from backpack import route
+        from core import route
 
         self.ui.clear_notify()
         self.ui.clear_doc()
@@ -743,7 +743,7 @@ class App:
             ed.apply(model.SetDocInfo(title=title, notes=notes))
 
     async def add_route(self) -> None:
-        from backpack import route
+        from core import route
 
         window = self.window
         if window is None:
@@ -866,7 +866,7 @@ class App:
         # also moves the title, so refresh the app bar and window title here.
         self._push_doc_state()
         if isinstance(change, model.AddRoute):
-            from backpack import route
+            from core import route
 
             track = change.route.track
             self.ui.add_route_card(

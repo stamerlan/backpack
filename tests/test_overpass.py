@@ -12,7 +12,7 @@ from typing import Any
 import overpy
 import pytest
 
-from backpack.overpass import Overpass
+from core.overpass import Overpass
 
 TIMER_SLACK_S = 0.05
 

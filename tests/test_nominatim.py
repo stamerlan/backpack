@@ -15,7 +15,7 @@ from geopy.exc import (
     GeocoderUnavailable,
 )
 
-from backpack.nominatim import Nominatim
+from core.nominatim import Nominatim
 
 TIMER_SLACK_S = 0.05
 

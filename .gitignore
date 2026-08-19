@@ -5,7 +5,7 @@ __pycache__/
 .vscode/
 bin/
 src/ui/node_modules/
-src/backpack/_version.py
+src/core/_version.py
 
 *.py[cod]
 *.spec

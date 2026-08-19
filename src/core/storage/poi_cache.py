@@ -28,8 +28,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from backpack import paths
-from backpack.poi_tiles import PoiTile
+from core import paths
+from core.poi_tiles import PoiTile
 
 logger = logging.getLogger(__name__)
 

@@ -1,10 +1,10 @@
-"""Tests for backpack.i18n - gettext runtime."""
+"""Tests for core.i18n - gettext runtime."""
 from gettext import NullTranslations
 from pathlib import Path
 from unittest.mock import patch
 
-from backpack import APP_NAME
-from backpack.i18n import (
+from core import APP_NAME
+from core.i18n import (
     I18n,
     _get_region_units,
     _pick_locale,
@@ -66,7 +66,7 @@ class TestLoad:
         """No .mo file - messages pass through as English."""
         i18n = I18n()
         with patch(
-            "backpack.i18n.locales_dir",
+            "core.i18n.locales_dir",
             return_value=tmp_path,
         ):
             i18n.load("ru")
@@ -78,7 +78,7 @@ class TestLoad:
     ) -> None:
         i18n = I18n()
         with patch(
-            "backpack.i18n.locales_dir",
+            "core.i18n.locales_dir",
             return_value=tmp_path,
         ):
             i18n.load("fr")
@@ -88,7 +88,7 @@ class TestLoad:
         """A single string is accepted (not just a list)."""
         i18n = I18n()
         with patch(
-            "backpack.i18n.locales_dir",
+            "core.i18n.locales_dir",
             return_value=tmp_path,
         ):
             i18n.load("en")
@@ -97,7 +97,7 @@ class TestLoad:
     def test_load_sequence_arg(self, tmp_path: Path) -> None:
         i18n = I18n()
         with patch(
-            "backpack.i18n.locales_dir",
+            "core.i18n.locales_dir",
             return_value=tmp_path,
         ):
             i18n.load(["fr", "ru"])
@@ -108,7 +108,7 @@ class TestTag:
     def _load(self, tmp_path: Path, locale: str) -> I18n:
         i18n = I18n()
         with patch(
-            "backpack.i18n.locales_dir",
+            "core.i18n.locales_dir",
             return_value=tmp_path,
         ):
             i18n.load(locale)
@@ -144,10 +144,10 @@ class TestDialectCatalog:
         self, tmp_path: Path
     ) -> None:
         with patch(
-            "backpack.i18n.locales_dir",
+            "core.i18n.locales_dir",
             return_value=tmp_path,
         ), patch(
-            "backpack.i18n.Translations.load",
+            "core.i18n.Translations.load",
             return_value=NullTranslations(),
         ) as load:
             I18n().load("en-GB")
@@ -157,10 +157,10 @@ class TestDialectCatalog:
         self, tmp_path: Path
     ) -> None:
         with patch(
-            "backpack.i18n.locales_dir",
+            "core.i18n.locales_dir",
             return_value=tmp_path,
         ), patch(
-            "backpack.i18n.Translations.load",
+            "core.i18n.Translations.load",
             return_value=NullTranslations(),
         ) as load:
             I18n().load("ru")
@@ -257,10 +257,10 @@ class TestDomain:
     ) -> None:
         i18n = I18n()
         with patch(
-            "backpack.i18n.locales_dir",
+            "core.i18n.locales_dir",
             return_value=tmp_path,
         ), patch(
-            "backpack.i18n.Translations.load",
+            "core.i18n.Translations.load",
             return_value=NullTranslations(),
         ) as load:
             i18n.load("en")
@@ -274,10 +274,10 @@ class TestUnits:
         """OS hint overrides the locale region default."""
         i18n = I18n()
         with patch(
-            "backpack.i18n.locales_dir",
+            "core.i18n.locales_dir",
             return_value=tmp_path,
         ), patch(
-            "backpack.i18n.system_units",
+            "core.i18n.system_units",
             return_value="imperial",
         ):
             i18n.load("ru-RU")
@@ -288,10 +288,10 @@ class TestUnits:
     ) -> None:
         i18n = I18n()
         with patch(
-            "backpack.i18n.locales_dir",
+            "core.i18n.locales_dir",
             return_value=tmp_path,
         ), patch(
-            "backpack.i18n.system_units",
+            "core.i18n.system_units",
             return_value=None,
         ):
             i18n.load("en-US")
@@ -302,10 +302,10 @@ class TestUnits:
     ) -> None:
         i18n = I18n()
         with patch(
-            "backpack.i18n.locales_dir",
+            "core.i18n.locales_dir",
             return_value=tmp_path,
         ), patch(
-            "backpack.i18n.system_units",
+            "core.i18n.system_units",
             return_value=None,
         ):
             i18n.load("en-GB")
@@ -316,10 +316,10 @@ class TestUnits:
     ) -> None:
         i18n = I18n()
         with patch(
-            "backpack.i18n.locales_dir",
+            "core.i18n.locales_dir",
             return_value=tmp_path,
         ), patch(
-            "backpack.i18n.system_units",
+            "core.i18n.system_units",
             return_value=None,
         ):
             i18n.load("ru")
@@ -330,10 +330,10 @@ class TestUnits:
     ) -> None:
         i18n = I18n()
         with patch(
-            "backpack.i18n.locales_dir",
+            "core.i18n.locales_dir",
             return_value=tmp_path,
         ), patch(
-            "backpack.i18n.system_units",
+            "core.i18n.system_units",
             return_value=None,
         ):
             i18n.load("en_us")
@@ -342,10 +342,10 @@ class TestUnits:
     def test_plain_en_metric(self, tmp_path: Path) -> None:
         i18n = I18n()
         with patch(
-            "backpack.i18n.locales_dir",
+            "core.i18n.locales_dir",
             return_value=tmp_path,
         ), patch(
-            "backpack.i18n.system_units",
+            "core.i18n.system_units",
             return_value=None,
         ):
             i18n.load("en")
@@ -362,14 +362,14 @@ class TestSystemUnits:
         )()
 
     def test_macos_inches_imperial(self) -> None:
-        with patch("backpack.i18n.sys.platform", "darwin"), patch(
+        with patch("core.i18n.sys.platform", "darwin"), patch(
             "subprocess.run",
             return_value=self._run(0, "Inches\n"),
         ):
             assert system_units() == "imperial"
 
     def test_macos_centimeters_metric(self) -> None:
-        with patch("backpack.i18n.sys.platform", "darwin"), patch(
+        with patch("core.i18n.sys.platform", "darwin"), patch(
             "subprocess.run",
             return_value=self._run(0, "Centimeters\n"),
         ):
@@ -377,19 +377,19 @@ class TestSystemUnits:
 
     def test_macos_unset_returns_none(self) -> None:
         """A missing default gives a nonzero exit - no hint."""
-        with patch("backpack.i18n.sys.platform", "darwin"), patch(
+        with patch("core.i18n.sys.platform", "darwin"), patch(
             "subprocess.run",
             return_value=self._run(1, ""),
         ):
             assert system_units() is None
 
     def test_macos_missing_tool_returns_none(self) -> None:
-        with patch("backpack.i18n.sys.platform", "darwin"), patch(
+        with patch("core.i18n.sys.platform", "darwin"), patch(
             "subprocess.run",
             side_effect=OSError,
         ):
             assert system_units() is None
 
     def test_unknown_platform_returns_none(self) -> None:
-        with patch("backpack.i18n.sys.platform", "linux"):
+        with patch("core.i18n.sys.platform", "linux"):
             assert system_units() is None

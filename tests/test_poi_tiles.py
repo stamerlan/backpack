@@ -1,5 +1,5 @@
-"""Tests for backpack.poi_tiles - slippy-map tile arithmetic."""
-from backpack.poi_tiles import (
+"""Tests for core.poi_tiles - slippy-map tile arithmetic."""
+from core.poi_tiles import (
     TILE_ZOOM,
     PoiTile,
     tile_bbox,

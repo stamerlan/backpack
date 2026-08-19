@@ -1,11 +1,11 @@
-"""Tests for backpack.storage.poi_cache - SQLite POI cache lifecycle."""
+"""Tests for core.storage.poi_cache - SQLite POI cache lifecycle."""
 import sqlite3
 import time
 from pathlib import Path
 from unittest.mock import patch
 
-from backpack.poi_tiles import PoiTile
-from backpack.storage.poi_cache import (
+from core.poi_tiles import PoiTile
+from core.storage.poi_cache import (
     CachedPoi,
     MAX_AGE_S,
     MAX_BYTES,
@@ -300,7 +300,7 @@ class TestGet:
         cache = PoiCache(tmp_path / "poi.sqlite3")
         old_time = time.time() - TILE_TTL_S - 1
         with patch(
-            "backpack.storage.poi_cache.time.time",
+            "core.storage.poi_cache.time.time",
             return_value=old_time,
         ):
             cache.put(_TILE_A, _sample_pois(), _FHASH)
@@ -359,7 +359,7 @@ class TestTouch:
         cache = PoiCache(db)
         old_time = time.time() - 2 * TOUCH_MIN_INTERVAL_S
         with patch(
-            "backpack.storage.poi_cache.time.time",
+            "core.storage.poi_cache.time.time",
             return_value=old_time,
         ):
             cache.put(_TILE_A, _sample_pois(), _FHASH)
@@ -420,7 +420,7 @@ class TestEvict:
         cache = PoiCache(db)
         old_time = time.time() - MAX_AGE_S - 1
         with patch(
-            "backpack.storage.poi_cache.time.time",
+            "core.storage.poi_cache.time.time",
             return_value=old_time,
         ):
             cache.put(_TILE_A, _sample_pois(), _FHASH)
@@ -451,7 +451,7 @@ class TestEvict:
             ]
             cache.put(tile, pois, _FHASH)
         with patch(
-            "backpack.storage.poi_cache.MAX_BYTES", 1
+            "core.storage.poi_cache.MAX_BYTES", 1
         ):
             deleted = cache.evict()
         assert deleted > 0
@@ -466,17 +466,17 @@ class TestEvict:
         t_old = time.time() - 2 * TOUCH_MIN_INTERVAL_S
         t_new = time.time()
         with patch(
-            "backpack.storage.poi_cache.time.time",
+            "core.storage.poi_cache.time.time",
             return_value=t_old,
         ):
             cache.put(_TILE_A, _sample_pois(), _FHASH)
         with patch(
-            "backpack.storage.poi_cache.time.time",
+            "core.storage.poi_cache.time.time",
             return_value=t_new,
         ):
             cache.put(_TILE_B, _sample_pois(), _FHASH)
         with patch(
-            "backpack.storage.poi_cache.MAX_BYTES", 1
+            "core.storage.poi_cache.MAX_BYTES", 1
         ):
             cache.evict()
         hits, missing, _ = cache.get(
@@ -502,7 +502,7 @@ class TestEvict:
         cache = PoiCache(db)
         old_time = time.time() - MAX_AGE_S - 1
         with patch(
-            "backpack.storage.poi_cache.time.time",
+            "core.storage.poi_cache.time.time",
             return_value=old_time,
         ):
             cache.put(_TILE_A, _sample_pois(), _FHASH)
