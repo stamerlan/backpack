@@ -4,11 +4,12 @@ Backpacking trip planner
 Setup
 -----
 
-From the repository root, create the virtual environment and install the package
-with its dev extras::
-
-    python -m venv .venv
-    .venv\Scripts\python.exe -m pip install --editable ".[dev]"
+The build owns its Python environment: ``build`` creates a virtual environment
+under ``bin/{os}-{arch}/.venv`` and installs the package with its tools into it,
+so no preinstalled environment isneeded. A valid venv is reused, so repeat
+builds and test runs stay fast; it is wiped by ``clean`` with the rest of
+``bin/``. If you want an environment for editing or running the app by hand,
+create your own (e.g. ``.venv`` at the repo root); the build never touches it.
 
 Build the frontend and message catalogs once so the app has assets to load. Node
 packages and the compiled UI land under ``bin/``. On Windows this also builds
@@ -25,9 +26,9 @@ Use two terminals. The first serves the frontend with hot reload::
     dev.bat
 
 The second runs the app pointed at that dev server, so edits refresh without a
-rebuild::
+rebuild (use the build venv after a first ``build.bat``, or your own)::
 
-    .venv\Scripts\python.exe -m backpack --dev
+    bin\windows-x64\.venv\Scripts\python.exe -m backpack --dev
 
 Without ``--dev`` the app loads the built ``bin/assets/index.html``, so run
 ``build.bat`` after frontend changes when testing that path.
@@ -38,7 +39,8 @@ Checks
 From the root, ``pytest`` type checks the Python sources through pytest-mypy,
 one item per file::
 
-    .venv\Scripts\python.exe -m pytest
+    test.bat pytest        # Windows
+    sh test.sh pytest      # macOS
 
 TypeScript is checked separately::
 
@@ -50,7 +52,8 @@ Tests
 From the root, ``pytest`` runs the Python test suite (the same command also
 type checks the sources through pytest-mypy)::
 
-    .venv\Scripts\python.exe -m pytest
+    test.bat pytest        # Windows
+    sh test.sh pytest      # macOS
 
 Vitest runs the frontend tests once::
 
@@ -75,7 +78,8 @@ catalogs under ``src/ui/locales/``.
 
 Each language owns a catalog at ``locales/<lang>/LC_MESSAGES/backpack.po``.
 The extraction config lives in ``babel.cfg`` and all commands run from the
-repository root.
+repository root. ``pybabel`` lives in the build venv
+(``bin/{os}-{arch}/.venv``); run it from there or from your own venv.
 
 After changing or adding wrapped strings, refresh the template and merge the new
 messages into every existing catalog::
