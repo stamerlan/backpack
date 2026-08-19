@@ -61,6 +61,10 @@ if exist "%ROOT%\bin\locales" rmdir /s /q "%ROOT%\bin\locales"
 xcopy /e /i /q /y "%ROOT%\locales" "%ROOT%\bin\locales" >nul || exit /b 1
 call :run pybabel compile -d "%ROOT%\bin\locales" -D backpack || exit /b 1
 
+rem Generate build settings
+call :run "%PYTHON%" "%ROOT%\scripts\pyconfig.py" "%OUTDIR%\pyconfig.props" ^
+  || exit /b 1
+
 rem Native Windows host
 call :run msbuild "%ROOT%\src\app\win32\backpack.slnx" ^
   -maxCpuCount ^
