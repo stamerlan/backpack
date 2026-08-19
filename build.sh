@@ -1,14 +1,13 @@
 #!/bin/sh
 # Build the app. Without arguments it compiles the frontend assets and the
 # message catalogs. Pass --app to also produce the distributable package, and
-# --debug for a console (non windowed) distributable. Python and its tools
-# (pybabel, PyInstaller) come from PATH; activate a virtual environment first
-# if you want to build against one.
+# --debug for a console (non windowed) distributable. The build creates and
+# uses its own venv under bin/<os>-<arch>/.venv, installing the package with
+# its tools.
 set -eu
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 
-PYTHON=python
 PATH="$ROOT/bin/node_modules/.bin:$PATH"
 export PATH
 export NODE_PATH="$ROOT/bin/node_modules"
@@ -16,6 +15,18 @@ export NODE_PATH="$ROOT/bin/node_modules"
 run() {
   echo "+ $*"
   "$@"
+}
+
+# Ensure the build venv exists with the package installed. A valid venv is
+# reused for fast rebuilds.
+ensure_venv() {
+  if [ -x "$PYTHON" ] && "$PYTHON" -c pass >/dev/null 2>&1; then
+    return 0
+  fi
+  rm -rf "$VENV"
+  run python -m venv "$VENV"
+  run "$PYTHON" -m pip install --upgrade pip
+  run "$PYTHON" -m pip install --editable "$ROOT[dev]"
 }
 
 APP=0
@@ -40,6 +51,15 @@ case "$(uname -m)" in
 esac
 OSARCH="$OS-$ARCH"
 OUTDIR="$ROOT/bin/$OSARCH"
+
+# Build owned venv under the arch output dir, holding the package and its tools
+# (pybabel, PyInstaller). clean.sh wipes it with the rest of bin/. A personal
+# venv (e.g. at the repo root) is only for development.
+VENV="$OUTDIR/.venv"
+PYTHON="$VENV/bin/python"
+ensure_venv
+PATH="$VENV/bin:$PATH"
+export PATH
 
 if [ "$OS" = macos ]; then
   ICON="$ROOT/src/ui/public/icons/app.icns"
