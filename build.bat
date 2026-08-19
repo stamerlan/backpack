@@ -8,7 +8,6 @@ rem for a debug build, and --app to also produce the distributable package.
 set "ROOT=%~dp0"
 if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
 
-set "PYTHON=python"
 set "PATH=%ROOT%\bin\node_modules\.bin;%PATH%"
 set "NODE_PATH=%ROOT%\bin\node_modules"
 
@@ -38,6 +37,14 @@ set "ARCH=x64"
 if /i "%PROCESSOR_ARCHITECTURE%"=="ARM64" set "ARCH=arm64"
 set "OSARCH=windows-%ARCH%"
 set "OUTDIR=%ROOT%\bin\%OSARCH%"
+
+rem Build owned virtual environment under the arch output dir, holding the
+rem package and its tools. It keeps builds independent of a preinstalled
+rem environment and is wiped by clean.bat with the rest of bin\.
+set "VENV=%OUTDIR%\.venv"
+set "PYTHON=%VENV%\Scripts\python.exe"
+call :venv || exit /b 1
+set "PATH=%VENV%\Scripts;%PATH%"
 
 rem Frontend assets into bin\assets
 if not exist "%ROOT%\bin" mkdir "%ROOT%\bin"
@@ -77,6 +84,19 @@ call :run "%PYTHON%" -m PyInstaller --noconfirm --clean --onedir ^
   "%ROOT%\src\backpack\__main__.py" || exit /b 1
 call :run "%PYTHON%" "%ROOT%\scripts\mkzip.py" "%OUTDIR%\dist" "%OSARCH%" ^
   || exit /b 1
+exit /b 0
+
+rem Ensure the build venv exists with the package installed. A valid venv is
+rem reused for fast rebuilds; an unusable one (e.g. left by a container build
+rem whose C:\src paths do not resolve on the host) is recreated.
+:venv
+if not exist "%PYTHON%" goto venvmake
+"%PYTHON%" -c "pass" >nul 2>&1 && exit /b 0
+:venvmake
+if exist "%VENV%" rmdir /s /q "%VENV%"
+call :run python -m venv "%VENV%" || exit /b 1
+call :run "%PYTHON%" -m pip install --upgrade pip || exit /b 1
+call :run "%PYTHON%" -m pip install --editable "%ROOT%[dev]" || exit /b 1
 exit /b 0
 
 :run
