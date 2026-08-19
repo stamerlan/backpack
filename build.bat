@@ -81,7 +81,7 @@ call :run "%PYTHON%" -m PyInstaller --noconfirm --clean --onedir ^
   --exclude-module pip ^
   --icon "%ROOT%\src\ui\public\icons\app.ico" ^
   %WINDOW% ^
-  "%ROOT%\src\backpack\__main__.py" || exit /b 1
+  "%ROOT%\src\core\__main__.py" || exit /b 1
 call :run "%PYTHON%" "%ROOT%\scripts\mkzip.py" "%OUTDIR%\dist" "%OSARCH%" ^
   || exit /b 1
 exit /b 0

@@ -4,7 +4,7 @@ import logging
 import os
 from pathlib import Path
 
-from backpack import paths
+from core import paths
 from .. import APP_NAME
 from .poi_cache import PoiCache
 from .settings import Settings

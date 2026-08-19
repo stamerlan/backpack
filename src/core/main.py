@@ -12,11 +12,11 @@ from dataclasses import replace
 from datetime import datetime
 
 from . import APP_NAME, APP_VERSION
-from backpack.app import App
-from backpack.paths import (
+from core.app import App
+from core.paths import (
     app_icon_path, app_settings_path, applogs, assets_dir
 )
-from backpack.storage import Storage
+from core.storage import Storage
 
 
 DEV_SERVER_URL = "http://localhost:5173"

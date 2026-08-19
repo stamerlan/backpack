@@ -1,5 +1,5 @@
-from backpack.model import Document, MoveRoute, RouteData
-from backpack.model.store import Store
+from core.model import Document, MoveRoute, RouteData
+from core.model.store import Store
 
 
 def make_store(*route_ids: str) -> Store:

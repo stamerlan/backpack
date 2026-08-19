@@ -24,7 +24,7 @@ dev = [
 ]
 
 [project.scripts]
-backpack = "backpack.main:main"
+backpack = "core.main:main"
 
 [build-system]
 requires = ["hatchling", "hatch-vcs", "babel>=2.18,<3"]
@@ -35,16 +35,16 @@ source = "vcs"
 fallback-version = "0"
 
 [tool.hatch.build.hooks.vcs]
-version-file = "src/backpack/_version.py"
+version-file = "src/core/_version.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/backpack"]
+packages = ["src/core"]
 
 [tool.mypy]
 strict = true
 
 [[tool.mypy.overrides]]
-module = "backpack._version"
+module = "core._version"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
