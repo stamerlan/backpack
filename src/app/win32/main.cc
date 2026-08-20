@@ -1,48 +1,69 @@
+#include <memory>
+#include <string>
+
 #include <windows.h>
+#include <shellapi.h>
 
-static constexpr wchar_t *window_class = L"BackpackWin32Window";
-static constexpr wchar_t *window_title = L"Backpack";
+#include <Python.h>
 
-static LRESULT CALLBACK
-WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
+#include "pyconfig.h"
+#include "utf8.h"
+#include "winerr.h"
+
+static std::wstring get_module_dir(void)
 {
-	switch (msg) {
-	case WM_DESTROY:
-		PostQuitMessage(0);
-		return 0;
-	default:
-		return DefWindowProcW(hwnd, msg, wparam, lparam);
+	std::wstring path(MAX_PATH, L'\0');
+	for (;;) {
+		DWORD path_size = static_cast<DWORD>(path.size());
+		DWORD n = GetModuleFileNameW(nullptr, path.data(), path_size);
+		if (n == 0)
+			throw Winerr("GetModuleFileNameW() failed");
+		if (n < path_size) {
+			path.resize(n);
+			break;
+		}
+		path.resize(path_size * 2);
 	}
+	size_t slash = path.find_last_of(L"\\/");
+	if (slash != std::wstring::npos)
+		path.resize(slash);
+	return path;
 }
 
-int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_cmd)
+static void show_error_msg(const std::wstring& text)
 {
-	WNDCLASSEXW wc = {};
-	wc.cbSize = sizeof(wc);
-	wc.lpfnWndProc = WindowProc;
-	wc.hInstance = instance;
-	wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
-	wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
-	wc.lpszClassName = window_class;
+	MessageBoxW(nullptr, text.c_str(), L"Backpack", MB_OK | MB_ICONERROR);
+}
 
-	if (!RegisterClassExW(&wc))
-		return 1;
+int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
+try {
+	std::wstring app_dir = get_module_dir();
 
-	HWND hwnd = CreateWindowExW(
-		0, window_class, window_title, WS_OVERLAPPEDWINDOW,
-		CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-		nullptr, nullptr, instance, nullptr);
-	if (!hwnd)
-		return 1;
+	py::Config config;
+	config.set_parse_argv(0);
+	config.set_program_name(app_dir.c_str());
+	config.set_home(app_dir.c_str());
+	config.set_run_module(L"core");
+	config.add_module_search_path(app_dir.c_str());
+	config.add_module_search_path((app_dir + L"\\lib").c_str());
 
-	ShowWindow(hwnd, show_cmd);
-	UpdateWindow(hwnd);
+	int argc = 0;
+	std::unique_ptr<LPWSTR, decltype(&LocalFree)> argv(
+		CommandLineToArgvW(GetCommandLineW(), &argc), &LocalFree);
+	if (argv)
+		config.set_argv(argc, argv.get());
 
-	MSG msg;
-	while (GetMessageW(&msg, nullptr, 0, 0) > 0) {
-		TranslateMessage(&msg);
-		DispatchMessageW(&msg);
+	config.init();
+	return Py_RunMain();
+} catch (const PyStatus& status) {
+	std::wstring msg(L"Python error");
+	if (status.err_msg) {
+		msg += L"\n\n";
+		msg += utf8_to_wstr(status.err_msg);
 	}
-
-	return static_cast<int>(msg.wParam);
+	show_error_msg(msg);
+	return 1;
+} catch (const std::exception& e) {
+	show_error_msg(utf8_to_wstr(e.what()));
+	return 1;
 }

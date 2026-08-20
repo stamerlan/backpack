@@ -63,6 +63,11 @@
     <ClCompile Include="main.cc" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="pyconfig.h" />
+    <ClInclude Include="utf8.h" />
+    <ClInclude Include="winerr.h" />
+  </ItemGroup>
+  <ItemGroup>
     <Manifest Include="backpack.manifest" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
