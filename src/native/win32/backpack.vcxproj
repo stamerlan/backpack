@@ -45,9 +45,10 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(PythonIncludeDir);%(ClCompile.AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(PythonIncludeDir);%(ClCompile.AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization Condition="'$(Configuration)'=='Debug'">Disabled</Optimization>
       <Optimization Condition="'$(Configuration)'=='Release'">MaxSpeed</Optimization>
+      <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -61,6 +62,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="py\config.h" />
+    <ClInclude Include="utf8.h" />
+    <ClInclude Include="winerr.h" />
   </ItemGroup>
   <ItemGroup>
     <Manifest Include="backpack.manifest" />
