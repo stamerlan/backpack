@@ -58,18 +58,26 @@ def main() -> None:
     # Extension modules and the DLLs they depend on, kept together under lib/.
     # Windows resolves a module's dependent DLLs from the module's own folder
     # first, so co-locating them there keeps bin/ to just the exe and the core
-    # interpreter DLLs. Skip the icons and catalog file that also ship in DLLs/
+    # interpreter DLLs. Skip the icons and catalog that also ship in DLLs/, the
+    # Tk GUI stack (the UI is WebView2), and the CPython self-test modules.
     lib.mkdir(parents=True, exist_ok=True)
+    skip = ("_test", "_ctypes_test", "_tkinter", "tcl", "tk")
     for src in (base / "DLLs").iterdir():
-        if src.suffix.lower() in (".pyd", ".dll"):
-            shutil.copy2(src, lib / src.name)
+        if src.suffix.lower() not in (".pyd", ".dll"):
+            continue
+        if src.stem.lower().startswith(skip):
+            continue
+        shutil.copy2(src, lib / src.name)
 
-    # Standard library as plain source, sharing lib/ with third-party
-    # modules so every import resolves from a single directory
+    # Standard library as plain source, sharing lib/ with third-party modules
+    # so every import resolves from a single directory. Drop the packaging and
+    # dev-only trees the app never imports at runtime
     shutil.copytree(
         base / "Lib", lib, dirs_exist_ok=True,
         ignore=shutil.ignore_patterns(
-            "site-packages", "test", "__pycache__"
+            "site-packages", "test", "__pycache__",
+            "idlelib", "ensurepip", "venv", "pydoc_data",
+            "tkinter", "turtledemo", "turtle.py", "lib2to3",
         )
     )
 
@@ -78,6 +86,21 @@ def main() -> None:
         [sys.executable, "-m", "pip", "install", "--target", str(lib),
          str(args.project)],
         check=True)
+
+    # pip leaves console-script launchers under bin/ that nothing invokes
+    shutil.rmtree(lib / "bin", ignore_errors=True)
+
+    # Babel bundles CLDR data for every locale; keep only the app's languages
+    # (plus root and en that Babel falls back to) to save tens of megabytes
+    locale_data = lib / "babel" / "locale-data"
+    if locale_data.is_dir():
+        langs = {"root", "en"}
+        for p in locales.iterdir():
+            if p.is_dir():
+                langs.add(p.name.split("_")[0])
+        for dat in locale_data.glob("*.dat"):
+            if dat.stem.split("_")[0] not in langs:
+                dat.unlink()
 
     # Bundled resources next to the exe; paths.py probes the core package
     # parents and finds them there. Only the compiled *.mo catalogs are used
