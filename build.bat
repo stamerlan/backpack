@@ -1,9 +1,10 @@
 @echo off
 setlocal
 
-rem Build the app. Without arguments it compiles the frontend assets,
-rem the message catalogs, and the native Windows host (Release). Pass --debug
-rem for a debug build, and --app to also produce the distributable package.
+rem Build the app. Without arguments it compiles the frontend assets, the
+rem message catalogs, the native Windows host (Release), and assembles the
+rem runnable bundle next to backpack.exe. Pass --debug for a debug build, and
+rem --app to also pack the bundle into a distributable zip.
 
 set "ROOT=%~dp0"
 if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
@@ -12,7 +13,6 @@ set "PATH=%ROOT%\bin\node_modules\.bin;%PATH%"
 set "NODE_PATH=%ROOT%\bin\node_modules"
 
 set "CONFIG=Release"
-set "WINDOW=--windowed"
 set "APP=0"
 
 :parse
@@ -24,7 +24,6 @@ if /i "%~1"=="--app" (
 )
 if /i "%~1"=="--debug" (
   set "CONFIG=Debug"
-  set "WINDOW=--console"
   shift
   goto parse
 )
@@ -71,25 +70,21 @@ call :run msbuild "%ROOT%\src\app\win32\backpack.slnx" ^
   -property:Configuration=%CONFIG% ^
   -property:Platform=x64 || exit /b 1
 
-if not "%APP%"=="1" exit /b 0
+rem With --app also pack the app into a versioned distributable zip
+if exist "%OUTDIR%\lib" rmdir /s /q "%OUTDIR%\lib"
+set "ARCHIVE="
+if "%APP%"=="1" call :setarchive
+call :run "%PYTHON%" "%ROOT%\scripts\winbundle.py" "%OUTDIR%" "%ROOT%" ^
+  %ARCHIVE% || exit /b 1
+exit /b 0
 
-rem Standalone PyInstaller distributable + zip
-call :run "%PYTHON%" -m PyInstaller --noconfirm --clean --onedir ^
-  --contents-directory app --name backpack ^
-  --distpath "%OUTDIR%\dist" --workpath "%OUTDIR%\build" ^
-  --specpath "%OUTDIR%\build" --paths "%ROOT%\src" ^
-  --add-data "%ROOT%\bin\assets;assets" ^
-  --add-data "%ROOT%\bin\locales;locales" ^
-  --collect-all webview ^
-  --recursive-copy-metadata pydantic-ai-slim ^
-  --exclude-module setuptools ^
-  --exclude-module pkg_resources ^
-  --exclude-module pip ^
-  --icon "%ROOT%\src\ui\public\icons\app.ico" ^
-  %WINDOW% ^
-  "%ROOT%\src\core\__main__.py" || exit /b 1
-call :run "%PYTHON%" "%ROOT%\scripts\mkzip.py" "%OUTDIR%\dist" "%OSARCH%" ^
-  || exit /b 1
+rem Compose the --archive argument for winbundle from the package version.
+:setarchive
+for /f "delims=" %%v in (
+  'python -c "import core;print(core.APP_VERSION)"'
+) do (
+  set ARCHIVE=--archive "%OUTDIR%\backpack-%%v-%OSARCH%.zip"
+)
 exit /b 0
 
 rem Ensure the build venv exists with the package installed. A valid venv is
