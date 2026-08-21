@@ -125,9 +125,9 @@ Build tasks are driven by small per OS scripts at the repository root:
 ``.bat`` on Windows and ``.sh`` on macOS. Common commands (Windows form
 shown; use ``sh <name>.sh`` on macOS)::
 
-    build.bat          # frontend assets + catalogs + native host
+    build.bat          # frontend assets + catalogs + native host + bundle
     build.bat --debug  # same, native host built in Debug
-    build.bat --app    # also build the PyInstaller distributable + zip
+    build.bat --app    # also pack the bundle into a distributable zip
     test.bat           # run pytest + vitest (reports in bin/{os}-{arch}/)
     test.bat pytest    # python tests only
     test.bat vitest    # UI tests only
@@ -172,14 +172,26 @@ override it.
 Packaging
 ---------
 
-Standalone packages are built with PyInstaller (installed with the ``dev``
-extras above), which cannot cross-compile, so build on the target OS::
+Packaging cannot cross-compile, so build on the target OS::
 
     build.bat --app        # Windows
     sh build.sh --app      # macOS
 
-The build populates ``bin/{os}-{arch}/``. Under ``dist/`` you get the unpacked
-app: a ``backpack`` folder holding ``backpack.exe`` and an ``app`` support
-folder on Windows, or a ``backpack.app`` bundle on macOS. The versioned ``.zip``
-archive is written directly to ``bin/{os}-{arch}/``. Pass ``--debug`` to keep a
-console window for debugging (``build.bat --app --debug``).
+On Windows the native ``backpack.exe`` launcher embeds CPython, so the bundle
+ships its own interpreter instead of using PyInstaller. Everything comes from
+the build's own Python, the base install behind the build venv
+(``sys.base_prefix``); because the launcher was linked against that same
+interpreter, the bundled DLLs, extension modules, and standard library match
+its ABI. ``scripts/winbundle.py`` assembles the bundle in place under
+``bin/windows-x64/`` next to ``backpack.exe``: the interpreter DLLs sit beside
+the exe, while the standard library, extension modules, the ``core`` package,
+and its runtime dependencies (``pip install --target lib .``) all land under
+``lib/``, with the frontend ``assets`` and compiled ``locales`` alongside.
+``build.bat`` runs this on every build, so ``backpack.exe`` runs straight from
+``bin/windows-x64/``; ``--app`` additionally packs it into the versioned
+``.zip`` written to ``bin/windows-x64/``.
+
+On macOS the standalone package is still built with PyInstaller (installed with
+the ``dev`` extras above), producing a ``backpack.app`` bundle under ``dist/``
+and the versioned ``.zip`` in ``bin/{os}-{arch}/``. Pass ``--debug`` to keep a
+console window for debugging (``sh build.sh --app --debug``).
