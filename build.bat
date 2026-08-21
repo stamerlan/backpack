@@ -71,7 +71,6 @@ call :run msbuild "%ROOT%\src\app\win32\backpack.slnx" ^
   -property:Platform=x64 || exit /b 1
 
 rem With --app also pack the app into a versioned distributable zip
-if exist "%OUTDIR%\lib" rmdir /s /q "%OUTDIR%\lib"
 set "ARCHIVE="
 if "%APP%"=="1" call :setarchive
 call :run "%PYTHON%" "%ROOT%\scripts\winbundle.py" "%OUTDIR%" "%ROOT%" ^
