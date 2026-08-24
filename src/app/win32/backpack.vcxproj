@@ -31,11 +31,16 @@
       Condition="'$(Configuration)'=='Release'">true</WholeProgramOptimization>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
   <PropertyGroup>
     <OutDir>$(SolutionDir)..\..\..\bin\windows-x64\</OutDir>
     <IntDir>$(SolutionDir)..\..\..\bin\windows-x64\obj\$(ProjectName)\</IntDir>
+    <NuGetPackagesDir>$(OutDir)packages</NuGetPackagesDir>
+    <RestoreRepositoryPath>$(NuGetPackagesDir)</RestoreRepositoryPath>
     <PythonPropsFile
       Condition="'$(PythonPropsFile)'==''">$(OutDir)pyconfig.props</PythonPropsFile>
+    <WebView2LoaderPreference>Static</WebView2LoaderPreference>
   </PropertyGroup>
   <Import Project="$(PythonPropsFile)" />
   <ItemDefinitionGroup>
@@ -70,5 +75,21 @@
   <ItemGroup>
     <Manifest Include="backpack.manifest" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import
+      Project="$(NuGetPackagesDir)\Microsoft.Web.WebView2.1.0.4129.50\build\native\Microsoft.Web.WebView2.targets"
+      Condition="Exists('$(NuGetPackagesDir)\Microsoft.Web.WebView2.1.0.4129.50\build\native\Microsoft.Web.WebView2.targets')" />
+  </ImportGroup>
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them. For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error
+      Condition="!Exists('$(NuGetPackagesDir)\Microsoft.Web.WebView2.1.0.4129.50\build\native\Microsoft.Web.WebView2.targets')"
+      Text="$([System.String]::Format('$(ErrorText)', '$(NuGetPackagesDir)\Microsoft.Web.WebView2.1.0.4129.50\build\native\Microsoft.Web.WebView2.targets'))" />
+  </Target>
 </Project>

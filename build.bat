@@ -66,9 +66,10 @@ call :run "%PYTHON%" "%ROOT%\scripts\pyconfig.py" "%OUTDIR%\pyconfig.props" ^
 
 rem Native Windows host
 call :run msbuild "%ROOT%\src\app\win32\backpack.slnx" ^
-  -maxCpuCount ^
+  -maxCpuCount -restore ^
   -property:Configuration=%CONFIG% ^
-  -property:Platform=x64 || exit /b 1
+  -property:Platform=x64 ^
+  -property:RestorePackagesConfig=true || exit /b 1
 
 rem With --app also pack the app into a versioned distributable zip
 set "ARCHIVE="
