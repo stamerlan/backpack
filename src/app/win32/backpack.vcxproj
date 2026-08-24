@@ -68,6 +68,7 @@
     <ClCompile Include="call_q.cc" />
     <ClCompile Include="main.cc" />
     <ClCompile Include="webview.cc" />
+    <ClCompile Include="window.cc" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="call_q.h" />
@@ -75,6 +76,7 @@
     <ClInclude Include="pyconfig.h" />
     <ClInclude Include="utf8.h" />
     <ClInclude Include="webview.h" />
+    <ClInclude Include="window.h" />
     <ClInclude Include="winerr.h" />
   </ItemGroup>
   <ItemGroup>
