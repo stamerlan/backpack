@@ -31,11 +31,19 @@ public:
 	/* Size the controller to r. No-op until the controller is ready. */
 	void resize(const RECT& r) const noexcept;
 
+	/* Tear down the webview: close the controller and release the COM
+	 * objects, then post WM_WEBVIEW_CLOSE to parent so the host can finish
+	 * window destruction from its message loop. Re-entry during teardown is
+	 * ignored.
+	 */
+	void close(void);
+
 private:
 	HRESULT on_env_created(HRESULT hr, ICoreWebView2Environment *env);
 	HRESULT on_ctrl_created(HRESULT hr, ICoreWebView2Controller *ctrl);
 
 	HWND hwnd_ = nullptr;
+	bool closing_ = false;
 	Microsoft::WRL::ComPtr<ICoreWebView2Environment> env_;
 	Microsoft::WRL::ComPtr<ICoreWebView2Controller> ctrl_;
 	Microsoft::WRL::ComPtr<ICoreWebView2> core_;

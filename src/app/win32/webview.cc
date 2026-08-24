@@ -36,6 +36,23 @@ void WebView::resize(const RECT& r) const noexcept
 		ctrl_->put_Bounds(r);
 }
 
+void WebView::close(void)
+{
+	if (closing_)
+		return;
+	closing_ = true;
+
+	if (ctrl_)
+		ctrl_->Close();
+
+	core_.Reset();
+	ctrl_.Reset();
+	env_.Reset();
+
+	PostMessageW(hwnd_, WM_WEBVIEW_CLOSE, reinterpret_cast<WPARAM>(this),
+		0);
+}
+
 HRESULT WebView::on_env_created(HRESULT hr, ICoreWebView2Environment *env)
 {
 	if (FAILED(hr)) {

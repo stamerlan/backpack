@@ -10,4 +10,9 @@
  */
 constexpr UINT WM_WEBVIEW_RDY = WM_APP + 0;
 
+/* Posted to the host window once webview teardown has finished.
+ *   - wParam (Webview *): instance pointer.
+ */
+constexpr UINT WM_WEBVIEW_CLOSE = WM_APP + 1;
+
 #endif /* MSG_IDS_H */
