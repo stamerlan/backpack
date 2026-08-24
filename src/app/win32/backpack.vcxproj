@@ -66,10 +66,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cc" />
+    <ClCompile Include="window.cc" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pyconfig.h" />
     <ClInclude Include="utf8.h" />
+    <ClInclude Include="window.h" />
     <ClInclude Include="winerr.h" />
   </ItemGroup>
   <ItemGroup>
