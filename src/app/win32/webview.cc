@@ -24,6 +24,18 @@ void WebView::create(HWND parent_hwnd, const std::wstring& user_data_dir)
 		);
 }
 
+void WebView::navigate(const std::wstring& url) const noexcept
+{
+	if (core_)
+		core_->Navigate(url.c_str());
+}
+
+void WebView::resize(const RECT& r) const noexcept
+{
+	if (ctrl_)
+		ctrl_->put_Bounds(r);
+}
+
 HRESULT WebView::on_env_created(HRESULT hr, ICoreWebView2Environment *env)
 {
 	if (FAILED(hr)) {

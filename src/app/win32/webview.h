@@ -23,6 +23,14 @@ public:
 	 */
 	void create(HWND parent, const std::wstring& user_data_dir);
 
+	/* Navigate the core webview to url. No-op until the core webview is
+	 * ready, since construction is asynchronous.
+	 */
+	void navigate(const std::wstring& url) const noexcept;
+
+	/* Size the controller to r. No-op until the controller is ready. */
+	void resize(const RECT& r) const noexcept;
+
 private:
 	HRESULT on_env_created(HRESULT hr, ICoreWebView2Environment *env);
 	HRESULT on_ctrl_created(HRESULT hr, ICoreWebView2Controller *ctrl);
