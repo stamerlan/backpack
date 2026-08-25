@@ -12,7 +12,7 @@ from dataclasses import replace
 from datetime import datetime
 
 from . import APP_NAME, APP_VERSION
-from backpack.app import App
+from backpack.core import Backpack
 from backpack.paths import (
     app_icon_path, app_settings_path, applogs, assets_dir
 )
@@ -129,7 +129,7 @@ def main() -> None:
     )
     mainloop_th.start()
 
-    app = App(mainloop, storage)
+    app = Backpack(mainloop, storage)
 
     try:
         window = webview.create_window(
