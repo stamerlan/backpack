@@ -48,7 +48,7 @@ class RouteData:
     """One route: its description and its sampled track.
 
     POIs are derived from the track and are not persisted on the route; the
-    controller keeps them in a transient map keyed by route id (App.poi).
+    controller keeps them in a transient map keyed by route id (Core.poi).
     """
 
     @staticmethod

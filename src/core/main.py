@@ -12,7 +12,7 @@ from dataclasses import replace
 from datetime import datetime
 
 from . import APP_NAME, APP_VERSION
-from core.app import App
+from core.core import Core
 from core.paths import (
     app_icon_path, app_settings_path, applogs, assets_dir
 )
@@ -129,7 +129,7 @@ def main() -> None:
     )
     mainloop_th.start()
 
-    app = App(mainloop, storage)
+    app = Core(mainloop, storage)
 
     try:
         window = webview.create_window(

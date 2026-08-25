@@ -5,7 +5,7 @@ import threading
 from typing import Any, Callable, Concatenate, Coroutine, ParamSpec, cast
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from .app import App
+    from .core import Core
 
 
 P = ParamSpec("P")
@@ -14,13 +14,13 @@ logger = logging.getLogger(__name__)
 
 
 def api_method(func: ApiMethod[P]) -> Callable[Concatenate["Api", P], Any]:
-    """Bridge one frontend call to an App coroutine on the mainloop.
+    """Bridge one frontend call to a Core coroutine on the mainloop.
 
     pywebview runs every frontend to backend call on its own thread. The wrapper
-    schedules the wrapped coroutine on the App mainloop and blocks the call
-    thread until it settles, so the frontend promise resolves with the App
+    schedules the wrapped coroutine on the Core mainloop and blocks the call
+    thread until it settles, so the frontend promise resolves with the Core
     return value or rejects with its exception. After shutdown the wrapper
-    returns None at once and never touches the App.
+    returns None at once and never touches the Core.
     """
     @functools.wraps(func)
     def wrapper(self: "Api", *args: P.args, **kw: P.kwargs) -> Any:
@@ -40,14 +40,14 @@ class Api:
     pywebview publishes every public method of the js_api object as
     window.pywebview.api.*, so whatever is handed to the window defines the
     JS-callable surface. Api exists to be that curated allow-list: it names
-    exactly the calls the frontend may make and forwards each to App.
+    exactly the calls the frontend may make and forwards each to Core.
 
     Keeping it separate from the controller lets the controller keep host-only
     public members without leaking them to JS, since only this small object is
     ever exposed.
     """
 
-    def __init__(self, app: "App") -> None:
+    def __init__(self, app: "Core") -> None:
         self._app = app
         self._lock = threading.Lock()
         self._running = True
