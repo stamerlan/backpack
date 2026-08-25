@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class App:
+class Core:
     def __init__(
         self, mainloop: asyncio.AbstractEventLoop, storage: Storage
     ) -> None:
