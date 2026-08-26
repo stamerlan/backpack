@@ -66,12 +66,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cc" />
+    <ClCompile Include="pyext.cc" />
     <ClCompile Include="webview.cc" />
     <ClCompile Include="window.cc" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="msg_ids.h" />
     <ClInclude Include="pyconfig.h" />
+    <ClInclude Include="pyext.h" />
     <ClInclude Include="utf8.h" />
     <ClInclude Include="webview.h" />
     <ClInclude Include="window.h" />
