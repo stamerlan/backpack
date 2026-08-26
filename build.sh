@@ -98,7 +98,7 @@ run "$PYTHON" -m PyInstaller --noconfirm --clean --onedir \
   --exclude-module pkg_resources \
   --exclude-module pip \
   --icon "$ICON" "$WINDOW" \
-  "$ROOT/src/core/__main__.py"
+  "$ROOT/src/app/macos/__main__.py"
 
 if [ "$OS" = macos ] && [ "$WINDOW" = --windowed ]; then
   ver="$("$PYTHON" -c \

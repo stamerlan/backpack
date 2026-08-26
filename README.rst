@@ -28,7 +28,7 @@ Use two terminals. The first serves the frontend with hot reload::
 The second runs the app pointed at that dev server, so edits refresh without a
 rebuild (use the build venv after a first ``build.bat``, or your own)::
 
-    bin\windows-x64\.venv\Scripts\python.exe -m core --dev
+    bin\windows-x64\.venv\Scripts\python.exe -m app.win32 --dev
 
 Without ``--dev`` the app loads the built ``bin/assets/index.html``, so run
 ``build.bat`` after frontend changes when testing that path.

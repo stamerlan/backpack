@@ -2,7 +2,7 @@
 setlocal
 
 rem Serve the frontend with hot reload. Run the app in a second terminal with
-rem "python -m core --dev" to point it at this dev server.
+rem "python -m app.win32 --dev" to point it at this dev server.
 
 set "ROOT=%~dp0"
 if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"

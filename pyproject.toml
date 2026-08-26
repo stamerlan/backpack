@@ -23,9 +23,6 @@ dev = [
     "pyinstaller>=6.22,<7",
 ]
 
-[project.scripts]
-backpack = "core.main:main"
-
 [build-system]
 requires = ["hatchling", "hatch-vcs", "babel>=2.18,<3"]
 build-backend = "hatchling.build"
