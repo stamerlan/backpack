@@ -6,21 +6,21 @@
 let action_chain: Promise<unknown> = Promise.resolve();
 
 interface PyWebView {
-  api: Record<string, (...args: unknown[]) => Promise<unknown>>;
+  api: { dispatch(name: string, ...args: unknown[]): Promise<unknown> };
 }
 
 declare global {
   interface Window {
-    pywebview: PyWebView;
+    pywebview?: PyWebView;
   }
 }
 
 function api_call(name: string, ...args: unknown[]): Promise<unknown> {
   const result = action_chain.then(() => {
-    const method = window.pywebview?.api?.[name];
-    if (method === undefined)
-      throw new Error(`pywebview.api.${name} is not available`);
-    return method(...args);
+    const api = window.pywebview?.api;
+    if (api === undefined)
+      throw new Error("pywebview.api is not available");
+    return api.dispatch(name, ...args);
   });
   action_chain = result.catch((e) => console.error(`${name}() failed`, e));
   return result; /* caller sees the real value or error */
