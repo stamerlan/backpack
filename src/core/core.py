@@ -40,7 +40,7 @@ class Core:
         self.theme = Theme()
         self.api = Api(self)
         self.js = JsWorker()
-        self.ui = UI(self.js)
+        self.ui = UI(self.js.submit)
         self.storage = storage
         self.poi: dict[str, tuple[model.Poi, ...]] = {}
 
