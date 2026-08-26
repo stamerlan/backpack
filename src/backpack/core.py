@@ -40,7 +40,7 @@ class Backpack:
         self.theme = Theme()
         self.api = Api(self)
         self.js = JsWorker()
-        self.ui = UI(self.js)
+        self.ui = UI(self.js.exec_script)
         self.storage = storage
         self.poi: dict[str, tuple[model.Poi, ...]] = {}
 
