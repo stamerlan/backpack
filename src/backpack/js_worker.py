@@ -72,7 +72,7 @@ class JsWorker:
 
         logger.debug("js_worker.worker stopped")
 
-    def submit(self, func: str, args: tuple[Any, ...]) -> Future[Any]:
+    def exec_script(self, func: str, args: tuple[Any, ...]) -> Future[Any]:
         """Queue a frontend function call and return its future.
 
         The worker thread performs the call and later settles the future with
