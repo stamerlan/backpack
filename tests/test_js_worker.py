@@ -17,7 +17,7 @@ def test_result_settled_on_worker_thread(
 ) -> None:
     js.start(cast(webview.Window, win))
 
-    fut = js.submit("greet", ("world", 3))
+    fut = js.exec_script("greet", ("world", 3))
     cb = win.take_cb()
     assert 'greet("world", 3)' in win.scripts[0]
 
@@ -40,7 +40,7 @@ def test_undefined_result_maps_to_none(
     js: JsWorker, win: FakeWindow
 ) -> None:
     js.start(cast(webview.Window, win))
-    fut = js.submit("noop", ())
+    fut = js.exec_script("noop", ())
     cb = win.take_cb()
     cb(None)
     assert fut.result(timeout=2.0) is None
@@ -50,7 +50,7 @@ def test_js_error_becomes_exception(
     js: JsWorker, win: FakeWindow
 ) -> None:
     js.start(cast(webview.Window, win))
-    fut = js.submit("boom", ())
+    fut = js.exec_script("boom", ())
     cb = win.take_cb()
     cb({
         "name": "TypeError",
@@ -72,7 +72,7 @@ def test_sync_evaluate_failure_settles_future(
 ) -> None:
     win.exception = RuntimeError("inject failed")
     js.start(cast(webview.Window, win))
-    fut = js.submit("nope", ())
+    fut = js.exec_script("nope", ())
 
     with pytest.raises(RuntimeError, match="inject failed") as ei:
         fut.result(timeout=2.0)
@@ -84,7 +84,7 @@ def test_sync_evaluate_failure_settles_future(
 def test_submit_before_start_is_queued(
     js: JsWorker, win: FakeWindow
 ) -> None:
-    fut = js.submit("early", (1,))
+    fut = js.exec_script("early", (1,))
     assert not fut.done()
 
     js.start(cast(webview.Window, win))
@@ -100,7 +100,7 @@ def test_submit_after_shutdown_is_cancelled(
     js.start(cast(webview.Window, win))
     js.shutdown()
 
-    fut = js.submit("late", ())
+    fut = js.exec_script("late", ())
     assert fut.cancelled()
 
 
@@ -108,7 +108,7 @@ def test_shutdown_aborts_inflight_call(
     js: JsWorker, win: FakeWindow
 ) -> None:
     js.start(cast(webview.Window, win))
-    fut = js.submit("hang", ())
+    fut = js.exec_script("hang", ())
     win.take_cb()  # dispatched, promise is never resolved
 
     js.shutdown()
@@ -134,9 +134,9 @@ def test_shutdown_cancels_queued_call(js: JsWorker) -> None:
 
     js.start(cast(webview.Window, BlockingWindow()))
 
-    first = js.submit("first", ())
+    first = js.exec_script("first", ())
     assert started.wait(2.0)  # worker is blocked inside evaluate_js
-    second = js.submit("second", ())  # stays queued, never dispatched
+    second = js.exec_script("second", ())  # stays queued, never dispatched
 
     shutdown_done = threading.Event()
 
@@ -178,7 +178,7 @@ def test_dataclass_arg_is_json_encoded(
         y: int
 
     js.start(cast(webview.Window, win))
-    fut = js.submit("plot", (Point(1, 2),))
+    fut = js.exec_script("plot", (Point(1, 2),))
     cb = win.take_cb()
     assert '{"x": 1, "y": 2}' in win.scripts[0]
     cb(None)
@@ -189,6 +189,6 @@ def test_non_serializable_arg_fails_future(
     js: JsWorker, win: FakeWindow
 ) -> None:
     js.start(cast(webview.Window, win))
-    fut = js.submit("f", (object(),))
+    fut = js.exec_script("f", (object(),))
     with pytest.raises(TypeError):
         fut.result(timeout=2.0)
