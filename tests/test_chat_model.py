@@ -3,13 +3,12 @@
 Covers round-trip serialization for each ChatItem kind, the item-grouping
 logic used by ask_assist, and on_change -> ui.assist.* dispatch.
 """
-from typing import Any, cast
+from typing import Any
 from unittest.mock import MagicMock, call
 
 import webview
 
 from core import model
-from core.js_worker import JsWorker
 from core.model import (
     AddChat,
     AppendChatTurn,
@@ -317,13 +316,13 @@ def test_item_grouping_interleaved_thinking_and_reply() -> None:
 # -- on_change -> ui.assist dispatch tests --
 
 
-class FakeJsWorker:
+class FakeJs:
     """Records calls instead of dispatching to a real window."""
 
     def __init__(self) -> None:
         self.calls: list[tuple[str, tuple[Any, ...]]] = []
 
-    def submit(self, func: str, args: tuple[Any, ...]) -> Any:
+    def __call__(self, func: str, args: tuple[Any, ...]) -> Any:
         self.calls.append((func, args))
         fut: Any = MagicMock()
         return fut
@@ -331,15 +330,15 @@ class FakeJsWorker:
 
 def make_app_on_change(
     origin: object | None = None,
-) -> tuple[Document, "FakeJsWorker", Any]:
+) -> tuple[Document, "FakeJs", Any]:
     """Set up a Document + UI wired like App.on_change.
 
     Returns (doc, fake_js, on_change_fn). The on_change_fn uses origin
     as the api object (the identity check for echo suppression).
     """
     doc = Document()
-    fake_js = FakeJsWorker()
-    ui = UI(cast(JsWorker, fake_js))
+    fake_js = FakeJs()
+    ui = UI(fake_js)
     api_origin = origin if origin is not None else object()
 
     def on_change(change: model.Change, chg_origin: model.Origin) -> None:
