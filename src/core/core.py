@@ -6,14 +6,13 @@ import pathlib
 import subprocess
 import sys
 import threading
-from collections.abc import Coroutine
+from collections.abc import Callable, Coroutine
 from concurrent.futures import CancelledError, Future
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from core import APP_VERSION, model
-from core.api import Api
 from core.app import App
 from core.i18n import i18n, system_locales
 from core.paths import applogs
@@ -36,7 +35,10 @@ class Core:
         # Bound to the running loop in run(); Core owns no loop before then.
         self.mainloop: asyncio.AbstractEventLoop
         self.theme = Theme()
-        self.api = Api(self)
+        # Origin token for edits made in response to a frontend call. The
+        # frontend reflects these optimistically, so on_change skips pushing
+        # them back to it.
+        self.frontend = object()
         self.ui = UI(app.js_call)
         self.storage = storage
         self.poi: dict[str, tuple[model.Poi, ...]] = {}
@@ -58,6 +60,33 @@ class Core:
         self._shutdown_fut: Future[bool] | None = None
         self._settings_task: asyncio.Task[None] | None = None
         self._tasks: set[asyncio.Task[None]] = set()
+
+        # Frontend-callable allow-list, dispatched by run() off the event
+        # stream. Each name maps to a Core coroutine, run one call at a time.
+        async def _sched_ask_assist(
+            chat_id: str, model_id: str, prompt: str
+        ) -> None:
+            self.add_task(self.ask_assist(chat_id, model_id, prompt))
+
+        self._handlers: dict[str, Callable[..., Coroutine[Any, Any, Any]]] = {
+            "new_doc": self.new_doc,
+            "open_doc": self.open_doc,
+            "save_doc": self.save_doc,
+            "open_settings": self.open_settings,
+            "open_logs": self.open_logs,
+            "remove_recent": self.remove_recent,
+            "set_theme": self.set_theme,
+            "set_locale": self.set_locale,
+            "set_trip_info": self.set_trip_info,
+            "add_route": self.add_route,
+            "set_route_info": self.set_route_info,
+            "remove_route": self.remove_route,
+            "move_route": self.move_route,
+            "add_chat": self.add_chat,
+            "del_chat": self.del_chat,
+            "ask_assist": _sched_ask_assist,
+            "stop_assist": self.stop_assist,
+        }
 
         self._bg_load_thread = threading.Thread(
             target=self._bg_load, name="app.bg_load", daemon=True
@@ -112,7 +141,14 @@ class Core:
                 if await asyncio.wrap_future(self.shutdown()):
                     break
             else:
-                logger.error(f"no handler for {event.name!r}")
+                handler = self._handlers.get(event.name)
+                if handler is None:
+                    logger.error(f"no handler for {event.name!r}")
+                    continue
+                try:
+                    await handler(*event.args)
+                except Exception:
+                    logger.exception(f"dispatch failed: {event.name!r}")
         self.app.quit()
 
     def _bg_load(self) -> None:
@@ -188,7 +224,6 @@ class Core:
                 if not self.running.is_set():
                     return
                 logger.debug("app shutting down")
-                self.api.shutdown()
 
                 # cancel running agents and pending detail loads
                 for task in list(self._tasks):
@@ -274,7 +309,7 @@ class Core:
         self.filepath = None
         self._reset_ui(doc)
         chat = model.ChatData()
-        with doc.edit(self.api) as ed:
+        with doc.edit(self.frontend) as ed:
             ed.apply(model.AddChat(chat))
         self.ui.assist.set_active_chat(chat.id)
         doc.mark_saved()
@@ -320,7 +355,7 @@ class Core:
         self._reset_ui(doc)
         if not doc.chats():
             chat = model.ChatData()
-            with doc.edit(self.api) as ed:
+            with doc.edit(self.frontend) as ed:
                 ed.apply(model.AddChat(chat))
             self.ui.assist.set_active_chat(chat.id)
         for r in doc.routes():
@@ -636,13 +671,13 @@ class Core:
 
     async def add_chat(self) -> None:
         chat = model.ChatData()
-        with self.doc.edit(self.api) as ed:
+        with self.doc.edit(self.frontend) as ed:
             ed.apply(model.AddChat(chat))
         self.ui.assist.set_active_chat(chat.id)
 
     async def del_chat(self, chat_id: str) -> None:
         active: str | None = None
-        with self.doc.edit(self.api) as ed:
+        with self.doc.edit(self.frontend) as ed:
             ed.apply(model.RemoveChat(chat_id))
             if not self.doc.chats():
                 chat = model.ChatData()
@@ -682,7 +717,7 @@ class Core:
                     cur_model_id = await asyncio.wrap_future(
                         self.ui.assist.get_model(chat_id)
                     )
-                    with self.doc.edit(self.api) as ed:
+                    with self.doc.edit(self.frontend) as ed:
                         ed.apply(model.RemoveChatTurn(chat_id, turn_id))
                     self.add_task(self.ask_assist(
                         chat_id, cur_model_id or model_id, prompt
@@ -753,7 +788,7 @@ class Core:
             self._ai.result().stop(chat_id)
 
     async def set_trip_info(self, card_id: str, title: str, notes: str) -> None:
-        with self.doc.edit(self.api) as ed:
+        with self.doc.edit(self.frontend) as ed:
             ed.apply(model.SetDocInfo(title=title, notes=notes))
 
     async def add_route(self) -> None:
@@ -802,17 +837,17 @@ class Core:
     async def set_route_info(
         self, card_id: str, title: str, notes: str
     ) -> None:
-        with self.doc.edit(self.api) as ed:
+        with self.doc.edit(self.frontend) as ed:
             ed.apply(model.SetRouteInfo(card_id, title=title, notes=notes))
 
     async def remove_route(self, card_id: str) -> None:
-        with self.doc.edit(self.api) as ed:
+        with self.doc.edit(self.frontend) as ed:
             ed.apply(model.RemoveRoute(card_id))
 
     async def move_route(
         self, card_id: str, after_id: str | None = None
     ) -> None:
-        with self.doc.edit(self.api) as ed:
+        with self.doc.edit(self.frontend) as ed:
             ed.apply(model.MoveRoute(card_id, after_id))
 
     async def load_route_details(
@@ -886,10 +921,10 @@ class Core:
                 route.RouteStats.from_track(track) if track else None,
             )
         elif isinstance(change, model.SetDocInfo):
-            if origin is not self.api:
+            if origin is not self.frontend:
                 self.ui.set_trip_card(self.doc.title, self.doc.notes)
         elif isinstance(change, model.SetRouteInfo):
-            if origin is not self.api:
+            if origin is not self.frontend:
                 r = self.doc.route(change.route_id)
                 if r is not None:
                     self.ui.set_route_card(r.id, r.title, r.notes)
@@ -898,10 +933,10 @@ class Core:
                 rid: p for rid, p in self.poi.items()
                 if rid != change.route_id
             }
-            if origin is not self.api:
+            if origin is not self.frontend:
                 self.ui.remove_card(change.route_id)
         elif isinstance(change, model.MoveRoute):
-            if origin is not self.api:
+            if origin is not self.frontend:
                 self.ui.move_card(change.route_id, change.after_id)
         elif isinstance(change, model.AddChat):
             self.ui.assist.new_chat(change.chat.id, change.chat.title)
