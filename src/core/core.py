@@ -6,7 +6,6 @@ import pathlib
 import subprocess
 import sys
 import threading
-import webview
 from collections.abc import Coroutine
 from concurrent.futures import CancelledError, Future
 from dataclasses import replace
@@ -15,8 +14,8 @@ from uuid import uuid4
 
 from core import APP_VERSION, model
 from core.api import Api
+from core.app import App
 from core.i18n import i18n, system_locales
-from core.js_worker import JsWorker
 from core.paths import applogs
 from core.storage import Storage
 from core.storage.settings import Settings
@@ -32,15 +31,13 @@ logger = logging.getLogger(__name__)
 
 
 class Core:
-    def __init__(
-        self, mainloop: asyncio.AbstractEventLoop, storage: Storage
-    ) -> None:
-        self.mainloop = mainloop
-        self.window: webview.Window | None = None
+    def __init__(self, app: App, storage: Storage) -> None:
+        self.app = app
+        # Bound to the running loop in run(); Core owns no loop before then.
+        self.mainloop: asyncio.AbstractEventLoop
         self.theme = Theme()
         self.api = Api(self)
-        self.js = JsWorker()
-        self.ui = UI(self.js.submit)
+        self.ui = UI(app.js_call)
         self.storage = storage
         self.poi: dict[str, tuple[model.Poi, ...]] = {}
 
@@ -67,13 +64,56 @@ class Core:
         )
         self._bg_load_thread.start()
 
-    def start(self, window: webview.Window) -> None:
-        """Bind the window and start application tasks."""
-        self.window = window
-        self.theme = Theme(window)
-        self.js.start(window)
+    async def run(self) -> None:
+        """Drive the app lifecycle off the App event stream until it stops.
+
+        Core binds to the running loop, then services one App event at a time.
+        The host posts a "load" event on the first document load, a "close"
+        event on each window-close attempt (it never closes the window itself)
+        and every frontend call as a named event. Core runs startup once on the
+        first load; on a close it runs shutdown and quits the app, unless the
+        user cancels at the save prompt, when it keeps serving and waits for the
+        next close. A cancelled get_event, the host tearing the bridge down on
+        an abnormal GUI exit, ends the loop so the app still quits.
+        """
+        self.mainloop = asyncio.get_running_loop()
         self.running.set()
         logger.debug("app started")
+
+        loaded = False
+        while True:
+            try:
+                event = await asyncio.wrap_future(self.app.get_event())
+            except asyncio.CancelledError:
+                break
+            if event.name == "load":
+                if loaded:
+                    logger.debug("ignoring extra load event")
+                    continue
+                loaded = True
+
+                # load locale and push it to the frontend, seeding its units state
+                await self.set_locale(
+                    self.storage.settings.locale,
+                    self.storage.settings.units
+                )
+                self.add_task(self._evict_poi_cache())
+                await self.set_theme(self.storage.settings.theme)
+                self._update_recent_items_view()
+
+                # load last opened document
+                doc_filepath = self.storage.settings.last_filepath
+                opened = False
+                if (doc_filepath and pathlib.Path(doc_filepath).exists()):
+                    opened = await self.open_doc(doc_filepath)
+                if not opened:
+                    await self.new_doc()
+            elif event.name == "close":
+                if await asyncio.wrap_future(self.shutdown()):
+                    break
+            else:
+                logger.error(f"no handler for {event.name!r}")
+        self.app.quit()
 
     def _bg_load(self) -> None:
         """Import and build the heavy services off the startup path.
@@ -149,7 +189,6 @@ class Core:
                     return
                 logger.debug("app shutting down")
                 self.api.shutdown()
-                self.js.shutdown()
 
                 # cancel running agents and pending detail loads
                 for task in list(self._tasks):
@@ -211,24 +250,6 @@ class Core:
         task.add_done_callback(on_settled)
         return task
 
-    async def on_loaded(self) -> None:
-        # load locale and push it to the frontend, seeding its units state
-        await self.set_locale(
-            self.storage.settings.locale, self.storage.settings.units
-        )
-
-        asyncio.ensure_future(self._evict_poi_cache())
-
-        await self.set_theme(self.storage.settings.theme)
-
-        self._update_recent_items_view()
-
-        # load last opened document
-        last = self.storage.settings.last_filepath
-        if last and pathlib.Path(last).exists() and await self.open_doc(last):
-            return
-        await self.new_doc()
-
     async def _evict_poi_cache(self) -> None:
         """Run POI cache eviction on a worker thread."""
         try:
@@ -260,23 +281,18 @@ class Core:
         self._push_doc_state()
 
     async def open_doc(self, filepath: str | None = None) -> bool:
-        if self.window is None:
-            return False
         if not await self._show_save_dialog():
             return False
 
         if filepath is None:
-            files = await asyncio.to_thread(
-                self.window.create_file_dialog,
-                webview.FileDialog.OPEN,
-                file_types=(
+            filepath = await asyncio.wrap_future(self.app.show_open_dialog(
+                filters=(
                     i18n.gettext("Json files (*.json)"),
                     i18n.gettext("All files (*.*)"),
                 )
-            )
-            if not files:
+            ))
+            if not filepath:
                 return False
-            filepath = files if isinstance(files, str) else files[0]
 
         try:
             text = await asyncio.to_thread(
@@ -381,23 +397,17 @@ class Core:
         self, filepath: str | None = None, show_dialog: bool = False
     ) -> bool:
         """Save the document. Return True if saved, False if canceled."""
-        if self.window is None:
-            return False
-
         if filepath is None:
             if show_dialog or self.filepath is None:
-                files = await asyncio.to_thread(
-                    self.window.create_file_dialog,
-                    webview.FileDialog.SAVE,
-                    save_filename="trip.json",
-                    file_types=(
+                filepath = await asyncio.wrap_future(self.app.show_save_dialog(
+                    filename="trip.json",
+                    filters=(
                         i18n.gettext("Json files (*.json)"),
                         i18n.gettext("All files (*.*)"),
                     )
-                )
-                if not files:
+                ))
+                if not filepath:
                     return False
-                filepath = files if isinstance(files, str) else files[0]
             else:
                 filepath = self.filepath
 
@@ -429,19 +439,24 @@ class Core:
         """
         if not self.doc.has_edits:
             return True
-        result = await asyncio.wrap_future(self.ui.show_dialog(
-            i18n.gettext("Save changes?"),
-            i18n.gettext(
-                "This trip has unsaved changes. Save them before continuing?"
-            ),
-            actions=(
-                DialogAction(i18n.gettext("Cancel"), result="cancel"),
-                DialogAction(i18n.gettext("Don't save"), result="discard"),
-                DialogAction(
-                    i18n.gettext("Save"), result="save", appearance="primary"
+        try:
+            result = await asyncio.wrap_future(self.ui.show_dialog(
+                i18n.gettext("Save changes?"),
+                i18n.gettext(
+                    "This trip has unsaved changes. Save them before "
+                    "continuing?"
+                ),
+                actions=(
+                    DialogAction(i18n.gettext("Cancel"), result="cancel"),
+                    DialogAction(i18n.gettext("Don't save"), result="discard"),
+                    DialogAction(
+                        i18n.gettext("Save"), result="save",
+                        appearance="primary"
+                    )
                 )
-            )
-        ))
+            ))
+        except asyncio.CancelledError:
+            return True
         if result == "save":
             return await self.save_doc()
         return bool(result == "discard")
@@ -470,11 +485,10 @@ class Core:
         name = pathlib.Path(self.filepath).name if self.filepath else None
         dirty = self.doc.has_edits
         self.ui.set_doc_state(name, dirty)
-        if self.window is not None:
-            trip = self.doc.title.strip()
-            label = trip or name or i18n.gettext("Untitled trip")
-            prefix = "* " if dirty else ""
-            self.window.title = f"{prefix}{label} - Backpack"
+        trip = self.doc.title.strip()
+        label = trip or name or i18n.gettext("Untitled trip")
+        prefix = "* " if dirty else ""
+        self.app.window.set_title(f"{prefix}{label} - Backpack")
 
     def _update_recent_items_view(self) -> None:
         self.ui.set_recent(
@@ -650,7 +664,7 @@ class Core:
         which are committed as one turn. A stopped run raises CancelledError
         instead, so the turn is dropped and the chat left idle.
         """
-        def card_action(fut: Future[Any]) -> None:
+        def card_action(fut: "Future[Any]") -> None:
             try:
                 action_id = fut.result()
             except CancelledError:
@@ -745,18 +759,13 @@ class Core:
     async def add_route(self) -> None:
         from core import route
 
-        window = self.window
-        if window is None:
-            return
-        files = await asyncio.to_thread(
-            window.create_file_dialog,
-            webview.FileDialog.OPEN,
-            allow_multiple=True,
-            file_types=(
+        files = await asyncio.wrap_future(self.app.show_open_dialog(
+            multiple=True,
+            filters=(
                 i18n.gettext("GPX files (*.gpx)"),
                 i18n.gettext("All files (*.*)"),
             )
-        )
+        ))
         if not files:
             return
 
@@ -831,13 +840,13 @@ class Core:
             )
             try:
                 action = await asyncio.wrap_future(notify_fut)
-            except CancelledError:
+            except asyncio.CancelledError:
                 return False
             return bool(action == "retry")
 
         try:
             route_details = await asyncio.wrap_future(self._route_details)
-        except CancelledError:
+        except asyncio.CancelledError:
             return
         except Exception:
             logger.exception("route details unavailable")
