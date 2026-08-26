@@ -7,6 +7,7 @@
 #include <Python.h>
 
 #include "pyconfig.h"
+#include "pyext.h"
 #include "utf8.h"
 #include "winerr.h"
 
@@ -38,6 +39,9 @@ static void show_error_msg(const std::wstring& text)
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
 try {
 	std::wstring app_dir = get_module_dir();
+
+	if (PyImport_AppendInittab("_app", pyext_init))
+		throw std::runtime_error("PyImport_AppendInittab() failed");
 
 	py::Config config;
 	config.set_parse_argv(0);
