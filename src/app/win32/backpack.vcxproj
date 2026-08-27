@@ -65,12 +65,14 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="app.cc" />
     <ClCompile Include="main.cc" />
     <ClCompile Include="pyext.cc" />
     <ClCompile Include="webview.cc" />
     <ClCompile Include="window.cc" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="app.h" />
     <ClInclude Include="msg_ids.h" />
     <ClInclude Include="pyconfig.h" />
     <ClInclude Include="pyext.h" />
