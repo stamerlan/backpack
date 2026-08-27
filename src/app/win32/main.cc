@@ -1,13 +1,9 @@
-#include <memory>
 #include <string>
 
 #include <windows.h>
-#include <shellapi.h>
+#include <objbase.h>
 
-#include <Python.h>
-
-#include "pyconfig.h"
-#include "pyext.h"
+#include "app.h"
 #include "utf8.h"
 #include "winerr.h"
 
@@ -31,43 +27,52 @@ static std::wstring get_module_dir(void)
 	return path;
 }
 
-static void show_error_msg(const std::wstring& text)
+/* Turn a Windows path into a file:// URL WebView2 can navigate to.
+ * Backslashes become forward slashes and spaces are percent-encoded so a
+ * path under a profile directory with a space still resolves.
+ */
+static std::wstring to_file_url(const std::wstring& path)
 {
-	MessageBoxW(nullptr, text.c_str(), L"Backpack", MB_OK | MB_ICONERROR);
+	std::wstring url = L"file:///";
+	for (wchar_t c : path) {
+		switch (c) {
+		case L'\\':
+			url += L'/';
+			break;
+		case L' ':
+			url += L"%20";
+			break;
+		default:
+			url += c;
+			break;
+		}
+	}
+	return url;
 }
 
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
 try {
+	HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+	if (FAILED(hr))
+		throw Winerr(hr, "CoInitializeEx() failed");
+
 	std::wstring app_dir = get_module_dir();
+	std::wstring url = to_file_url(app_dir + L"\\assets\\index.html");
 
-	if (PyImport_AppendInittab("_app", pyext_init))
-		throw std::runtime_error("PyImport_AppendInittab() failed");
+	App app(url);
+	app.create(L"Backpack", 1200, 800);
+	app.window().show();
 
-	py::Config config;
-	config.set_parse_argv(0);
-	config.set_program_name(app_dir.c_str());
-	config.set_home(app_dir.c_str());
-	config.set_run_module(L"app.win32");
-	config.add_module_search_path(app_dir.c_str());
-	config.add_module_search_path((app_dir + L"\\lib").c_str());
-
-	int argc = 0;
-	std::unique_ptr<LPWSTR, decltype(&LocalFree)> argv(
-		CommandLineToArgvW(GetCommandLineW(), &argc), &LocalFree);
-	if (argv)
-		config.set_argv(argc, argv.get());
-
-	config.init();
-	return Py_RunMain();
-} catch (const PyStatus& status) {
-	std::wstring msg(L"Python error");
-	if (status.err_msg) {
-		msg += L"\n\n";
-		msg += utf8_to_wstr(status.err_msg);
+	MSG m = {};
+	while (GetMessageW(&m, nullptr, 0, 0) > 0) {
+		TranslateMessage(&m);
+		DispatchMessageW(&m);
 	}
-	show_error_msg(msg);
-	return 1;
+
+	CoUninitialize();
+	return static_cast<int>(m.wParam);
 } catch (const std::exception& e) {
-	show_error_msg(utf8_to_wstr(e.what()));
+	MessageBoxW(nullptr, utf8_to_wstr(e.what()).c_str(), L"Backpack",
+		MB_OK | MB_ICONERROR);
 	return 1;
 }

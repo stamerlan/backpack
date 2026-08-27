@@ -24,6 +24,7 @@ public:
 	HWND hwnd(void) const noexcept { return hwnd_; }
 
 	void set_title(const std::wstring& title) const noexcept;
+	void show(void) const noexcept;
 private:
 	HWND hwnd_ = nullptr;
 	HINSTANCE inst_ = nullptr;

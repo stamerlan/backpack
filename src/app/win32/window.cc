@@ -50,3 +50,11 @@ void Window::set_title(const std::wstring& title) const noexcept
 		return;
 	SetWindowTextW(hwnd_, title.c_str());
 }
+
+void Window::show(void) const noexcept
+{
+	if (!hwnd_)
+		return;
+	ShowWindow(hwnd_, SW_SHOWNORMAL);
+	UpdateWindow(hwnd_);
+}
