@@ -61,3 +61,32 @@ app_t::app_t(HWND hwnd, ATOM atom, std::wstring url)
 		reinterpret_cast<LONG_PTR>(this));
 	webview_.create(hwnd, L"");
 }
+
+void app_t::eval_js(std::wstring js, ui_queue_t::callback_t cb)
+{
+	ui_q.push(js, std::move(cb));
+	call_later(window_.hwnd(), [this] { ui_q_run(); });
+}
+
+void app_t::ui_q_run(void)
+{
+	for (;;) {
+		auto script = ui_q.next();
+		if (!script)
+			return;
+
+		HRESULT hr = webview_.execute_script(
+			*script,
+			[this](HRESULT hr, const std::wstring& json) {
+				ui_q.complete(hr, json);
+				ui_q_run();
+			}
+		);
+
+		if (SUCCEEDED(hr))
+			return;
+
+		/* failed to start script */
+		ui_q.complete(hr, {});
+	}
+}

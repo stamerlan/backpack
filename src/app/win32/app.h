@@ -5,6 +5,7 @@
 
 #include <windows.h>
 
+#include "ui_queue.h"
 #include "webview.h"
 #include "window.h"
 
@@ -21,9 +22,18 @@ public:
 	const window_t& window(void) const noexcept { return window_; }
 	const webview_t& webview(void) const noexcept { return webview_; }
 
+	/* Schedule a script to run in the frontend.
+	 *
+	 * Thread safe. One script is run at a time.
+	 */
+	void eval_js(std::wstring js, ui_queue_t::callback_t cb);
+
 private:
+	void ui_q_run(void);
+
 	window_t window_;
 	webview_t webview_;
+	ui_queue_t ui_q;
 	std::wstring url;
 };
 
