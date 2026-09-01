@@ -66,6 +66,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="app.cc" />
+    <ClCompile Include="js_queue.cc" />
     <ClCompile Include="main.cc" />
     <ClCompile Include="pyext.cc" />
     <ClCompile Include="webview.cc" />
@@ -73,6 +74,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app.h" />
+    <ClInclude Include="js_queue.h" />
     <ClInclude Include="msg_ids.h" />
     <ClInclude Include="pyconfig.h" />
     <ClInclude Include="pyext.h" />
@@ -92,6 +94,9 @@
     <Import
       Project="$(NuGetPackagesDir)\Microsoft.Web.WebView2.1.0.4129.50\build\native\Microsoft.Web.WebView2.targets"
       Condition="Exists('$(NuGetPackagesDir)\Microsoft.Web.WebView2.1.0.4129.50\build\native\Microsoft.Web.WebView2.targets')" />
+    <Import
+      Project="$(NuGetPackagesDir)\nlohmann.json.3.12.0\build\native\nlohmann.json.targets"
+      Condition="Exists('$(NuGetPackagesDir)\nlohmann.json.3.12.0\build\native\nlohmann.json.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
@@ -100,5 +105,8 @@
     <Error
       Condition="!Exists('$(NuGetPackagesDir)\Microsoft.Web.WebView2.1.0.4129.50\build\native\Microsoft.Web.WebView2.targets')"
       Text="$([System.String]::Format('$(ErrorText)', '$(NuGetPackagesDir)\Microsoft.Web.WebView2.1.0.4129.50\build\native\Microsoft.Web.WebView2.targets'))" />
+    <Error
+      Condition="!Exists('$(NuGetPackagesDir)\nlohmann.json.3.12.0\build\native\nlohmann.json.targets')"
+      Text="$([System.String]::Format('$(ErrorText)', '$(NuGetPackagesDir)\nlohmann.json.3.12.0\build\native\nlohmann.json.targets'))" />
   </Target>
 </Project>
