@@ -15,4 +15,9 @@ constexpr UINT WM_WEBVIEW_RDY = WM_APP + 0;
  */
 constexpr UINT WM_WEBVIEW_CLOSE = WM_APP + 1;
 
+/* Posted to the host window to run the next queued JS.
+ *   - wParam (Webview *): instance pointer.
+ */
+constexpr UINT WM_JS_RUN = WM_APP + 2;
+
 #endif /* MSG_IDS_H */

@@ -6,6 +6,8 @@
 #include <wrl/client.h>
 #include <WebView2.h>
 
+#include "js_queue.h"
+
 class WebView {
 public:
 	WebView(void) = default;
@@ -38,6 +40,17 @@ public:
 	 */
 	void close(void);
 
+	/* Schedule a script execution.
+	 *
+	 * Thread safe. Calls serialize, one in flight at a time, so cb fires in
+	 * submission order and the next call starts only once the prior one
+	 * settles.
+	 */
+	void eval_js(std::wstring js, JsQueue::Callback cb);
+
+	/* Run the next queued script on the UI thread. Posted via WM_JS_RUN. */
+	void process_js_q(void);
+
 private:
 	HRESULT on_env_created(HRESULT hr, ICoreWebView2Environment *env);
 	HRESULT on_ctrl_created(HRESULT hr, ICoreWebView2Controller *ctrl);
@@ -47,6 +60,7 @@ private:
 	Microsoft::WRL::ComPtr<ICoreWebView2Environment> env_;
 	Microsoft::WRL::ComPtr<ICoreWebView2Controller> ctrl_;
 	Microsoft::WRL::ComPtr<ICoreWebView2> core_;
+	JsQueue js_q_;
 };
 
 #endif /* WEBVIEW_H */

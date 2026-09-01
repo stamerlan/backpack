@@ -47,6 +47,9 @@ LRESULT CALLBACK App::wnd_proc(HWND hwnd, UINT m, WPARAM wp, LPARAM lp)
 	case WM_WEBVIEW_CLOSE:
 		DestroyWindow(hwnd);
 		return 0;
+	case WM_JS_RUN:
+		self->webview_.process_js_q();
+		return 0;
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		return 0;

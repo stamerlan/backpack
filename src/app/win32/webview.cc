@@ -1,4 +1,5 @@
 #include "webview.h"
+#include <utility>
 #include <wrl.h>
 #include "msg_ids.h"
 
@@ -51,6 +52,17 @@ void WebView::close(void)
 
 	PostMessageW(hwnd_, WM_WEBVIEW_CLOSE, reinterpret_cast<WPARAM>(this),
 		0);
+}
+
+void WebView::eval_js(std::wstring js, JsQueue::Callback cb)
+{
+	js_q_.push(js, std::move(cb));
+	PostMessageW(hwnd_, WM_JS_RUN, reinterpret_cast<WPARAM>(this), 0);
+}
+
+void WebView::process_js_q(void)
+{
+	js_q_.process(core_);
 }
 
 HRESULT WebView::on_env_created(HRESULT hr, ICoreWebView2Environment *env)
