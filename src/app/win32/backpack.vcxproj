@@ -66,6 +66,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="app.cc" />
+    <ClCompile Include="event_queue.cc" />
     <ClCompile Include="js_queue.cc" />
     <ClCompile Include="main.cc" />
     <ClCompile Include="pyext.cc" />
@@ -74,6 +75,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app.h" />
+    <ClInclude Include="event_queue.h" />
     <ClInclude Include="js_queue.h" />
     <ClInclude Include="msg_ids.h" />
     <ClInclude Include="pyconfig.h" />
