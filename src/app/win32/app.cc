@@ -5,6 +5,7 @@
 
 #include "call_q.h"
 #include "msg_ids.h"
+#include "utf8.h"
 
 LRESULT CALLBACK app_t::wnd_proc(HWND hwnd, UINT m, WPARAM wp, LPARAM lp)
 {
@@ -54,7 +55,10 @@ LRESULT CALLBACK app_t::wnd_proc(HWND hwnd, UINT m, WPARAM wp, LPARAM lp)
 
 app_t::app_t(HWND hwnd, ATOM atom, std::wstring url)
 	: window_(hwnd, atom),
-	webview_([](std::string json) -> HRESULT { (void)json; return S_OK; }),
+	webview_([this](std::string json) -> HRESULT {
+		event_q.push(std::move(json));
+		return S_OK;
+	}),
 	url(std::move(url))
 {
 	SetWindowLongPtrW(hwnd, GWLP_USERDATA,

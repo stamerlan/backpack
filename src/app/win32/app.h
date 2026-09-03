@@ -5,6 +5,7 @@
 
 #include <windows.h>
 
+#include "event_queue.h"
 #include "ui_queue.h"
 #include "webview.h"
 #include "window.h"
@@ -34,6 +35,7 @@ private:
 	window_t window_;
 	webview_t webview_;
 	ui_queue_t ui_q;
+	event_queue_t event_q;
 	std::wstring url;
 };
 
