@@ -170,6 +170,15 @@ export function Chat(props: {
   const sent_ref = useRef("");
   const idle = !props.busy && !sending;
 
+  /* The fire-and-forget send never answers, so sending is cleared once the
+   * backend reports the turn as busy, which is what it stands in for until
+   * then.
+   */
+  useEffect(() => {
+    if (props.busy)
+      set_sending(false);
+  }, [props.busy]);
+
   const model_label = props.models.find(
     (m) => m.id === props.selected_model
   )?.name ?? t("chat.model");
@@ -227,8 +236,7 @@ export function Chat(props: {
     sent_ref.current = text;
     set_sending(true);
     set_prompt("");
-    void api.ask_assist(props.chat_id, props.selected_model, text)
-      .finally(() => set_sending(false));
+    api.ask_assist(props.chat_id, props.selected_model, text);
   }
 
   /* Stop the running turn: cancel the backend run and, if the composer is
