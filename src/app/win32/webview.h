@@ -6,6 +6,7 @@
 #include <wrl/client.h>
 #include <WebView2.h>
 
+#include "event_queue.h"
 #include "js_queue.h"
 
 class WebView {
@@ -21,9 +22,12 @@ public:
 	 * controller and core webview are available (or construction fails) a
 	 * WM_WEBVIEW_RDY message is posted to parent, so the completion runs
 	 * from the host message loop instead of the WebView2 callback. On
-	 * success the controller is sized to the parent client rect.
+	 * success the controller is sized to the parent client rect and the
+	 * frontend web-message channel is wired to events (as
+	 * window.pywebview.api for compatibility with pywebview).
 	 */
-	void create(HWND parent, const std::wstring& user_data_dir);
+	void create(HWND parent, const std::wstring& user_data_dir,
+		EventQueue *events);
 
 	/* Navigate the core webview to url. No-op until the core webview is
 	 * ready, since construction is asynchronous.
@@ -54,9 +58,11 @@ public:
 private:
 	HRESULT on_env_created(HRESULT hr, ICoreWebView2Environment *env);
 	HRESULT on_ctrl_created(HRESULT hr, ICoreWebView2Controller *ctrl);
+	void on_web_message(ICoreWebView2WebMessageReceivedEventArgs *args);
 
 	HWND hwnd_ = nullptr;
 	bool closing_ = false;
+	EventQueue *event_q_ = nullptr;
 	Microsoft::WRL::ComPtr<ICoreWebView2Environment> env_;
 	Microsoft::WRL::ComPtr<ICoreWebView2Controller> ctrl_;
 	Microsoft::WRL::ComPtr<ICoreWebView2> core_;

@@ -65,5 +65,5 @@ App::App(std::wstring url) : url_(std::move(url))
 void App::create(const std::wstring& title, int width, int height)
 {
 	window_.create(title, width, height, &App::wnd_proc, this);
-	webview_.create(window_.hwnd(), L"");
+	webview_.create(window_.hwnd(), L"", &event_q_);
 }
