@@ -66,6 +66,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="app.cc" />
+    <ClCompile Include="call_q.cc" />
     <ClCompile Include="main.cc" />
     <ClCompile Include="pyext.cc" />
     <ClCompile Include="webview.cc" />
@@ -73,6 +74,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app.h" />
+    <ClInclude Include="call_q.h" />
     <ClInclude Include="msg_ids.h" />
     <ClInclude Include="pyconfig.h" />
     <ClInclude Include="pyext.h" />

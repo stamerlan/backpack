@@ -3,6 +3,7 @@
 #include <format>
 #include <utility>
 
+#include "call_q.h"
 #include "msg_ids.h"
 
 LRESULT CALLBACK app_t::wnd_proc(HWND hwnd, UINT m, WPARAM wp, LPARAM lp)
@@ -39,6 +40,9 @@ LRESULT CALLBACK app_t::wnd_proc(HWND hwnd, UINT m, WPARAM wp, LPARAM lp)
 		return 0;
 	case WM_WEBVIEW_CLOSE:
 		DestroyWindow(hwnd);
+		return 0;
+	case WM_CALL:
+		call_dispatch(wp);
 		return 0;
 	case WM_DESTROY:
 		PostQuitMessage(0);

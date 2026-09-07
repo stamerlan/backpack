@@ -4,6 +4,7 @@
 #include <objbase.h>
 
 #include "app.h"
+#include "call_q.h"
 #include "utf8.h"
 #include "winerr.h"
 
@@ -93,6 +94,7 @@ try {
 		TranslateMessage(&m);
 		DispatchMessageW(&m);
 	}
+	call_cancel();
 
 	CoUninitialize();
 	return static_cast<int>(m.wParam);
