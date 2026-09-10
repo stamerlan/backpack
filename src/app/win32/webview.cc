@@ -13,14 +13,26 @@ static constexpr wchar_t api[] =
 	L"    window.chrome.webview.postMessage({ name: name, args: args });\n"
 	L"};\n";
 
-webview_t::webview_t(std::function<void(std::string json)> web_msg_handler)
-	: web_msg_handler(web_msg_handler)
+webview_t::webview_t(
+	std::function<void(std::string json)> web_msg_handler,
+	std::function<void(void)> load_handler
+) : web_msg_handler(web_msg_handler), on_load(load_handler)
 {
 }
 
-void webview_t::create(HWND parent_hwnd, const std::wstring& user_data_dir)
+const wchar_t *webview_t::asset_host(void) noexcept
+{
+	return L"assets.backpack";
+}
+
+void webview_t::create(
+	HWND parent_hwnd,
+	const std::wstring& user_data_dir,
+	const std::wstring& assets
+)
 {
 	hwnd = parent_hwnd;
+	assets_dir = assets;
 
 	const wchar_t *data_dir = user_data_dir.empty()
 		? nullptr : user_data_dir.c_str();
@@ -129,12 +141,46 @@ HRESULT webview_t::on_ctrl_created(HRESULT hr, ICoreWebView2Controller *c)
 		return S_OK;
 	}
 
+	/* Serve the bundled assets over a virtual https host so index.html
+	 * and its module scripts load from a real origin; a file:// origin is
+	 * opaque and the browser blocks ES module and crossorigin loads.
+	 */
+	if (!assets_dir.empty()) {
+		Microsoft::WRL::ComPtr<ICoreWebView2_3> core3;
+		if (SUCCEEDED(core.As(&core3)))
+			core3->SetVirtualHostNameToFolderMapping(
+				asset_host(), assets_dir.c_str(),
+				COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
+	}
+
 	EventRegistrationToken token;
 	core->add_WebMessageReceived(
 		Microsoft::WRL::Callback<ICoreWebView2WebMessageReceivedEventHandler>(
 			this, &webview_t::on_web_msg_received
 		).Get(),
 		&token
+	);
+
+	/* Notify the host once a navigation finishes so it can run frontend
+	 * startup, mirroring the pywebview window "loaded" event. Extra loads
+	 * (a dev-server reload) fire again; the host decides what to do.
+	 */
+	EventRegistrationToken nav_token;
+	core->add_NavigationCompleted(
+		Microsoft::WRL::Callback<ICoreWebView2NavigationCompletedEventHandler>(
+			[this](
+				ICoreWebView2 *,
+				ICoreWebView2NavigationCompletedEventArgs *args
+			) -> HRESULT {
+				BOOL ok = FALSE;
+				if (args)
+					args->get_IsSuccess(&ok);
+				if (ok && on_load)
+					on_load();
+				return S_OK;
+			}
+		).Get(),
+		&nav_token
 	);
 
 	core->AddScriptToExecuteOnDocumentCreated(api,

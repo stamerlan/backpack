@@ -9,7 +9,10 @@
 
 class webview_t {
 public:
-	webview_t(std::function<void(std::string json)> web_msg_handler);
+	webview_t(
+		std::function<void(std::string json)> web_msg_handler,
+		std::function<void(void)> on_load
+	);
 	~webview_t(void) = default;
 
 	webview_t(const webview_t&) = delete;
@@ -21,8 +24,19 @@ public:
 	 * WM_WEBVIEW_RDY message is posted to parent, so the completion runs
 	 * from the host message loop instead of the WebView2 callback. On
 	 * success the controller is sized to the parent client rect.
+	 *
+	 * When assets is non-empty it is mapped to the virtual host in
+	 * asset_host() so the frontend loads over a real https origin instead
+	 * of file://, which the browser refuses ES module scripts from.
 	 */
-	void create(HWND parent, const std::wstring& user_data_dir);
+	void create(HWND parent, const std::wstring& user_data_dir,
+		const std::wstring& assets);
+
+	/* Virtual host the bundled assets are served under. index.html and its
+	 * module scripts load from https://<asset_host>/ so the same-origin and
+	 * module rules a local file:// origin fails are satisfied.
+	 */
+	static const wchar_t *asset_host(void) noexcept;
 
 	void navigate(const std::wstring& url) const noexcept;
 	void resize(const RECT& r) const noexcept;
@@ -54,7 +68,10 @@ private:
 
 	HWND hwnd = nullptr;
 	bool closing = false;
+	std::wstring assets_dir;
+
 	std::function<void(std::string json)> web_msg_handler;
+	std::function<void(void)> on_load;
 
 	Microsoft::WRL::ComPtr<ICoreWebView2Environment> env;
 	Microsoft::WRL::ComPtr<ICoreWebView2Controller> ctrl;

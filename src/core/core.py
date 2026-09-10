@@ -18,7 +18,6 @@ from core.i18n import i18n, system_locales
 from core.paths import applogs
 from core.storage import Storage
 from core.storage.settings import Settings
-from core.theme import Theme
 from core.ui import UI, DialogAction, NotifyAction, RecentItem
 
 if TYPE_CHECKING:
@@ -34,7 +33,6 @@ class Core:
         self.app = app
         # Bound to the running loop in run(); Core owns no loop before then.
         self.mainloop: asyncio.AbstractEventLoop
-        self.theme = Theme()
         # Origin token for edits made in response to a frontend call. The
         # frontend reflects these optimistically, so on_change skips pushing
         # them back to it.
@@ -238,7 +236,6 @@ class Core:
                     if svc.done() and svc.exception() is None:
                         svc.result().cancel()
                 self.storage.poi_cache.close()
-                self.theme.close()
                 self.running.clear()
 
         async def shutdown_task() -> bool:
@@ -322,8 +319,8 @@ class Core:
         if filepath is None:
             filepath = await asyncio.wrap_future(self.app.show_open_dialog(
                 filters=(
-                    i18n.gettext("Json files (*.json)"),
-                    i18n.gettext("All files (*.*)"),
+                    (i18n.gettext("Json files"), "*.json"),
+                    (i18n.gettext("All files"), "*.*"),
                 )
             ))
             if not filepath:
@@ -437,8 +434,8 @@ class Core:
                 filepath = await asyncio.wrap_future(self.app.show_save_dialog(
                     filename="trip.json",
                     filters=(
-                        i18n.gettext("Json files (*.json)"),
-                        i18n.gettext("All files (*.*)"),
+                        (i18n.gettext("Json files"), "*.json"),
+                        (i18n.gettext("All files"), "*.*"),
                     )
                 ))
                 if not filepath:
@@ -547,11 +544,11 @@ class Core:
         This is the single place the window theme is applied, so a preview can
         follow a selection and later restore the original mode. The web content
         is themed by the frontend, and the native window title bar is themed by
-        WindowTheme, since it is drawn by the OS outside the document and would
-        otherwise stay light.
+        the host window, since it is drawn by the OS outside the document and
+        would otherwise stay light.
         """
         self.ui.set_theme(mode)
-        self.theme.apply(mode)
+        self.app.window.set_theme(mode)
 
     async def set_locale(self, locale: str, units: str) -> None:
         """Apply locale and units to the live app without persisting them.
@@ -797,8 +794,8 @@ class Core:
         files = await asyncio.wrap_future(self.app.show_open_dialog(
             multiple=True,
             filters=(
-                i18n.gettext("GPX files (*.gpx)"),
-                i18n.gettext("All files (*.*)"),
+                (i18n.gettext("GPX files"), "*.gpx"),
+                (i18n.gettext("All files"), "*.*"),
             )
         ))
         if not files:
