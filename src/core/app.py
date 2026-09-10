@@ -17,6 +17,14 @@ class Window(Protocol):
     def hide(self) -> None: ...
     def set_title(self, title: str) -> None: ...
 
+    def set_theme(self, mode: str) -> None:
+        """Theme the native title bar.
+
+        The web content is themed by the frontend; this covers the OS window
+        chrome it cannot reach. mode is "light", "dark" or "system".
+        """
+        ...
+
 
 class App(Protocol):
     @dataclass
@@ -50,21 +58,29 @@ class App(Protocol):
         ...
 
     def show_open_dialog(
-        self, *, multiple: bool = False, filters: tuple[str, ...] = ()
+        self,
+        *,
+        multiple: bool = False,
+        filters: tuple[tuple[str, str], ...] = (),
     ) -> Future[Any]:
         """Show a native open dialog and return a future for the picks.
 
         The future resolves to the chosen path, a list of paths when multiple is
-        set, or None when the dialog is dismissed.
+        set, or None when the dialog is dismissed. Each filter is a
+        (name, spec) pair, e.g. ("Json files", "*.json").
         """
         ...
 
     def show_save_dialog(
-        self, *, filename: str = "", filters: tuple[str, ...] = ()
+        self,
+        *,
+        filename: str = "",
+        filters: tuple[tuple[str, str], ...] = (),
     ) -> Future[Any]:
         """Show a native save dialog and return a future for the path.
 
         The future resolves to the chosen path, or None when the dialog is
-        dismissed.
+        dismissed. Each filter is a (name, spec) pair, e.g.
+        ("Json files", "*.json").
         """
         ...
