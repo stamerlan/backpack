@@ -61,9 +61,11 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="defer_call.cc" />
     <ClCompile Include="main.cc" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="defer_call.h" />
     <ClInclude Include="py\config.h" />
     <ClInclude Include="utf8.h" />
     <ClInclude Include="winerr.h" />
