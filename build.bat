@@ -51,9 +51,10 @@ call :run "%PYTHON%" "%ROOT%\scripts\pyconfig.py" "%OUTDIR%\pyconfig.props" ^
 
 rem Native Windows host
 call :run msbuild "%ROOT%\src\native\win32\backpack.slnx" ^
-  -maxCpuCount ^
+  -maxCpuCount -restore ^
   -property:Configuration=%CONFIG% ^
-  -property:Platform=%ARCH%|| exit /b 1
+  -property:Platform=%ARCH%^
+  -property:RestorePackagesConfig=true || exit /b 1
 
 rem Frontend assets into bin\assets
 if not exist "%ROOT%\bin" mkdir "%ROOT%\bin"
