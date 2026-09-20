@@ -187,7 +187,7 @@ the build's own Python, the base install behind the build venv
 interpreter, the bundled DLLs, extension modules, and standard library match
 its ABI. ``scripts/winbundle.py`` assembles the bundle in place under
 ``bin/windows-x64/`` next to ``backpack.exe``: the interpreter DLLs sit beside
-the exe, while the standard library, extension modules, the ``core`` package,
+the exe, while the standard library, extension modules, the ``backpack`` package,
 and its runtime dependencies (``pip install --target lib .``) all land under
 ``lib/``, with the frontend ``assets`` and compiled ``locales`` alongside.
 ``build.bat`` runs this on every build, so ``backpack.exe`` runs straight from

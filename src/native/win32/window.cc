@@ -1,4 +1,5 @@
 #include "window.h"
+
 #include <dwmapi.h>
 
 #pragma comment(lib, "dwmapi.lib")
@@ -61,7 +62,19 @@ void window_t::hide(void) const noexcept
 	ShowWindow(handle, SW_HIDE);
 }
 
-void window_t::set_theme(const std::wstring& mode) const noexcept
+void window_t::set_theme(const std::wstring& mode) noexcept
+{
+	theme = mode;
+	apply_theme(mode);
+}
+
+void window_t::reapply_theme(void) const noexcept
+{
+	if (!theme.empty())
+		apply_theme(theme);
+}
+
+void window_t::apply_theme(const std::wstring& mode) const noexcept
 {
 	if (!handle)
 		return;

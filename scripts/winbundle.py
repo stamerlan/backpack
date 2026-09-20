@@ -18,7 +18,7 @@ bin\\, forcing a full rebuild.
                  Keyed on the interpreter, assembled once and then skipped.
   Deps layer     third-party packages. Keyed on pyproject, so the dependency
                  resolve and the babel prune run only when dependencies change.
-  App layer      the core package. Reinstalled every build with --no-deps.
+  App layer      the backpack package. Reinstalled every build with --no-deps.
 """
 import argparse
 import hashlib
@@ -144,11 +144,11 @@ def main() -> None:
         runtime_stamp.write_text(runtime_key, encoding="utf-8")
 
     # Deps layer, keyed on pyproject. On a change resolve and install the full
-    # tree (core plus its dependencies) and prune Babel; otherwise reinstall
-    # only core with --no-deps. --force-reinstall refreshes core even when the
-    # VCS-derived version string has not moved between edits, and --upgrade lets
-    # pip overwrite the existing core/ and dist-info under --target instead of
-    # warning and leaving the previous build in place.
+    # tree (backpack plus its dependencies) and prune Babel; otherwise reinstall
+    # only backpack with --no-deps. --force-reinstall refreshes backpack even
+    # when the VCS-derived version string has not moved between edits, and
+    # --upgrade lets pip overwrite the existing backpack/ and dist-info under
+    # --target instead of warning and leaving the previous build in place.
     deps_stamp = bin / ".stamp-deps"
     deps_key = hashlib.sha256(
         (args.project / "pyproject.toml").read_bytes()).hexdigest()
@@ -163,7 +163,7 @@ def main() -> None:
     # pip leaves console-script launchers under bin/ that nothing invokes
     shutil.rmtree(lib / "bin", ignore_errors=True)
 
-    # Bundled resources next to the exe; paths.py probes the core package
+    # Bundled resources next to the exe; paths.py probes the backpack package
     # parents and finds them there. Only the compiled *.mo catalogs are used
     # at runtime, the *.po/*.pot sources stay behind as build inputs
     shutil.copytree(assets, bin / "assets", dirs_exist_ok=True)

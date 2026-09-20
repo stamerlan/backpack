@@ -100,6 +100,23 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT m, WPARAM wp, LPARAM lp)
 	case WM_APP:
 		defer_call_run(wp);
 		return 0;
+	case WM_SETTINGCHANGE:
+		/* The OS posts this (lParam "ImmersiveColorSet") when the apps
+		 * theme changes. The window owns the chosen mode and re-applies
+		 * it so a "system" title bar follows the OS.
+		 */
+		if (lp && CompareStringOrdinal(
+			reinterpret_cast<PCWSTR>(lp), -1,
+			L"ImmersiveColorSet", -1, TRUE) == CSTR_EQUAL)
+			self->window.reapply_theme();
+		return 0;
+	case WM_DESTROY:
+		/* The GUI is gone: fail the pending script calls and the event
+		 * wait so Core unwinds. The message loop runs until it does.
+		 */
+		self->script_q.abort();
+		self->event_q.abort();
+		return 0;
 	default:
 		return DefWindowProcW(hwnd, m, wp, lp);
 	}
