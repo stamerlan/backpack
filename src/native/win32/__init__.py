@@ -24,6 +24,21 @@ from native.js import JsCall
 logger = logging.getLogger(__name__)
 
 
+DialogCallback = Callable[[int, bool, list[str]], None]
+
+
+class Window(app_host.Window, Protocol):
+    def show_open_dialog(
+        self, multiple: bool, filters: list[tuple[str, str]],
+        cb: DialogCallback,
+    ) -> None: ...
+
+    def show_save_dialog(
+        self, filename: str, filters: list[tuple[str, str]],
+        cb: DialogCallback,
+    ) -> None: ...
+
+
 class WebView(Protocol):
     def close(self) -> None: ...
 
@@ -44,21 +59,23 @@ class WinAppHost:
     The native launcher injects one object per native class - the window, the
     webview, the inbound event queue and the outbound script queue - each
     exposing its own methods. This host encodes outbound calls for the script
-    queue, drives the window, and settles every call as a concurrent future
-    Core bridges onto its loop. It keeps no event loop of its own.
+    queue, drives the window and its dialogs, and settles every call as a
+    concurrent future Core bridges onto its loop. It keeps no event loop of its
+    own.
     """
 
     def __init__(
         self,
-        window: app_host.Window,
+        window: Window,
         webview: WebView,
         event_q: EventQueue,
         script_q: ScriptQueue,
     ) -> None:
+        self._window = window
         self._webview = webview
         self._events = event_q
         self._scripts = script_q
-        self.window = window
+        self.window: app_host.Window = window
 
     def quit(self) -> None:
         """Exit the application"""
@@ -122,3 +139,66 @@ class WinAppHost:
         if not self._scripts.exec_script(call.expr, on_done):
             call.fut.cancel()  # queue aborted; stop the caller waiting
         return call.fut
+
+    def show_open_dialog(
+        self,
+        *,
+        multiple: bool = False,
+        filters: tuple[tuple[str, str], ...] = (),
+    ) -> Future[Any]:
+        """Show a native open dialog and return a future for the picks.
+
+        Resolves to the chosen path, a list of paths when multiple is set, or
+        None when the dialog is dismissed. Each filter is a (name, spec) pair,
+        e.g. ("Json files", "*.json").
+        """
+        fut = Future[Any]()
+
+        def on_done(
+            status: int, cancelled: bool, paths: list[str]
+        ) -> None:
+            if fut.done():
+                return
+            if status == 1:
+                fut.cancel()
+            elif status == 2:
+                fut.set_exception(OSError("file dialog failed"))
+            elif cancelled or not paths:
+                fut.set_result(None)
+            elif multiple:
+                fut.set_result(list(paths))
+            else:
+                fut.set_result(paths[0])
+
+        self._window.show_open_dialog(multiple, list(filters), on_done)
+        return fut
+
+    def show_save_dialog(
+        self,
+        *,
+        filename: str = "",
+        filters: tuple[tuple[str, str], ...] = (),
+    ) -> Future[Any]:
+        """Show a native save dialog and return a future for the path.
+
+        Resolves to the chosen path, or None when the dialog is dismissed. Each
+        filter is a (name, spec) pair, e.g. ("Json files", "*.json").
+        """
+        fut = Future[Any]()
+
+        def on_done(
+            status: int, cancelled: bool, paths: list[str]
+        ) -> None:
+            if fut.done():
+                return
+            if status == 1:
+                fut.cancel()
+            elif status == 2:
+                fut.set_exception(OSError("file dialog failed"))
+            elif cancelled or not paths:
+                fut.set_result(None)
+            else:
+                fut.set_result(paths[0])
+
+        self._window.show_save_dialog(filename, list(filters), on_done)
+        return fut
