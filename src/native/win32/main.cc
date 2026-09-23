@@ -43,7 +43,7 @@ try {
 	config.set_parse_argv(0);
 	config.set_program_name(app_dir.c_str());
 	config.set_home(app_dir.c_str());
-	config.set_run_module(L"backpack");
+	config.set_run_module(L"native");
 	config.add_module_search_path(app_dir.c_str());
 	config.add_module_search_path((app_dir + L"\\lib").c_str());
 
