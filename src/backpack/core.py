@@ -6,21 +6,18 @@ import pathlib
 import subprocess
 import sys
 import threading
-import webview
-from collections.abc import Coroutine
+from collections.abc import Callable, Coroutine
 from concurrent.futures import CancelledError, Future
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from backpack import APP_VERSION, model
-from backpack.api import Api
+from backpack.app_host import AppHost
 from backpack.i18n import i18n, system_locales
-from backpack.js_worker import JsWorker
 from backpack.paths import applogs
 from backpack.storage import Storage
 from backpack.storage.settings import Settings
-from backpack.theme import Theme
 from backpack.ui import UI, DialogAction, NotifyAction, RecentItem
 
 if TYPE_CHECKING:
@@ -33,14 +30,18 @@ logger = logging.getLogger(__name__)
 
 class Backpack:
     def __init__(
-        self, mainloop: asyncio.AbstractEventLoop, storage: Storage
+        self,
+        app: AppHost,
+        mainloop: asyncio.AbstractEventLoop,
+        storage: Storage
     ) -> None:
+        self.app = app
         self.mainloop = mainloop
-        self.window: webview.Window | None = None
-        self.theme = Theme()
-        self.api = Api(self)
-        self.js = JsWorker()
-        self.ui = UI(self.js.exec_script)
+        # Origin token for edits made in response to a frontend call. The
+        # frontend reflects these optimistically, so on_change skips pushing
+        # them back to it.
+        self.frontend = object()
+        self.ui = UI(app.exec_script)
         self.storage = storage
         self.poi: dict[str, tuple[model.Poi, ...]] = {}
 
@@ -62,18 +63,39 @@ class Backpack:
         self._settings_task: asyncio.Task[None] | None = None
         self._tasks: set[asyncio.Task[None]] = set()
 
+        async def sched_ask_assist(
+            chat_id: str, model_id: str, prompt: str
+        ) -> None:
+            # Run the turn detached so later frontend calls can be processed
+            self.add_task(self.ask_assist(chat_id, model_id, prompt))
+
+        # The calls the frontend may make, dispatched by name. Anything not
+        # listed here is refused, so no other member is reachable from JS.
+        self._handlers: dict[str, Callable[..., Coroutine[Any, Any, Any]]] = {
+            "new_doc": self.new_doc,
+            "open_doc": self.open_doc,
+            "save_doc": self.save_doc,
+            "open_settings": self.open_settings,
+            "open_logs": self.open_logs,
+            "remove_recent": self.remove_recent,
+            "set_theme": self.set_theme,
+            "set_locale": self.set_locale,
+            "set_trip_info": self.set_trip_info,
+            "add_route": self.add_route,
+            "set_route_info": self.set_route_info,
+            "remove_route": self.remove_route,
+            "move_route": self.move_route,
+            "add_chat": self.add_chat,
+            "del_chat": self.del_chat,
+            "ask_assist": sched_ask_assist,
+            "stop_assist": self.stop_assist,
+        }
+        self.running.set()
+
         self._bg_load_thread = threading.Thread(
             target=self._bg_load, name="app.bg_load", daemon=True
         )
         self._bg_load_thread.start()
-
-    def start(self, window: webview.Window) -> None:
-        """Bind the window and start application tasks."""
-        self.window = window
-        self.theme = Theme(window)
-        self.js.start(window)
-        self.running.set()
-        logger.debug("app started")
 
     def _bg_load(self) -> None:
         """Import and build the heavy services off the startup path.
@@ -113,11 +135,19 @@ class Backpack:
                 logger.exception("ai load failed")
         logger.debug("background load done")
 
+    async def dispatch(self, name: str, args: tuple[Any, ...]) -> None:
+        """Run the frontend call name with args, if it is allowed."""
+        handler = self._handlers.get(name)
+        if handler is None:
+            logger.error(f"no handler for {name!r}")
+            return
+        await handler(*args)
+
     def add_task(self, coro: Coroutine[Any, Any, None]) -> None:
         """Schedule coro as a detached, tracked mainloop task.
 
-        Keeps a strong reference so the task is not garbage-collected mid
-        run, and drops it once it settles. Call from the mainloop.
+        Keeps a strong reference so the task is not garbage-collected mid run,
+        and drops it once it settles. Call from the mainloop.
         """
         task = asyncio.ensure_future(coro)
         self._tasks.add(task)
@@ -127,10 +157,9 @@ class Backpack:
         """Start shutting the app down. Safe to call from any thread.
 
         The normal path schedules an async shutdown on the mainloop: it prompts
-        to save pending edits, then releases resources off the mainloop so the
-        join on the js worker never blocks the event loop. Concurrent calls
-        share the first call's future, so the save prompt is shown once and
-        every waiter wakes when it settles.
+        to save pending edits, then releases resources off the mainloop.
+        Concurrent calls share the first call's future, so the save prompt is
+        shown once and every waiter wakes when it settles.
 
         With force set, the app is torn down at once on the calling thread,
         skipping the save prompt. This is the fallback for a forced or abnormal
@@ -148,8 +177,6 @@ class Backpack:
                 if not self.running.is_set():
                     return
                 logger.debug("app shutting down")
-                self.api.shutdown()
-                self.js.shutdown()
 
                 # cancel running agents and pending detail loads
                 for task in list(self._tasks):
@@ -164,7 +191,6 @@ class Backpack:
                     if svc.done() and svc.exception() is None:
                         svc.result().cancel()
                 self.storage.poi_cache.close()
-                self.theme.close()
                 self.running.clear()
 
         async def shutdown_task() -> bool:
@@ -172,8 +198,8 @@ class Backpack:
                 return True
             if not await self._show_save_dialog():
                 return False
-            # teardown takes a _shutdown_lock and joins worker threads. Run it
-            # off the mainloop so the event loop stays responsive.
+            # teardown takes a _shutdown_lock. Run it off the mainloop so the
+            # event loop stays responsive.
             await asyncio.to_thread(teardown)
             return True
 
@@ -211,32 +237,33 @@ class Backpack:
         task.add_done_callback(on_settled)
         return task
 
-    async def on_loaded(self) -> None:
-        # load locale and push it to the frontend, seeding its units state
+    async def start(self) -> None:
+        """Push the saved preferences to the frontend and open a document.
+
+        Run once the frontend has loaded, so it is ready for the calls.
+        """
+        async def _evict_poi_cache() -> None:
+            """Run POI cache eviction on a worker thread."""
+            try:
+                deleted = await asyncio.to_thread(self.storage.poi_cache.evict)
+                if deleted:
+                    logger.debug(f"poi cache: evicted {deleted} tiles")
+            except Exception:
+                logger.exception("poi cache eviction failed")
+
         await self.set_locale(
             self.storage.settings.locale, self.storage.settings.units
         )
-
-        asyncio.ensure_future(self._evict_poi_cache())
-
         await self.set_theme(self.storage.settings.theme)
-
         self._update_recent_items_view()
+
+        self.add_task(_evict_poi_cache())
 
         # load last opened document
         last = self.storage.settings.last_filepath
         if last and pathlib.Path(last).exists() and await self.open_doc(last):
             return
         await self.new_doc()
-
-    async def _evict_poi_cache(self) -> None:
-        """Run POI cache eviction on a worker thread."""
-        try:
-            deleted = await asyncio.to_thread(self.storage.poi_cache.evict)
-            if deleted:
-                logger.debug(f"poi cache startup eviction: {deleted} tiles")
-        except Exception:
-            logger.exception("poi cache eviction failed")
 
     async def new_doc(self) -> None:
         if not await self._show_save_dialog():
@@ -253,30 +280,25 @@ class Backpack:
         self.filepath = None
         self._reset_ui(doc)
         chat = model.ChatData()
-        with doc.edit(self.api) as ed:
+        with doc.edit(self.frontend) as ed:
             ed.apply(model.AddChat(chat))
         self.ui.assist.set_active_chat(chat.id)
         doc.mark_saved()
         self._push_doc_state()
 
     async def open_doc(self, filepath: str | None = None) -> bool:
-        if self.window is None:
-            return False
         if not await self._show_save_dialog():
             return False
 
         if filepath is None:
-            files = await asyncio.to_thread(
-                self.window.create_file_dialog,
-                webview.FileDialog.OPEN,
-                file_types=(
-                    i18n.gettext("Json files (*.json)"),
-                    i18n.gettext("All files (*.*)"),
+            filepath = await asyncio.wrap_future(self.app.show_open_dialog(
+                filters=(
+                    (i18n.gettext("Json files"), "*.json"),
+                    (i18n.gettext("All files"), "*.*"),
                 )
-            )
-            if not files:
+            ))
+            if not filepath:
                 return False
-            filepath = files if isinstance(files, str) else files[0]
 
         try:
             text = await asyncio.to_thread(
@@ -304,7 +326,7 @@ class Backpack:
         self._reset_ui(doc)
         if not doc.chats():
             chat = model.ChatData()
-            with doc.edit(self.api) as ed:
+            with doc.edit(self.frontend) as ed:
                 ed.apply(model.AddChat(chat))
             self.ui.assist.set_active_chat(chat.id)
         for r in doc.routes():
@@ -381,23 +403,17 @@ class Backpack:
         self, filepath: str | None = None, show_dialog: bool = False
     ) -> bool:
         """Save the document. Return True if saved, False if canceled."""
-        if self.window is None:
-            return False
-
         if filepath is None:
             if show_dialog or self.filepath is None:
-                files = await asyncio.to_thread(
-                    self.window.create_file_dialog,
-                    webview.FileDialog.SAVE,
-                    save_filename="trip.json",
-                    file_types=(
-                        i18n.gettext("Json files (*.json)"),
-                        i18n.gettext("All files (*.*)"),
+                filepath = await asyncio.wrap_future(self.app.show_save_dialog(
+                    filename="trip.json",
+                    filters=(
+                        (i18n.gettext("Json files"), "*.json"),
+                        (i18n.gettext("All files"), "*.*"),
                     )
-                )
-                if not files:
+                ))
+                if not filepath:
                     return False
-                filepath = files if isinstance(files, str) else files[0]
             else:
                 filepath = self.filepath
 
@@ -470,11 +486,10 @@ class Backpack:
         name = pathlib.Path(self.filepath).name if self.filepath else None
         dirty = self.doc.has_edits
         self.ui.set_doc_state(name, dirty)
-        if self.window is not None:
-            trip = self.doc.title.strip()
-            label = trip or name or i18n.gettext("Untitled trip")
-            prefix = "* " if dirty else ""
-            self.window.title = f"{prefix}{label} - Backpack"
+        trip = self.doc.title.strip()
+        label = trip or name or i18n.gettext("Untitled trip")
+        prefix = "* " if dirty else ""
+        self.app.window.set_title(f"{prefix}{label} - Backpack")
 
     def _update_recent_items_view(self) -> None:
         self.ui.set_recent(
@@ -498,11 +513,11 @@ class Backpack:
         This is the single place the window theme is applied, so a preview can
         follow a selection and later restore the original mode. The web content
         is themed by the frontend, and the native window title bar is themed by
-        WindowTheme, since it is drawn by the OS outside the document and would
-        otherwise stay light.
+        the host window, since it is drawn by the OS outside the document and
+        would otherwise stay light.
         """
         self.ui.set_theme(mode)
-        self.theme.apply(mode)
+        self.app.window.set_theme(mode)
 
     async def set_locale(self, locale: str, units: str) -> None:
         """Apply locale and units to the live app without persisting them.
@@ -622,13 +637,13 @@ class Backpack:
 
     async def add_chat(self) -> None:
         chat = model.ChatData()
-        with self.doc.edit(self.api) as ed:
+        with self.doc.edit(self.frontend) as ed:
             ed.apply(model.AddChat(chat))
         self.ui.assist.set_active_chat(chat.id)
 
     async def del_chat(self, chat_id: str) -> None:
         active: str | None = None
-        with self.doc.edit(self.api) as ed:
+        with self.doc.edit(self.frontend) as ed:
             ed.apply(model.RemoveChat(chat_id))
             if not self.doc.chats():
                 chat = model.ChatData()
@@ -668,7 +683,7 @@ class Backpack:
                     cur_model_id = await asyncio.wrap_future(
                         self.ui.assist.get_model(chat_id)
                     )
-                    with self.doc.edit(self.api) as ed:
+                    with self.doc.edit(self.frontend) as ed:
                         ed.apply(model.RemoveChatTurn(chat_id, turn_id))
                     self.add_task(self.ask_assist(
                         chat_id, cur_model_id or model_id, prompt
@@ -739,24 +754,19 @@ class Backpack:
             self._ai.result().stop(chat_id)
 
     async def set_trip_info(self, card_id: str, title: str, notes: str) -> None:
-        with self.doc.edit(self.api) as ed:
+        with self.doc.edit(self.frontend) as ed:
             ed.apply(model.SetDocInfo(title=title, notes=notes))
 
     async def add_route(self) -> None:
         from backpack import route
 
-        window = self.window
-        if window is None:
-            return
-        files = await asyncio.to_thread(
-            window.create_file_dialog,
-            webview.FileDialog.OPEN,
-            allow_multiple=True,
-            file_types=(
-                i18n.gettext("GPX files (*.gpx)"),
-                i18n.gettext("All files (*.*)"),
+        files = await asyncio.wrap_future(self.app.show_open_dialog(
+            multiple=True,
+            filters=(
+                (i18n.gettext("GPX files"), "*.gpx"),
+                (i18n.gettext("All files"), "*.*"),
             )
-        )
+        ))
         if not files:
             return
 
@@ -793,17 +803,17 @@ class Backpack:
     async def set_route_info(
         self, card_id: str, title: str, notes: str
     ) -> None:
-        with self.doc.edit(self.api) as ed:
+        with self.doc.edit(self.frontend) as ed:
             ed.apply(model.SetRouteInfo(card_id, title=title, notes=notes))
 
     async def remove_route(self, card_id: str) -> None:
-        with self.doc.edit(self.api) as ed:
+        with self.doc.edit(self.frontend) as ed:
             ed.apply(model.RemoveRoute(card_id))
 
     async def move_route(
         self, card_id: str, after_id: str | None = None
     ) -> None:
-        with self.doc.edit(self.api) as ed:
+        with self.doc.edit(self.frontend) as ed:
             ed.apply(model.MoveRoute(card_id, after_id))
 
     async def load_route_details(
@@ -877,10 +887,10 @@ class Backpack:
                 route.RouteStats.from_track(track) if track else None,
             )
         elif isinstance(change, model.SetDocInfo):
-            if origin is not self.api:
+            if origin is not self.frontend:
                 self.ui.set_trip_card(self.doc.title, self.doc.notes)
         elif isinstance(change, model.SetRouteInfo):
-            if origin is not self.api:
+            if origin is not self.frontend:
                 r = self.doc.route(change.route_id)
                 if r is not None:
                     self.ui.set_route_card(r.id, r.title, r.notes)
@@ -889,10 +899,10 @@ class Backpack:
                 rid: p for rid, p in self.poi.items()
                 if rid != change.route_id
             }
-            if origin is not self.api:
+            if origin is not self.frontend:
                 self.ui.remove_card(change.route_id)
         elif isinstance(change, model.MoveRoute):
-            if origin is not self.api:
+            if origin is not self.frontend:
                 self.ui.move_card(change.route_id, change.after_id)
         elif isinstance(change, model.AddChat):
             self.ui.assist.new_chat(change.chat.id, change.chat.title)
