@@ -122,21 +122,17 @@ def main() -> None:
     except (OSError, ValueError) as e:
         logger.warning(f"Could not read settings: {e}")
 
-    mainloop = asyncio.new_event_loop()
+    host = PyWebViewAppHost(url, debug=args.debug, icon=app_icon_path())
+    app = Backpack(host, storage)
+
     mainloop_th = threading.Thread(
-        target=_run_mainloop, name="app.mainloop", args=(mainloop,)
+        target=asyncio.run, name="app.mainloop", args=(_serve(host, app),)
     )
     mainloop_th.start()
-
-    host = PyWebViewAppHost(url, debug=args.debug, icon=app_icon_path())
-    app = Backpack(host, mainloop, storage)
-    asyncio.run_coroutine_threadsafe(_serve(host, app), mainloop)
 
     try:
         host.start()
     finally:
-        app.shutdown(force=True)
-        mainloop.call_soon_threadsafe(mainloop.stop)
         mainloop_th.join()
 
         try:
@@ -157,51 +153,37 @@ def main() -> None:
 async def _serve(host: AppHost, app: Backpack) -> None:
     """Service the host events until the app close"""
     loaded = False
-    while True:
-        try:
-            event = await asyncio.wrap_future(host.get_event())
-        except asyncio.CancelledError:
-            return
-        try:
-            if event.name == "load":
-                if loaded:
-                    continue
-                loaded = True
-                await app.start()
-            elif event.name == "close":
-                try:
-                    stopped = await asyncio.wrap_future(app.shutdown())
-                except Exception:
-                    logger.exception("shutdown failed")
-                    stopped = True  # close anyway on an unexpected error
-                if stopped:
-                    host.quit()
-                    return
-            else:
-                # ui called a backed routine
-                await app.dispatch(event.name, event.args)
-        except Exception:
-            logger.exception(f"{event.name!r} failed")
-
-
-def _run_mainloop(loop: asyncio.AbstractEventLoop) -> None:
-    asyncio.set_event_loop(loop)
     try:
-        loop.run_forever()
+        while True:
+            try:
+                event = await asyncio.wrap_future(host.get_event())
+            except asyncio.CancelledError:
+                return
+            try:
+                if event.name == "load":
+                    if loaded:
+                        continue
+                    loaded = True
+                    await app.start()
+                elif event.name == "close":
+                    try:
+                        closed = await app.close()
+                    except Exception:
+                        logger.exception("close failed")
+                        closed = True  # close anyway on an unexpected error
+                    if closed:
+                        host.quit()
+                        return
+                else:
+                    # ui called a backed routine
+                    await app.dispatch(event.name, event.args)
+            except asyncio.CancelledError:
+                return
+            except Exception:
+                logger.exception(f"{event.name!r} failed")
     finally:
-        try:
-            tasks = asyncio.all_tasks(loop)
-            for task in tasks:
-                task.cancel()
-            if tasks:
-                loop.run_until_complete(
-                    asyncio.gather(*tasks, return_exceptions=True)
-                )
-            loop.run_until_complete(loop.shutdown_asyncgens())
-        finally:
-            asyncio.set_event_loop(None)
-            loop.close()
-            logger.debug("app.mainloop stopped")
+        # a no-op after a close, the fallback when the GUI ended on its own
+        app.teardown()
 
 
 if __name__ == "__main__":
