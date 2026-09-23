@@ -4,21 +4,15 @@ import logging.handlers
 import os
 import platform
 import sys
-import threading
 from argparse import ArgumentParser
 from dataclasses import replace
 from datetime import datetime
 
-from native.app_host import PyWebViewAppHost
-
 from backpack.app_host import AppHost
 from backpack.app_info import APP_NAME, APP_VERSION
 from backpack.core import Backpack
-from backpack.paths import app_icon_path, app_settings_path, applogs, assets_dir
+from backpack.paths import app_settings_path, applogs
 from backpack.storage import Storage
-
-
-DEV_SERVER_URL = "http://localhost:5173"
 
 logger = logging.getLogger(APP_NAME)
 
@@ -33,17 +27,10 @@ class LogFormatter(logging.Formatter):
         return dt.strftime("%H:%M:%S.%f")
 
 
-def main() -> None:
-    parser = ArgumentParser(prog=APP_NAME)
-    parser.add_argument(
-        "--dev", metavar="URL", nargs="?", const=DEV_SERVER_URL,
-        help="load the UI from a Vite dev server instead of assets",
-    )
-    parser.add_argument(
-        "-d", "--debug", action="store_true",
-        help="log at debug level and open the web view with dev tools",
-    )
-    args = parser.parse_args()
+def main(app: AppHost) -> None:
+    parser = ArgumentParser(add_help=False)
+    parser.add_argument("-d", "--debug", action="store_true")
+    args, _ = parser.parse_known_args()
 
     log_formatter = LogFormatter(
         "%(asctime)s %(name)s.%(funcName)s(): %(message)s"
@@ -81,26 +68,6 @@ def main() -> None:
         f"frozen:{getattr(sys, 'frozen', False)})"
     )
 
-    url = args.dev or str(assets_dir() / "index.html")
-    logger.debug(f"url:{url}")
-
-    if sys.platform == "win32":
-        # Group the window under our own taskbar identity instead of
-        # inheriting python.exe when running from source.
-        import ctypes
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_NAME)
-    elif sys.platform == "darwin":
-        # Override the identity inherited from the embedded Python.app so the
-        # menu bar and cmd+tab switcher show Backpack, not Python, when running
-        # from source.
-        try:
-            from Foundation import NSBundle
-            bundle = NSBundle.mainBundle()
-            info = bundle.localizedInfoDictionary() or bundle.infoDictionary()
-            info["CFBundleName"] = "Backpack"
-        except Exception:
-            logger.exception("could not set macOS app name")
-
     # The stdlib ssl module (http.client, urllib) has no usable trust store on
     # macOS, so it fails with CERTIFICATE_VERIFY_FAILED. certifi ships a bundle
     # and OpenSSL honors SSL_CERT_FILE when building the default context. This
@@ -122,23 +89,14 @@ def main() -> None:
     except (OSError, ValueError) as e:
         logger.warning(f"Could not read settings: {e}")
 
-    host = PyWebViewAppHost(url, debug=args.debug, icon=app_icon_path())
-    app = Backpack(host, storage)
-
-    mainloop_th = threading.Thread(
-        target=asyncio.run, name="app.mainloop", args=(_serve(host, app),)
-    )
-    mainloop_th.start()
-
+    backpack = Backpack(app, storage)
     try:
-        host.start()
+        asyncio.run(_serve(app, backpack))
     finally:
-        mainloop_th.join()
-
         try:
             # Save last opened filepath to continue on next start
             storage.settings = replace(
-                storage.settings, last_filepath=app.filepath
+                storage.settings, last_filepath=backpack.filepath
             )
 
             settings_path = app_settings_path()
@@ -184,7 +142,3 @@ async def _serve(host: AppHost, app: Backpack) -> None:
     finally:
         # a no-op after a close, the fallback when the GUI ended on its own
         app.teardown()
-
-
-if __name__ == "__main__":
-    main()
