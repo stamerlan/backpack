@@ -38,7 +38,8 @@ fallback-version = "0"
 version-file = "src/backpack/_version.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/backpack"]
+packages = ["src/backpack", "src/native"]
+exclude = ["/src/native/win32"]
 
 [tool.mypy]
 strict = true
