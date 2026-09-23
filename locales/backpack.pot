@@ -18,11 +18,11 @@ msgstr ""
 "Generated-By: Babel 2.18.0\n"
 
 #: src/backpack/app.py:244 src/backpack/app.py:359
-msgid "Json files (*.json)"
+msgid "Json files"
 msgstr ""
 
 #: src/backpack/app.py:245 src/backpack/app.py:360 src/backpack/app.py:715
-msgid "All files (*.*)"
+msgid "All files"
 msgstr ""
 
 #: src/backpack/app.py:263
@@ -81,7 +81,7 @@ msgid "Could not open logs"
 msgstr ""
 
 #: src/backpack/app.py:714
-msgid "GPX files (*.gpx)"
+msgid "GPX files"
 msgstr ""
 
 #: src/backpack/app.py:721
