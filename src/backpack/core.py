@@ -29,14 +29,8 @@ logger = logging.getLogger(__name__)
 
 
 class Backpack:
-    def __init__(
-        self,
-        app: AppHost,
-        mainloop: asyncio.AbstractEventLoop,
-        storage: Storage
-    ) -> None:
+    def __init__(self, app: AppHost, storage: Storage) -> None:
         self.app = app
-        self.mainloop = mainloop
         # Origin token for edits made in response to a frontend call. The
         # frontend reflects these optimistically, so on_change skips pushing
         # them back to it.
@@ -57,9 +51,7 @@ class Backpack:
 
         self.doc = model.Document()
         self.filepath: str | None = None
-        self.running = threading.Event()
-        self._shutdown_lock = threading.Lock()
-        self._shutdown_fut: Future[bool] | None = None
+        self._closed = False
         self._settings_task: asyncio.Task[None] | None = None
         self._tasks: set[asyncio.Task[None]] = set()
 
@@ -90,7 +82,6 @@ class Backpack:
             "ask_assist": sched_ask_assist,
             "stop_assist": self.stop_assist,
         }
-        self.running.set()
 
         self._bg_load_thread = threading.Thread(
             target=self._bg_load, name="app.bg_load", daemon=True
@@ -153,89 +144,41 @@ class Backpack:
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
 
-    def shutdown(self, force: bool = False) -> "Future[bool]":
-        """Start shutting the app down. Safe to call from any thread.
+    async def close(self) -> bool:
+        """Close the app, asking to save pending edits first.
 
-        The normal path schedules an async shutdown on the mainloop: it prompts
-        to save pending edits, then releases resources off the mainloop.
-        Concurrent calls share the first call's future, so the save prompt is
-        shown once and every waiter wakes when it settles.
-
-        With force set, the app is torn down at once on the calling thread,
-        skipping the save prompt. This is the fallback for a forced or abnormal
-        exit, where no prompt can be shown.
-
-        Returns a future that resolves to True once the app has stopped, or
-        False if the user canceled at the save prompt, in which case the app
-        keeps running and a later call can retry. A forced shutdown always
-        resolves to True.
+        Returns False if the user canceled at the save prompt, in which case
+        the app keeps running.
         """
+        if not await self._show_save_dialog():
+            return False
+        self.teardown()
+        return True
 
-        def teardown() -> None:
-            """Release resources"""
-            with self._shutdown_lock:
-                if not self.running.is_set():
-                    return
-                logger.debug("app shutting down")
+    def teardown(self) -> None:
+        """Release resources. Call on the mainloop; later calls do nothing.
 
-                # cancel running agents and pending detail loads
-                for task in list(self._tasks):
-                    self.mainloop.call_soon_threadsafe(task.cancel)
+        Also the fallback for an abnormal exit, where no save prompt can be
+        shown.
+        """
+        if self._closed:
+            return
+        self._closed = True
+        logger.debug("app shutting down")
 
-                # Drop a pending build so its awaiters wake, or cancel the
-                # built service; a build still in flight cannot be cancelled
-                # and just finishes on the daemon thread.
-                for svc in (self._nominatim, self._route_details):
-                    if svc.cancel():
-                        continue
-                    if svc.done() and svc.exception() is None:
-                        svc.result().cancel()
-                self.storage.poi_cache.close()
-                self.running.clear()
+        # cancel running agents and pending detail loads
+        for task in list(self._tasks):
+            task.cancel()
 
-        async def shutdown_task() -> bool:
-            if not self.running.is_set():
-                return True
-            if not await self._show_save_dialog():
-                return False
-            # teardown takes a _shutdown_lock. Run it off the mainloop so the
-            # event loop stays responsive.
-            await asyncio.to_thread(teardown)
-            return True
-
-        # teardown locks internally, so the force path must stay out of the
-        # lock to avoid re-entering the non-reentrant shutdown lock.
-        if force:
-            teardown()
-            fut = Future[bool]()
-            fut.set_result(True)
-            return fut
-
-        with self._shutdown_lock:
-            if self._shutdown_fut is not None:
-                return self._shutdown_fut
-            if not self.running.is_set():
-                fut = Future[bool]()
-                fut.set_result(True)
-                return fut
-            task = asyncio.run_coroutine_threadsafe(
-                shutdown_task(), self.mainloop
-            )
-            self._shutdown_fut = task
-
-        def on_settled(fut: "Future[bool]") -> None:
-            # Drop the shared future when the user canceled, so a later close
-            # can start a fresh shutdown; keep it once actually stopped.
-            try:
-                stopped = fut.result()
-            except BaseException:
-                stopped = True  # give up the guard on an unexpected failure
-            if not stopped:
-                with self._shutdown_lock:
-                    self._shutdown_fut = None
-
-        task.add_done_callback(on_settled)
-        return task
+        # Drop a pending build so its awaiters wake, or cancel the built
+        # service; a build still in flight cannot be cancelled and just
+        # finishes on the daemon thread.
+        for svc in (self._nominatim, self._route_details):
+            if svc.cancel():
+                continue
+            if svc.done() and svc.exception() is None:
+                svc.result().cancel()
+        self.storage.poi_cache.close()
 
     async def start(self) -> None:
         """Push the saved preferences to the frontend and open a document.
@@ -665,30 +608,27 @@ class Backpack:
         which are committed as one turn. A stopped run raises CancelledError
         instead, so the turn is dropped and the chat left idle.
         """
-        def card_action(fut: Future[Any]) -> None:
+        async def card_action(fut: Future[Any]) -> None:
             try:
-                action_id = fut.result()
-            except CancelledError:
+                action_id = await asyncio.wrap_future(fut)
+            except asyncio.CancelledError:
                 return
             except Exception as e:
                 self.ui.notify(str(e) or type(e).__name__)
                 return
 
-            if action_id == "retry":
-                async def _retry() -> None:
-                    if self.doc.chat(chat_id) is None:
-                        return
-                    # Follow the live composer choice, falling back to the
-                    # model the failed turn used if none comes back.
-                    cur_model_id = await asyncio.wrap_future(
-                        self.ui.assist.get_model(chat_id)
-                    )
-                    with self.doc.edit(self.frontend) as ed:
-                        ed.apply(model.RemoveChatTurn(chat_id, turn_id))
-                    self.add_task(self.ask_assist(
-                        chat_id, cur_model_id or model_id, prompt
-                    ))
-                asyncio.run_coroutine_threadsafe(_retry(), self.mainloop)
+            if action_id != "retry" or self.doc.chat(chat_id) is None:
+                return
+            # Follow the live composer choice, falling back to the model the
+            # failed turn used if none comes back.
+            cur_model_id = await asyncio.wrap_future(
+                self.ui.assist.get_model(chat_id)
+            )
+            with self.doc.edit(self.frontend) as ed:
+                ed.apply(model.RemoveChatTurn(chat_id, turn_id))
+            self.add_task(self.ask_assist(
+                chat_id, cur_model_id or model_id, prompt
+            ))
 
         logger.debug(f"chat_id:{chat_id} model_id:{model_id!r}")
         if self.doc.chat(chat_id) is None:
@@ -738,8 +678,9 @@ class Backpack:
 
         for item in items:
             if isinstance(item, model.ChatCard):
-                fut = self.ui.assist.add_card(chat_id, item)
-                fut.add_done_callback(card_action)
+                self.add_task(
+                    card_action(self.ui.assist.add_card(chat_id, item))
+                )
         self.ui.assist.end_turn(chat_id)
 
     async def stop_assist(self, chat_id: str) -> None:
