@@ -1,11 +1,8 @@
-/* Everything the backend may call on the frontend, mirroring UI and Assist
- * in src/backpack/ui.py the way api.ts mirrors api.py. Each entry is seeded
- * here and claimed by its host component for as long as that host is
- * mounted.
+/* Everything the backend may call on the frontend.
  *
- * A call arriving with no host throws when the backend awaits an answer,
- * since a dropped request would leave it waiting forever. The rest are
- * seeded as no-ops: with no host there is simply nothing to show.
+ * A call arriving with no host throws when the backend awaits an answer, since
+ * a dropped request would leave it waiting forever. The rest are seeded as
+ * no-ops: with no host there is simply nothing to show.
  */
 import type { AssistApi } from "./assist";
 import type { DialogAction } from "./dialog-host";
