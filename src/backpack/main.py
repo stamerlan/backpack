@@ -5,17 +5,16 @@ import os
 import platform
 import sys
 import threading
-import webview
 from argparse import ArgumentParser
-from concurrent.futures import Future
 from dataclasses import replace
 from datetime import datetime
 
+from native.app_host import PyWebViewAppHost
+
 from . import APP_NAME, APP_VERSION
+from backpack.app_host import AppHost
 from backpack.core import Backpack
-from backpack.paths import (
-    app_icon_path, app_settings_path, applogs, assets_dir
-)
+from backpack.paths import app_icon_path, app_settings_path, applogs, assets_dir
 from backpack.storage import Storage
 
 
@@ -129,43 +128,12 @@ def main() -> None:
     )
     mainloop_th.start()
 
-    app = Backpack(mainloop, storage)
+    host = PyWebViewAppHost(url, debug=args.debug, icon=app_icon_path())
+    app = Backpack(host, mainloop, storage)
+    asyncio.run_coroutine_threadsafe(_serve(host, app), mainloop)
 
     try:
-        window = webview.create_window(
-            "Backpack", url, js_api=app.api,
-            width=1200, height=800, min_size=(800, 600)
-        )
-        assert window is not None
-        webview.settings['OPEN_DEVTOOLS_IN_DEBUG'] = False
-
-        app.start(window)
-
-        def on_closing() -> bool:
-            if not app.running.is_set():
-                return True  # already stopped, let the window close
-
-            def on_app_shutdown_finish(done: "Future[bool]") -> None:
-                try:
-                    stopped = done.result()
-                except Exception:
-                    logger.exception("shutdown failed")
-                    stopped = True  # close anyway on an unexpected error
-                if stopped:
-                    window.destroy()
-
-            app.shutdown().add_done_callback(on_app_shutdown_finish)
-            return False  # keep the window until shutdown completes
-
-        window.events.closing += on_closing
-        window.events.loaded += lambda *_: asyncio.run_coroutine_threadsafe(
-            app.on_loaded(), mainloop
-        )
-
-        webview.start(
-            debug=args.debug,
-            icon=app_icon_path(),
-        )
+        host.start()
     finally:
         app.shutdown(force=True)
         mainloop.call_soon_threadsafe(mainloop.stop)
@@ -184,6 +152,36 @@ def main() -> None:
             logger.warning(f"Could not store settings: {e}")
 
         logger.info("Exit\n")
+
+
+async def _serve(host: AppHost, app: Backpack) -> None:
+    """Service the host events until the app close"""
+    loaded = False
+    while True:
+        try:
+            event = await asyncio.wrap_future(host.get_event())
+        except asyncio.CancelledError:
+            return
+        try:
+            if event.name == "load":
+                if loaded:
+                    continue
+                loaded = True
+                await app.start()
+            elif event.name == "close":
+                try:
+                    stopped = await asyncio.wrap_future(app.shutdown())
+                except Exception:
+                    logger.exception("shutdown failed")
+                    stopped = True  # close anyway on an unexpected error
+                if stopped:
+                    host.quit()
+                    return
+            else:
+                # ui called a backed routine
+                await app.dispatch(event.name, event.args)
+        except Exception:
+            logger.exception(f"{event.name!r} failed")
 
 
 def _run_mainloop(loop: asyncio.AbstractEventLoop) -> None:
