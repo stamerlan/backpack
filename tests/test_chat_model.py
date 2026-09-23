@@ -24,7 +24,6 @@ from backpack.model import (
     SetChatTitle,
 )
 from backpack.ui import Assist, UI
-from tests.fake_window import FakeWindow
 
 
 # -- Model round-trip tests --
