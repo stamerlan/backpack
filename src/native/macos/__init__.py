@@ -12,7 +12,6 @@ from typing import Any
 import webview
 
 from backpack import app_host
-from backpack.theme import Theme
 
 logger = logging.getLogger(__name__)
 
@@ -293,7 +292,7 @@ class JsApi:
         self._events.post(name, tuple(args))
 
 
-class PyWebViewAppHost:
+class MacAppHost:
     def __init__(
         self,
         url: str,
@@ -321,7 +320,6 @@ class PyWebViewAppHost:
         )
         assert window is not None
         self._window = window
-        self._theme = Theme(window)
         self._js = Js(WebView(window))
 
         def cb_loaded() -> None:
@@ -350,8 +348,6 @@ class PyWebViewAppHost:
             # the event stream. Safe no-ops if quit() already ran.
             self._js.shutdown()
             self._events.shutdown()
-            # the window is gone, stop following OS theme changes
-            self._theme.close()
 
     def quit(self) -> None:
         """Shut the app down from the core thread when Core's lifecycle ends.
@@ -368,7 +364,48 @@ class PyWebViewAppHost:
         self._window.title = title
 
     def set_theme(self, mode: str) -> None:
-        self._theme.apply(mode)
+        """Theme the native title bar via the window appearance.
+
+        A named appearance forces the whole window chrome, title bar included,
+        to the chosen theme. A nil appearance lets the window follow the system
+        and keep tracking later OS theme changes on its own, so "system" needs
+        no explicit hook.
+        """
+        try:
+            import AppKit
+            from PyObjCTools import AppHelper
+        except Exception:
+            logger.exception("AppKit unavailable")
+            return
+
+        try:
+            native: Any = self._window.native
+            if native is None:
+                return
+        except Exception:
+            logger.exception("native window unavailable")
+            return
+
+        if mode == "dark":
+            name = AppKit.NSAppearanceNameDarkAqua
+        elif mode == "light":
+            name = AppKit.NSAppearanceNameAqua
+        else:
+            name = None
+
+        def apply() -> None:
+            try:
+                appearance = (
+                    AppKit.NSAppearance.appearanceNamed_(name)
+                    if name is not None else None
+                )
+                native.setAppearance_(appearance)
+            except Exception:
+                logger.exception("native title bar theming failed")
+
+        # AppKit must be touched on the main thread, but set_theme runs on the
+        # core loop thread, so hand the change to the Cocoa run loop.
+        AppHelper.callAfter(apply)
 
     def exec_script(self, func: str, args: tuple[Any, ...]) -> Future[Any]:
         """Call a frontend function and return a future for its result."""

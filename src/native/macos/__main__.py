@@ -1,14 +1,13 @@
-"""Application entry"""
+"""MacOS application entry"""
 
 import logging
-import sys
 import threading
 from argparse import ArgumentParser
 
 import backpack
 from backpack import APP_NAME
 from backpack.paths import app_icon_path, assets_dir
-from native.app_host import PyWebViewAppHost
+from native.macos import MacAppHost
 
 DEV_SERVER_URL = "http://localhost:5173"
 
@@ -27,25 +26,18 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if sys.platform == "win32":
-        # Group the window under our own taskbar identity instead of
-        # inheriting python.exe when running from source.
-        import ctypes
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_NAME)
-    elif sys.platform == "darwin":
-        # Override the identity inherited from the embedded Python.app so the
-        # menu bar and cmd+tab switcher show Backpack, not Python, when run
-        # from source.
-        try:
-            from Foundation import NSBundle
-            bundle = NSBundle.mainBundle()
-            info = bundle.localizedInfoDictionary() or bundle.infoDictionary()
-            info["CFBundleName"] = "Backpack"
-        except Exception:
-            logger.exception("could not set macOS app name")
+    # Override the identity inherited from the embedded Python.app so the menu
+    # bar and cmd+tab switcher show Backpack, not Python, when run from source.
+    try:
+        from Foundation import NSBundle
+        bundle = NSBundle.mainBundle()
+        info = bundle.localizedInfoDictionary() or bundle.infoDictionary()
+        info["CFBundleName"] = "Backpack"
+    except Exception:
+        logger.exception("could not set macOS app name")
 
     url = args.dev or str(assets_dir() / "index.html")
-    app = PyWebViewAppHost(
+    app = MacAppHost(
         url, title="Backpack", width=1200, height=800,
         min_size=(800, 600), debug=args.debug, icon=app_icon_path(),
     )
