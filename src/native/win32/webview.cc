@@ -62,7 +62,9 @@ void webview_t::close(void)
 	ctrl.Reset();
 	env.Reset();
 
-	defer_call(hwnd, [this] { DestroyWindow(hwnd); });
+	ShowWindow(hwnd, SW_HIDE);
+	if (on_closed)
+		on_closed();
 }
 
 HRESULT webview_t::execute_script(const std::wstring& script,
@@ -257,6 +259,14 @@ HRESULT webview_t::on_web_msg_received(
 
 	try {
 		LPWSTR raw = nullptr;
+		/* fails with E_INVALIDARG when the message is not a string */
+		if (SUCCEEDED(args->TryGetWebMessageAsString(&raw)) && raw) {
+			co_str msg(raw, CoTaskMemFree);
+			if (on_str_msg)
+				on_str_msg(msg.get());
+			return S_OK;
+		}
+
 		if (FAILED(args->get_WebMessageAsJson(&raw)) || !raw)
 			return S_OK;
 		co_str msg(raw, CoTaskMemFree);
