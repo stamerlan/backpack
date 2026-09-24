@@ -1,8 +1,8 @@
 from pydantic_ai import RunContext
 
-from ... import model
-from ..assist_run import AssistRun
-from .get_trip_info import get_trip_info
+from backpack import model
+from backpack.ai.assist_run import AssistRun
+from backpack.ai.tools.get_trip_info import get_trip_info
 
 
 def set_trip_info(

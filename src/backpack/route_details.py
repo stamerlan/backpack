@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 import logging
 import threading
@@ -9,13 +7,13 @@ from typing import TYPE_CHECKING, Literal
 
 import overpy
 
-from . import model, route
-from .overpass import Overpass
-from .poi_tiles import PoiTile, tile_bbox, tile_of, tiles_for_track
-from .storage.poi_cache import CachedPoi, filters_hash
+from backpack import model, route
+from backpack.overpass import Overpass
+from backpack.poi_tiles import PoiTile, tile_bbox, tile_of, tiles_for_track
+from backpack.storage.poi_cache import CachedPoi, filters_hash
 
 if TYPE_CHECKING:
-    from .storage.poi_cache import PoiCache
+    from backpack.storage.poi_cache import PoiCache
 
 logger = logging.getLogger(__name__)
 

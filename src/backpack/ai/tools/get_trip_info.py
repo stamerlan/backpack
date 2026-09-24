@@ -2,8 +2,8 @@ from dataclasses import asdict
 
 from pydantic_ai import RunContext
 
-from ... import route
-from ..assist_run import AssistRun
+from backpack import route
+from backpack.ai.assist_run import AssistRun
 
 
 def get_trip_info(

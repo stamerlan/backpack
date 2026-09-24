@@ -6,7 +6,7 @@ import gpxpy
 import gpxpy.geo
 from geopy.distance import geodesic
 
-from . import model
+from backpack import model
 
 
 @dataclass(frozen=True, slots=True)

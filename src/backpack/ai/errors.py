@@ -8,8 +8,8 @@ from pydantic_ai.exceptions import (
     UsageLimitExceeded,
 )
 
-from ..i18n import i18n
-from ..model import ChatCardAction
+from backpack.i18n import i18n
+from backpack.model import ChatCardAction
 
 
 class AiError(Exception):
