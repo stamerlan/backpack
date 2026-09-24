@@ -36,7 +36,9 @@ version-file = "src/backpack/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/backpack", "src/native"]
-exclude = ["/src/native/win32"]
+# The Windows host is imported by the native backpack.exe, so ship its Python
+# modules; the win32 sources only build the exe.
+exclude = ["/src/native/win32/*", "!/src/native/win32/*.py"]
 
 [tool.mypy]
 strict = true
