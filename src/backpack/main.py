@@ -11,8 +11,8 @@ from datetime import datetime
 
 from native.app_host import PyWebViewAppHost
 
-from . import APP_NAME, APP_VERSION
 from backpack.app_host import AppHost
+from backpack.app_info import APP_NAME, APP_VERSION
 from backpack.core import Backpack
 from backpack.paths import app_icon_path, app_settings_path, applogs, assets_dir
 from backpack.storage import Storage

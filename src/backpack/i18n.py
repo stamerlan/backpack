@@ -5,8 +5,8 @@ from gettext import NullTranslations
 
 from babel.support import Translations
 
-from . import APP_NAME
-from .paths import locales_dir
+from backpack.app_info import APP_NAME
+from backpack.paths import locales_dir
 
 
 SUPPORTED_LANG: tuple[str, ...] = ("en", "ru")

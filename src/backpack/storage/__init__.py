@@ -5,10 +5,10 @@ import os
 from pathlib import Path
 
 from backpack import paths
-from .. import APP_NAME
-from .poi_cache import PoiCache
-from .settings import Settings
-from .vault import Vault
+from backpack.app_info import APP_NAME
+from backpack.storage.poi_cache import PoiCache
+from backpack.storage.settings import Settings
+from backpack.storage.vault import Vault
 
 
 logger = logging.getLogger(__name__)

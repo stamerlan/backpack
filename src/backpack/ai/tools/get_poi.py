@@ -2,7 +2,7 @@ from dataclasses import asdict
 
 from pydantic_ai import RunContext
 
-from ..assist_run import AssistRun
+from backpack.ai.assist_run import AssistRun
 
 
 def get_poi(

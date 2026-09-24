@@ -3,8 +3,8 @@ import logging
 from geopy.exc import GeopyError
 from pydantic_ai import RunContext
 
-from ...nominatim import Nominatim
-from ..assist_run import AssistRun
+from backpack.ai.assist_run import AssistRun
+from backpack.nominatim import Nominatim
 
 logger = logging.getLogger(__name__)
 

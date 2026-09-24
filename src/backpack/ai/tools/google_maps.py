@@ -4,9 +4,9 @@ from google import genai
 from google.genai import errors, types
 from pydantic_ai import RunContext
 
-from ... import route
-from .. import prompts
-from ..assist_run import AssistRun
+from backpack import route
+from backpack.ai import prompts
+from backpack.ai.assist_run import AssistRun
 
 logger = logging.getLogger(__name__)
 

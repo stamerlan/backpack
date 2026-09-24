@@ -1,18 +1,3 @@
-from importlib.metadata import PackageNotFoundError, version
+from backpack.app_info import APP_NAME, APP_VERSION
 
-# The import package is "core", but the product keeps the "backpack" identity:
-# user data directories, the gettext domain and the distribution metadata are
-# all named after it, so pin the name rather than deriving it from __name__.
-APP_NAME = "backpack"
-
-try:
-    # Written at build/install time by hatch-vcs and holds the version derived
-    # from git, including the short commit for dev builds.
-    from ._version import __version__
-
-    APP_VERSION = __version__
-except ImportError:
-    try:
-        APP_VERSION = version(APP_NAME)
-    except PackageNotFoundError:
-        APP_VERSION = "0+unknown"
+__all__ = ["APP_NAME", "APP_VERSION"]
