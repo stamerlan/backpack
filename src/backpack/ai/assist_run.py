@@ -6,11 +6,13 @@ from typing import Any, TYPE_CHECKING
 import pydantic_ai
 from pydantic_ai.models import Model
 
-from ..model import ChatCard, ChatCardAction, ChatItem, ChatReply, ChatThinking
+from backpack.model import (
+    ChatCard, ChatCardAction, ChatItem, ChatReply, ChatThinking
+)
 
 if TYPE_CHECKING:
-    from ..model import ChatData, Document, Poi
-    from .agent import Agent
+    from backpack.ai.agent import Agent
+    from backpack.model import ChatData, Document, Poi
 
 
 @dataclass

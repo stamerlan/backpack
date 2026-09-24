@@ -1,7 +1,7 @@
 from pydantic_ai import RunContext
 
-from ... import model
-from ..assist_run import AssistRun
+from backpack import model
+from backpack.ai.assist_run import AssistRun
 
 
 def set_chat_title(ctx: RunContext[AssistRun], title: str) -> str:

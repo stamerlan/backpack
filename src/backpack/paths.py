@@ -19,7 +19,7 @@ import os
 import sys
 from pathlib import Path
 
-from . import APP_NAME
+from backpack.app_info import APP_NAME
 
 
 def appdata() -> Path:

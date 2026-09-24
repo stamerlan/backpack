@@ -11,17 +11,17 @@ from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.settings import ModelSettings
 
-from . import prompts, tools
-from .errors import AiError
-from .assist_run import AssistRun
-from ..i18n import i18n
-from ..model import ChatCardAction
+from backpack.ai import prompts, tools
+from backpack.ai.assist_run import AssistRun
+from backpack.ai.errors import AiError
+from backpack.i18n import i18n
+from backpack.model import ChatCardAction
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
-    from .. import model
-    from ..nominatim import Nominatim
-    from ..storage import Storage
+    from backpack import model
+    from backpack.nominatim import Nominatim
+    from backpack.storage import Storage
 
 logger = logging.getLogger(__name__)
 
