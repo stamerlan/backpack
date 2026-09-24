@@ -12,8 +12,9 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
-from backpack import APP_VERSION, model
+from backpack import model
 from backpack.app_host import AppHost
+from backpack.app_info import APP_VERSION
 from backpack.i18n import i18n, system_locales
 from backpack.paths import applogs
 from backpack.storage import Storage

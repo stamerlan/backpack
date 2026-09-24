@@ -7,7 +7,7 @@ import urllib.parse
 
 import overpy
 
-from . import APP_NAME, APP_VERSION
+from backpack.app_info import APP_NAME, APP_VERSION
 
 logger = logging.getLogger(__name__)
 
