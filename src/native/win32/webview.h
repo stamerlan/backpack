@@ -46,6 +46,9 @@ public:
 	/* The frontend called window.close(). */
 	std::function<void(void)> on_close_requested;
 
+	/* The webview is closed (close() ran). */
+	std::function<void(void)> on_closed;
+
 	/* Asynchronously build the WebView2 environment and controller for
 	 * parent, storing the browser profile under user_data_dir. Once the
 	 * controller and core webview are available (or construction fails)
@@ -57,10 +60,9 @@ public:
 	void navigate(const std::wstring& url) const noexcept;
 	void resize(const RECT& r) const noexcept;
 
-	/* Tear down the webview: close the controller and release the COM
-	 * objects, then post DestroyWindow(parent) to the host message loop via
-	 * call_later(), so window destruction runs off this stack. Re-entry
-	 * during teardown is ignored.
+	/* Tear down the webview: close the controller, release the COM objects,
+	 * hide the parent window and fire on_closed. The parent window is left
+	 * to its owner to destroy. Calls after the first are ignored.
 	 */
 	void close(void);
 
