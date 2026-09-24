@@ -22,6 +22,11 @@ inline std::wstring utf8_to_wstr(std::string_view utf8)
 	return wstr;
 }
 
+inline std::wstring utf8_to_wstr(const char *utf8)
+{
+	return utf8 ? utf8_to_wstr(std::string_view(utf8)) : std::wstring();
+}
+
 inline std::string wstr_to_utf8(std::wstring_view wstr)
 {
 	if (wstr.empty())
