@@ -10,6 +10,8 @@
 
 #include "webview.h"
 
+typedef struct _object PyObject;
+
 class script_queue_t {
 public:
 	/* Result of a script.
@@ -67,6 +69,12 @@ public:
 	 * the aborted running script is dropped.
 	 */
 	void abort(void);
+
+	/* New reference to a new Python object (native.win32.ScriptQueue)
+	 * borrowing this queue, or nullptr with a Python error set. Requires
+	 * the GIL.
+	 */
+	PyObject *to_py(void);
 
 private:
 	HWND hwnd;

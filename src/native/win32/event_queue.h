@@ -7,6 +7,8 @@
 #include <optional>
 #include <string>
 
+typedef struct _object PyObject;
+
 class event_queue_t {
 public:
 	/* event handler */
@@ -38,6 +40,12 @@ public:
 	 * Thread safe. The callback fires on the calling thread.
 	 */
 	void abort(void);
+
+	/* New reference to a new Python object (native.win32.EventQueue)
+	 * borrowing this queue, or nullptr with a Python error set. Requires
+	 * the GIL.
+	 */
+	PyObject *to_py(void);
 
 private:
 	mutable std::mutex mut;
