@@ -69,6 +69,10 @@
     <ClCompile Include="defer_call.cc" />
     <ClCompile Include="event_queue.cc" />
     <ClCompile Include="main.cc" />
+    <ClCompile Include="py\event_queue.cc" />
+    <ClCompile Include="py\script_queue.cc" />
+    <ClCompile Include="py\webview.cc" />
+    <ClCompile Include="py\window.cc" />
     <ClCompile Include="script_queue.cc" />
     <ClCompile Include="webview.cc" />
     <ClCompile Include="window.cc" />
@@ -77,6 +81,9 @@
     <ClInclude Include="defer_call.h" />
     <ClInclude Include="event_queue.h" />
     <ClInclude Include="py\config.h" />
+    <ClInclude Include="py\invoke.h" />
+    <ClInclude Include="py\keep.h" />
+    <ClInclude Include="py\object.h" />
     <ClInclude Include="script_queue.h" />
     <ClInclude Include="utf8.h" />
     <ClInclude Include="webview.h" />
