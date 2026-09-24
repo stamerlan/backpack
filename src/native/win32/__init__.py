@@ -122,14 +122,9 @@ class WinAppHost:
         self._webview = webview
         self._events = event_q
         self._scripts = script_q
-        # Track the event wait so the GUI can fail it on an abnormal exit (see
-        # _abort), letting backpack.main unwind instead of hanging. The script
-        # queue fails its own calls when the native side aborts it.
-        self._lock = threading.Lock()
-        self._event_fut: Future[app_host.Event] | None = None
 
     def quit(self) -> None:
-        """Exit the application by tearing the native window down."""
+        """Exit the application"""
         self._webview.close()
 
     def set_title(self, title: str) -> None:
@@ -141,13 +136,15 @@ class WinAppHost:
     def get_event(self) -> Future[app_host.Event]:
         """Return a future for the next inbound frontend or OS event."""
         fut = Future[app_host.Event]()
-        with self._lock:
-            self._event_fut = fut
 
         def on_event(event_json: str) -> None:
             # Runs on the native UI thread, or inline here when an event is
             # already queued. Settling the concurrent future is thread safe.
+            # An empty event means the queue was aborted (the GUI is gone).
             if fut.done():
+                return
+            if not event_json:
+                fut.cancel()
                 return
             try:
                 doc = json.loads(event_json)
@@ -247,17 +244,3 @@ class WinAppHost:
 
         self._window.show_save_dialog(filename, list(filters), on_done)
         return fut
-
-    def _abort(self) -> None:
-        """Fail a pending event wait so a stalled Core unwinds.
-
-        Called from the native side once the GUI loop ends, after the script
-        queue failed its calls. A pending get_event is cancelled so
-        backpack.main stops waiting on an event the departed GUI can no longer
-        deliver. A normal shutdown has nothing outstanding, so this is then a
-        no-op.
-        """
-        with self._lock:
-            event_fut = self._event_fut
-        if event_fut is not None and not event_fut.done():
-            event_fut.cancel()
