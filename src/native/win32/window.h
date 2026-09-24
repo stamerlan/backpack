@@ -5,6 +5,8 @@
 
 #include <windows.h>
 
+typedef struct _object PyObject;
+
 class window_t {
 public:
 	window_t(HWND hwnd, ATOM atom) noexcept;
@@ -22,6 +24,11 @@ public:
 	/* Apply the theme. mode is "light", "dark" or "system" */
 	void set_theme(std::wstring mode) noexcept;
 	bool is_system_theme(void) const noexcept;
+
+	/* New reference to a new Python object (native.win32.Window) borrowing
+	 * this window, or nullptr with a Python error set. Requires the GIL.
+	 */
+	PyObject *to_py(void);
 private:
 	HWND handle = nullptr;
 	ATOM atom = 0;

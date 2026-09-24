@@ -7,6 +7,8 @@
 #include <wrl/client.h>
 #include <WebView2.h>
 
+typedef struct _object PyObject;
+
 class webview_t {
 public:
 	webview_t(void) = default;
@@ -73,6 +75,13 @@ public:
 	 */
 	HRESULT execute_script(const std::wstring& script,
 		std::function<void(HRESULT, const std::wstring&)> cb);
+
+	/* New reference to a new Python object (native.win32.WebView)
+	 * borrowing this webview, or nullptr with a Python error set. Call
+	 * after create(): the object posts its calls to the parent window.
+	 * Requires the GIL.
+	 */
+	PyObject *to_py(void);
 
 private:
 	HRESULT on_env_created(HRESULT hr, ICoreWebView2Environment *e);
