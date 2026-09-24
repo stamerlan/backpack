@@ -58,7 +58,9 @@ void webview_t::close(void)
 	ctrl.Reset();
 	env.Reset();
 
-	defer_call(hwnd, [this] { DestroyWindow(hwnd); });
+	ShowWindow(hwnd, SW_HIDE);
+	if (on_closed)
+		on_closed();
 }
 
 HRESULT webview_t::execute_script(
