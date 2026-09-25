@@ -2,6 +2,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
 
@@ -204,8 +205,23 @@ try {
 	if (!hwnd)
 		throw win32_error("CreateWindowExW() failed");
 
-	std::wstring app_dir = get_module_dir();
+	int argc = 0;
+	std::unique_ptr<LPWSTR, decltype(&LocalFree)> argv(
+		CommandLineToArgvW(GetCommandLineW(), &argc), &LocalFree);
+	if (!argv)
+		argc = 0;
+
+	/* --dev [URL] loads the UI from a Vite dev server instead of assets */
 	std::wstring url = L"https://assets/index.html";
+	for (int i = 1; i < argc; i++) {
+		if (std::wstring_view(argv.get()[i]) != L"--dev")
+			continue;
+		url = L"http://localhost:5173";
+		if (i + 1 < argc && argv.get()[i + 1][0] != L'-')
+			url = argv.get()[i + 1];
+	}
+
+	std::wstring app_dir = get_module_dir();
 	std::wstring assets_dir = app_dir + L"\\assets";
 
 	app_t app(hwnd, atom, url, assets_dir);
@@ -215,10 +231,6 @@ try {
 	config.set_program_name((app_dir + L"\\backpack.exe").c_str());
 	config.set_home(app_dir.c_str());
 	config.add_module_search_path((app_dir + L"\\lib").c_str());
-
-	int argc = 0;
-	std::unique_ptr<LPWSTR, decltype(&LocalFree)> argv(
-		CommandLineToArgvW(GetCommandLineW(), &argc), &LocalFree);
 	if (argv)
 		config.set_argv(argc, argv.get());
 	config.init();
