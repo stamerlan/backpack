@@ -25,12 +25,15 @@ Use two terminals. The first serves the frontend with hot reload::
 
     dev.bat
 
-The second runs the app pointed at that dev server, so edits refresh without a
-rebuild (use the build venv after a first ``build.bat``, or your own)::
+The second runs the app built by ``build.bat`` pointed at that dev server, so
+frontend edits refresh without a rebuild::
 
-    bin\windows-x64\.venv\Scripts\python.exe -m native --dev
+    bin\windows-x64\backpack.exe --dev
 
-Without ``--dev`` the app loads the built ``bin/assets/index.html``, so run
+``--dev`` takes an optional URL for a dev server other than
+``http://localhost:5173``. The app runs the Python sources bundled under
+``bin/windows-x64/lib``, so run ``build.bat`` after Python changes. Without
+``--dev`` the app loads the built ``bin/assets/index.html``, so run
 ``build.bat`` after frontend changes when testing that path.
 
 Checks
