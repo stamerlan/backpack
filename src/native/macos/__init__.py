@@ -1,31 +1,17 @@
-import json
 import logging
 import queue
 import threading
-import traceback
 from collections import deque
 from concurrent.futures import Future
-from dataclasses import asdict, is_dataclass
 from textwrap import dedent
 from typing import Any
 
 import webview
 
 from backpack import app_host
+from native.js import JsCall
 
 logger = logging.getLogger(__name__)
-
-
-class JsError(Exception):
-    """A frontend function rejected or threw"""
-
-
-def encode(obj: Any) -> Any:
-    if is_dataclass(obj) and not isinstance(obj, type):
-        return asdict(obj)
-    raise TypeError(
-        f"Object of type {obj.__class__.__name__} is not JSON serializable"
-    )
 
 
 def wrap_call(call_expr: str) -> str:
@@ -58,45 +44,6 @@ def wrap_call(call_expr: str) -> str:
         }
     })()
     """ % call_expr)
-
-
-class JsCall:
-    """A queued frontend call plus the context to run and debug it.
-
-    str() is the expression handed to the wrapper. The submitting thread name
-    and stack are captured so a later failure can be traced back to the
-    original call site.
-    """
-
-    __slots__ = ("fn", "args", "fut", "caller_th", "caller_stack")
-
-    def __init__(self, fn: str, args: str, fut: Future[Any]) -> None:
-        self.fn = fn
-        self.args = args
-        self.fut = fut
-        self.caller_th = threading.current_thread().name
-        # drop the __init__ frame
-        self.caller_stack = "".join(traceback.format_stack()[:-1])
-
-    def __str__(self) -> str:
-        return f"{self.fn}({self.args})"
-
-    def annotate(self, exc: BaseException) -> None:
-        """Attach frontend and caller context to exc as notes."""
-        if isinstance(exc, JsError):
-            detail = exc.args[0] if exc.args else None
-            if not isinstance(detail, dict):
-                exc.add_note(f"Frontend error: {detail}")
-            else:
-                name = detail.get("name", "Error")
-                message = detail.get("message", "")
-                head = f"{name}: {message}" if message else name
-                stack = detail.get("stack")
-                if stack:
-                    exc.add_note(f"Frontend error: {head}\n{stack}")
-                else:
-                    exc.add_note(f"Frontend error: {head}")
-        exc.add_note(f"Thread {self.caller_th!r}:\n{self.caller_stack}")
 
 
 class WebView:
@@ -146,18 +93,15 @@ class Js:
         Core's loop by the caller. After shutdown the future is cancelled so
         callers fail fast.
         """
-        fut: Future[Any] = Future()
-        try:
-            params = ", ".join(json.dumps(a, default=encode) for a in args)
-        except Exception as exc:
-            fut.set_exception(exc)
-            return fut
+        call = JsCall(func, args)
+        if call.fut.done():
+            return call.fut
         with self._lock:
             if not self._running:
-                fut.cancel()
-                return fut
-            self._wq.put(JsCall(func, params, fut))
-        return fut
+                call.fut.cancel()
+                return call.fut
+            self._wq.put(call)
+        return call.fut
 
     def shutdown(self) -> None:
         """Stop the worker and cancel the in-flight and queued calls.
@@ -194,31 +138,16 @@ class Js:
                 self._current = job
 
             try:
-                result = self._view.eval_js(wrap_call(str(job))).result()
+                result = self._view.eval_js(wrap_call(job.expr)).result()
             except Exception as exc:
-                job.annotate(exc)
-                logger.exception(f"call failed: {job}")
                 with self._lock:
                     self._current = None
-                    if not job.fut.done():
-                        job.fut.set_exception(exc)
+                    job.set_exception(exc)
                 continue
 
             with self._lock:
                 self._current = None
-                if job.fut.done():
-                    continue
-                if (isinstance(result, dict) and
-                    result.get("pywebviewJavascriptError420")
-                ):
-                    # pywebview returns a dictionary with the key in case js
-                    # code threw an exception
-                    del result["pywebviewJavascriptError420"]
-                    js_exc = JsError(result)
-                    job.annotate(js_exc)
-                    job.fut.set_exception(js_exc)
-                else:
-                    job.fut.set_result(result)
+                job.set_result(result)
 
 
 class Events:
