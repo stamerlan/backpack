@@ -13,7 +13,9 @@
 #include <Python.h>
 
 #include "defer_call.h"
+#include "error_dialog.h"
 #include "event_queue.h"
+#include "logger.h"
 #include "py/config.h"
 #include "py/object.h"
 #include "script_queue.h"
@@ -119,13 +121,13 @@ app_t::app_t(HWND hwnd, ATOM atom, std::wstring url, std::wstring assets)
 		reinterpret_cast<LONG_PTR>(this));
 	webview.on_create = [this, hwnd](HRESULT hr) {
 		if (FAILED(hr)) {
-			MessageBoxW(hwnd, std::format(
+			show_fatal(std::format(
 				L"WebView2 failed to start (0x{:08X})",
-				static_cast<unsigned>(hr)).c_str(),
-				L"Backpack", MB_OK | MB_ICONERROR);
+				static_cast<unsigned>(hr)), hwnd);
 			webview.close();
 			return;
 		}
+		LOGGER_INFO("WebView2 created");
 		webview.navigate(this->url);
 	};
 	webview.on_closed = [this] {
@@ -135,9 +137,13 @@ app_t::app_t(HWND hwnd, ATOM atom, std::wstring url, std::wstring assets)
 	webview.on_msg = [this](std::string json) {
 		event_q.push(std::move(json));
 	};
-	webview.on_load = [this](bool, COREWEBVIEW2_WEB_ERROR_STATUS, int) {
-		event_q.push("{ \"name\": \"load\", \"args\": [] }");
-	};
+	webview.on_load =
+		[this](bool ok, COREWEBVIEW2_WEB_ERROR_STATUS web_err, int http)
+		{
+			LOGGER_INFO("webview.on_load: ok:{} web_err:{} http:{}",
+				ok, static_cast<int>(web_err), http);
+			event_q.push("{ \"name\": \"load\", \"args\": [] }");
+		};
 	webview.create(hwnd, L"", assets);
 }
 
@@ -178,57 +184,50 @@ static PyObject *build_py_app(app_t& app)
 	return obj;
 }
 
-int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
+/* Run the app: window, webview, Python and the core thread. Returns the
+ * process exit code. Fatal errors are logged and shown to the user.
+ */
+static int run(int argc, LPWSTR *argv, const std::wstring& url)
 try {
-	HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+	HRESULT hr = E_FAIL;
+	LOGGER_DURATION("COM init")
+		hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 	if (FAILED(hr))
 		throw win32_error(hr, "CoInitializeEx() failed");
 
 	static const wchar_t *const wnd_class = L"BackpackWindow";
 	HINSTANCE hinst = GetModuleHandleW(nullptr);
+	HWND hwnd = nullptr;
+	ATOM atom = 0;
+	LOGGER_DURATION("window create") {
+		WNDCLASSEXW wc = {};
+		wc.cbSize = sizeof(wc);
+		wc.style = CS_HREDRAW | CS_VREDRAW;
+		wc.lpfnWndProc = wnd_proc;
+		wc.hInstance = hinst;
+		wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+		wc.lpszClassName = wnd_class;
 
-	WNDCLASSEXW wc = {};
-	wc.cbSize = sizeof(wc);
-	wc.style = CS_HREDRAW | CS_VREDRAW;
-	wc.lpfnWndProc = wnd_proc;
-	wc.hInstance = hinst;
-	wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
-	wc.lpszClassName = wnd_class;
+		atom = RegisterClassExW(&wc);
+		if (atom == 0)
+			throw win32_error("RegisterClassExW() failed");
 
-	ATOM atom = RegisterClassExW(&wc);
-	if (atom == 0)
-		throw win32_error("RegisterClassExW() failed");
+		RECT rect = { 0, 0, 1200, 800 };
+		AdjustWindowRectEx(&rect, WS_OVERLAPPEDWINDOW, FALSE, 0);
 
-	RECT rect = { 0, 0, 1200, 800 };
-	AdjustWindowRectEx(&rect, WS_OVERLAPPEDWINDOW, FALSE, 0);
-
-	HWND hwnd = CreateWindowExW(
-		0, wnd_class, L"Backpack", WS_OVERLAPPEDWINDOW,
-		CW_USEDEFAULT, CW_USEDEFAULT,
-		rect.right - rect.left, rect.bottom - rect.top,
-		nullptr, nullptr, hinst, nullptr);
-	if (!hwnd)
-		throw win32_error("CreateWindowExW() failed");
-
-	int argc = 0;
-	std::unique_ptr<LPWSTR, decltype(&LocalFree)> argv(
-		CommandLineToArgvW(GetCommandLineW(), &argc), &LocalFree);
-	if (!argv)
-		argc = 0;
-
-	/* --dev [URL] loads the UI from a Vite dev server instead of assets */
-	std::wstring url = L"https://assets/index.html";
-	for (int i = 1; i < argc; i++) {
-		if (std::wstring_view(argv.get()[i]) != L"--dev")
-			continue;
-		url = L"http://localhost:5173";
-		if (i + 1 < argc && argv.get()[i + 1][0] != L'-')
-			url = argv.get()[i + 1];
+		hwnd = CreateWindowExW(
+			0, wnd_class, L"Backpack", WS_OVERLAPPEDWINDOW,
+			CW_USEDEFAULT, CW_USEDEFAULT,
+			rect.right - rect.left, rect.bottom - rect.top,
+			nullptr, nullptr, hinst, nullptr);
+		if (!hwnd)
+			throw win32_error("CreateWindowExW() failed");
 	}
 
 	std::wstring app_dir = get_module_dir();
 	std::wstring assets_dir = app_dir + L"\\assets";
 
+	LOGGER_INFO("url:{}", wstr_to_utf8(url));
 	app_t app(hwnd, atom, url, assets_dir);
 
 	py::config_t config;
@@ -237,10 +236,13 @@ try {
 	config.set_home(app_dir.c_str());
 	config.add_module_search_path((app_dir + L"\\lib").c_str());
 	if (argv)
-		config.set_argv(argc, argv.get());
-	config.init();
+		config.set_argv(argc, argv);
+	LOGGER_DURATION("python init")
+		config.init();
 
-	PyObject *pyapp = build_py_app(app);
+	PyObject *pyapp = nullptr;
+	LOGGER_DURATION("build_py_app()")
+		pyapp = build_py_app(app);
 	if (!pyapp)
 		throw std::runtime_error(get_py_exception());
 
@@ -253,6 +255,7 @@ try {
 	PyThreadState *main_th_state = PyEval_SaveThread();
 
 	std::thread py_thread([pyapp] {
+		LOGGER_INFO("start");
 		PyGILState_STATE gil = PyGILState_Ensure();
 		PyObject *core = PyImport_ImportModule("backpack");
 		if (core) {
@@ -283,6 +286,7 @@ try {
 		}
 	}
 	py_thread.join();
+	LOGGER_INFO("core thread exited");
 
 	/* Python core is finished. Close the webview just in cases python core
 	 * haven't done it yet. Abort queues to release resources held by
@@ -294,7 +298,8 @@ try {
 
 	PyEval_RestoreThread(main_th_state);
 	Py_DECREF(pyapp);
-	Py_Finalize();
+	LOGGER_DURATION("python finalize")
+		Py_Finalize();
 
 	CoUninitialize();
 	return 0;
@@ -304,10 +309,40 @@ try {
 		msg += L"\n\n";
 		msg += utf8_to_wstr(status.err_msg);
 	}
-	MessageBoxW(nullptr, msg.c_str(), L"Backpack", MB_OK | MB_ICONERROR);
+	show_fatal(msg);
 	return 1;
 } catch (const std::exception& e) {
-	MessageBoxW(nullptr, utf8_to_wstr(e.what()).c_str(),
-		L"Backpack", MB_OK | MB_ICONERROR);
+	show_fatal(utf8_to_wstr(e.what()));
 	return 1;
+}
+
+int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
+{
+	int argc = 0;
+	std::unique_ptr<LPWSTR, decltype(&LocalFree)> argv(
+		CommandLineToArgvW(GetCommandLineW(), &argc), &LocalFree);
+	if (!argv)
+		argc = 0;
+
+	/* -d/--debug logs at DEBUG level. --dev [URL] loads the UI from a Vite
+	 * dev server instead of assets.
+	 */
+	int level = logger::INFO_LEVEL;
+	std::wstring url = L"https://assets/index.html";
+	for (int i = 1; i < argc; i++) {
+		std::wstring_view arg(argv.get()[i]);
+		if (arg == L"-d" || arg == L"--debug")
+			level = logger::DEBUG_LEVEL;
+		if (arg != L"--dev")
+			continue;
+		url = L"http://localhost:5173";
+		if (i + 1 < argc && argv.get()[i + 1][0] != L'-')
+			url = argv.get()[i + 1];
+	}
+
+	logger::init(level);
+	int rc = run(argc, argv.get(), url);
+	LOGGER_INFO("exit code {}", rc);
+	logger::close();
+	return rc;
 }
