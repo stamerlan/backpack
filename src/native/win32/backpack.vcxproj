@@ -68,6 +68,7 @@
   <ItemGroup>
     <ClCompile Include="defer_call.cc" />
     <ClCompile Include="dialog.cc" />
+    <ClCompile Include="error_dialog.cc" />
     <ClCompile Include="event_queue.cc" />
     <ClCompile Include="logger.cc" />
     <ClCompile Include="main.cc" />
@@ -82,6 +83,7 @@
   <ItemGroup>
     <ClInclude Include="defer_call.h" />
     <ClInclude Include="dialog.h" />
+    <ClInclude Include="error_dialog.h" />
     <ClInclude Include="event_queue.h" />
     <ClInclude Include="logger.h" />
     <ClInclude Include="py\config.h" />
