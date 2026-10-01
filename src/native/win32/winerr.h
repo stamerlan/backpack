@@ -3,6 +3,7 @@
 
 #include <format>
 #include <memory>
+#include <stacktrace>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -25,14 +26,32 @@ inline std::wstring get_err_str(DWORD code, DWORD lang = 0)
 	return len ? std::wstring(raw, len) : std::wstring();
 }
 
+/* Runtime error that keeps the stack where it was created. Capture is cheap,
+ * symbols are resolved (from the .pdb next to the exe) only when the trace is
+ * formatted.
+ */
+class traced_error : public std::runtime_error {
+public:
+	explicit traced_error(const std::string& msg)
+		: std::runtime_error(msg)
+		, trace_(std::stacktrace::current(1))
+	{
+	}
+
+	const std::stacktrace& trace(void) const noexcept { return trace_; }
+
+private:
+	std::stacktrace trace_;
+};
+
 /* Win32 API error (comes from GetLastError()) */
-class win32_error : public std::runtime_error {
+class win32_error : public traced_error {
 public:
 	template <class... Args>
 	explicit win32_error(
 		DWORD code, std::format_string<Args...> fmt = "", Args &&...args
 	)
-		: std::runtime_error(
+		: traced_error(
 			fmt_errmsg(code, fmt, std::forward<Args>(args)...)
 		)
 		, code_(code)
@@ -66,13 +85,13 @@ private:
 };
 
 /* COM (Component Object Model) error (converted from HRESULT) */
-class com_error : public std::runtime_error {
+class com_error : public traced_error {
 public:
 	template <class... Args>
 	explicit com_error(
 		HRESULT hr, std::format_string<Args...> fmt = "", Args &&...args
 	)
-		: std::runtime_error(
+		: traced_error(
 			fmt_errmsg(hr, fmt, std::forward<Args>(args)...)
 		)
 		, hr_(hr)

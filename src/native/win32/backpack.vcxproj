@@ -49,7 +49,7 @@
       <LanguageStandard>stdcpp23</LanguageStandard>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;UNICODE;_UNICODE;_USE_DETAILED_FUNCTION_NAME_IN_SOURCE_LOCATION=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(ProjectDir);$(PythonIncludeDir);%(ClCompile.AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization Condition="'$(Configuration)'=='Debug'">Disabled</Optimization>
       <Optimization Condition="'$(Configuration)'=='Release'">MaxSpeed</Optimization>

@@ -25,10 +25,10 @@ void show_fatal(const std::wstring& text, HWND owner,
 	const std::stacktrace *trace)
 {
 	if (trace && !trace->empty())
-		LOGGER_CRITICAL("{}\nstack trace:\n{}", wstr_to_utf8(text),
+		logger::critical("{}\nstack trace:\n{}", wstr_to_utf8(text),
 			std::to_string(*trace));
 	else
-		LOGGER_CRITICAL("{}", wstr_to_utf8(text));
+		logger::critical("{}", wstr_to_utf8(text));
 
 	const std::wstring& log = logger::path();
 	std::wstring body = text;

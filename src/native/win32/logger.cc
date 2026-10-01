@@ -7,6 +7,7 @@
 #include <mutex>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <windows.h>
@@ -85,7 +86,8 @@ public:
 	int level(void) const noexcept { return logger_level; }
 	bool enabled(int level) const noexcept { return level >= logger_level; }
 	const std::wstring& path(void) const noexcept { return log_path; }
-	void write(int level, std::string_view name, std::string_view func,
+	/* Write "<time> <elapsed> <thread> <level> <source>: <msg>" */
+	void write(int level, std::string_view source,
 		std::string_view msg) noexcept;
 
 private:
@@ -183,11 +185,11 @@ try {
 			file_close = close_handle;
 		}
 
-		/* Delete the oldest backpack-*.log files beyond logs_keep.
-		 * File names start with a timestamp, so name order is age
-		 * order. Failures are ignored.
+		/* Delete the oldest backpack-*.log files beyond logs_keep by
+		 * creation time. Names use local time, which goes back on a DST
+		 * change, so name order is not age order. Failures are ignored.
 		 */
-		std::vector<std::wstring> names;
+		std::vector<std::pair<ULONGLONG, std::wstring>> logs;
 		WIN32_FIND_DATAW fd;
 		HANDLE find = FindFirstFileW(
 			(log_dir + L"\\backpack-*.log").c_str(), &fd);
@@ -200,14 +202,16 @@ try {
 				bool is_dir = fd.dwFileAttributes
 					& FILE_ATTRIBUTE_DIRECTORY;
 				if (!is_dir && name.ends_with(L".log"))
-					names.emplace_back(name);
+					logs.emplace_back(
+						to_u64(fd.ftCreationTime),
+						name);
 			} while (FindNextFileW(find, &fd));
 			FindClose(find);
 		}
 
-		std::sort(names.begin(), names.end(), std::greater<>());
-		for (size_t i = logs_keep; i < names.size(); i++) {
-			std::wstring p = log_dir + L"\\" + names[i];
+		std::sort(logs.begin(), logs.end(), std::greater<>());
+		for (size_t i = logs_keep; i < logs.size(); i++) {
+			std::wstring p = log_dir + L"\\" + logs[i].second;
 			if (p != log_path)
 				DeleteFileW(p.c_str());
 		}
@@ -229,11 +233,11 @@ try {
 	ver.dwOSVersionInfoSize = sizeof(ver);
 	RtlGetVersion(&ver);
 
-	LOGGER_INFO("{} (pid {})", wstr_to_utf8(exe), GetCurrentProcessId());
-	LOGGER_INFO("command line: {}", wstr_to_utf8(GetCommandLineW()));
-	LOGGER_INFO("Windows {}.{}.{}", ver.dwMajorVersion,
+	logger::info("{} (pid {})", wstr_to_utf8(exe), GetCurrentProcessId());
+	logger::info("command line: {}", wstr_to_utf8(GetCommandLineW()));
+	logger::info("Windows {}.{}.{}", ver.dwMajorVersion,
 		ver.dwMinorVersion, ver.dwBuildNumber);
-	LOGGER_INFO("log level {}, log file: {}", logger_level,
+	logger::info("log level {}, log file: {}", logger_level,
 		log_path.empty() ? "none" : wstr_to_utf8(log_path));
 } catch (...) {
 	/* keep running with whatever got opened */
@@ -253,12 +257,9 @@ void logger_t::close(void) noexcept
 	term_close = close_none;
 }
 
-void logger_t::write(int msg_level, std::string_view logger_name,
-	std::string_view caller_func, std::string_view msg) noexcept
+void logger_t::write(int msg_level, std::string_view source,
+	std::string_view msg) noexcept
 try {
-	if (msg_level < logger_level)
-		return;
-
 	auto elapsed_ms =
 		std::chrono::duration_cast<std::chrono::milliseconds>(
 			std::chrono::steady_clock::now() - start_tp
@@ -277,19 +278,9 @@ try {
 		msg_level >= INFO_LEVEL ? 'I' : 'D';
 
 	std::string line = std::format(
-		"{:02}:{:02}:{:02}.{:06} +{}.{:03} {} {} ",
+		"{:02}:{:02}:{:02}.{:06} +{}.{:03} {} {} {}: {}\n",
 		t.wHour, t.wMinute, t.wSecond, us, elapsed_ms / 1000,
-		elapsed_ms % 1000, GetCurrentThreadId(), letter);
-	line += logger_name;
-	if (!caller_func.empty()) {
-		if (!logger_name.empty())
-			line += "::";
-		line += caller_func;
-		line += "()";
-	}
-	line += ": ";
-	line += msg;
-	line += '\n';
+		elapsed_ms % 1000, GetCurrentThreadId(), letter, source, msg);
 
 	std::lock_guard lock(mut);
 	file_write(file, line);
@@ -327,12 +318,45 @@ const std::wstring& path(void) noexcept
 
 void write(int msg_level, std::string_view logger_name,
 	std::string_view caller_func, std::string_view msg) noexcept
-{
-	instance.write(msg_level, logger_name, caller_func, msg);
+try {
+	if (!instance.enabled(msg_level))
+		return;
+	std::string source(logger_name);
+	if (!caller_func.empty()) {
+		if (!logger_name.empty())
+			source += "::";
+		source += caller_func;
+		source += "()";
+	}
+	instance.write(msg_level, source, msg);
+} catch (...) {
+	/* a log call never throws */
 }
 
-duration_t::duration_t(const char *func, const char *what, int level) noexcept
-	: func(func), what(what), level(level)
+void write(int msg_level, const std::source_location& loc,
+	std::string_view msg) noexcept
+try {
+	if (!instance.enabled(msg_level))
+		return;
+
+	/* file_name() is the path given to the compiler, keep the base name */
+	std::string_view file = loc.file_name();
+	file.remove_prefix(file.find_last_of("\\/") + 1);
+
+	/* MSVC names a lambda body "operator ()" */
+	std::string func = loc.function_name();
+	if (size_t sp = func.find(" ("); sp != std::string::npos)
+		func.erase(sp, 1);
+
+	instance.write(msg_level,
+		std::format("{}:{}: {}", file, loc.line(), func), msg);
+} catch (...) {
+	/* a log call never throws */
+}
+
+duration_t::duration_t(const char *what, int level,
+	std::source_location loc) noexcept
+	: what(what), level(level), loc(loc)
 {
 }
 
@@ -345,7 +369,7 @@ duration_t::~duration_t(void)
 		return;
 	std::chrono::duration<double, std::milli> ms = *elapsed;
 	try {
-		write(level, "win32", func,
+		write(level, loc,
 			std::format("{}: {:.1f} ms", what, ms.count()));
 	} catch (...) {
 	}

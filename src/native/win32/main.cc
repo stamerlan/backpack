@@ -127,7 +127,7 @@ app_t::app_t(HWND hwnd, ATOM atom, std::wstring url, std::wstring assets)
 			webview.close();
 			return;
 		}
-		LOGGER_INFO("WebView2 created");
+		logger::info("WebView2 created");
 		webview.navigate(this->url);
 	};
 	webview.on_closed = [this] {
@@ -140,7 +140,8 @@ app_t::app_t(HWND hwnd, ATOM atom, std::wstring url, std::wstring assets)
 	webview.on_load =
 		[this](bool ok, COREWEBVIEW2_WEB_ERROR_STATUS web_err, int http)
 		{
-			LOGGER_INFO("webview.on_load: ok:{} web_err:{} http:{}",
+			logger::info(
+				"webview.on_load: ok:{} web_err:{} http:{}",
 				ok, static_cast<int>(web_err), http);
 			event_q.push("{ \"name\": \"load\", \"args\": [] }");
 		};
@@ -227,7 +228,7 @@ try {
 	std::wstring app_dir = get_module_dir();
 	std::wstring assets_dir = app_dir + L"\\assets";
 
-	LOGGER_INFO("url:{}", wstr_to_utf8(url));
+	logger::info("url:{}", wstr_to_utf8(url));
 	app_t app(hwnd, atom, url, assets_dir);
 
 	py::config_t config;
@@ -255,7 +256,7 @@ try {
 	PyThreadState *main_th_state = PyEval_SaveThread();
 
 	std::thread py_thread([pyapp] {
-		LOGGER_INFO("start");
+		logger::info("start");
 		PyGILState_STATE gil = PyGILState_Ensure();
 		PyObject *core = PyImport_ImportModule("backpack");
 		if (core) {
@@ -286,7 +287,7 @@ try {
 		}
 	}
 	py_thread.join();
-	LOGGER_INFO("core thread exited");
+	logger::info("core thread exited");
 
 	/* Python core is finished. Close the webview just in cases python core
 	 * haven't done it yet. Abort queues to release resources held by
@@ -312,7 +313,9 @@ try {
 	show_fatal(msg);
 	return 1;
 } catch (const std::exception& e) {
-	show_fatal(utf8_to_wstr(e.what()));
+	auto te = dynamic_cast<const traced_error *>(&e);
+	show_fatal(utf8_to_wstr(e.what()), nullptr,
+		te ? &te->trace() : nullptr);
 	return 1;
 }
 
@@ -342,7 +345,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
 
 	logger::init(level);
 	int rc = run(argc, argv.get(), url);
-	LOGGER_INFO("exit code {}", rc);
+	logger::info("exit code {}", rc);
 	logger::close();
 	return rc;
 }
