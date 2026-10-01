@@ -1,5 +1,6 @@
 #include <format>
 #include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -76,6 +77,39 @@ static std::string get_py_exception(void)
 	PyErr_Clear();
 	Py_DECREF(exc);
 	return msg;
+}
+
+/* Ctrl+C / Ctrl+Break state, guarded by ctrl_mut. ctrl_hwnd is set once the
+ * window is shown and cleared before it is destroyed. ctrl_closing is set by
+ * the first signal after that, or by the shutdown itself.
+ */
+static std::mutex ctrl_mut;
+static HWND ctrl_hwnd;
+static bool ctrl_closing;
+
+/* Runs on its own thread when the console the app is attached to (if any)
+ * gets Ctrl+C or Ctrl+Break. Ignored during startup, then the first signal
+ * closes the window the same way as the close button, and a signal after
+ * that returns FALSE so that the default handler terminates the process.
+ */
+static BOOL WINAPI ctrl_handler(DWORD type)
+{
+	if (type != CTRL_C_EVENT && type != CTRL_BREAK_EVENT)
+		return FALSE;
+
+	std::lock_guard lock(ctrl_mut);
+	if (ctrl_closing) {
+		logger::warning("console signal {}: terminating", type);
+		return FALSE;
+	}
+	if (!ctrl_hwnd) {
+		logger::info("console signal {}: ignored during startup", type);
+		return TRUE;
+	}
+	logger::info("console signal {}: closing the window", type);
+	ctrl_closing = true;
+	PostMessageW(ctrl_hwnd, WM_CLOSE, 0, 0);
+	return TRUE;
 }
 
 static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT m, WPARAM wp, LPARAM lp)
@@ -248,6 +282,11 @@ try {
 		throw std::runtime_error(get_py_exception());
 
 	app.window.show();
+	{
+		std::lock_guard lock(ctrl_mut);
+		ctrl_hwnd = hwnd;
+	}
+	logger::info("window shown");
 
 	/* backpack.main owns the asyncio loop and blocks until Core's lifecycle
 	 * ends. Release the GIL so the core thread runs; the UI thread only
@@ -295,6 +334,11 @@ try {
 	 */
 	app.webview.close();
 	defer_call_cancel();
+	{
+		std::lock_guard lock(ctrl_mut);
+		ctrl_hwnd = nullptr;
+		ctrl_closing = true;
+	}
 	DestroyWindow(hwnd);
 
 	PyEval_RestoreThread(main_th_state);
@@ -344,7 +388,9 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
 	}
 
 	logger::init(level);
+	SetConsoleCtrlHandler(ctrl_handler, TRUE);
 	int rc = run(argc, argv.get(), url);
+	SetConsoleCtrlHandler(ctrl_handler, FALSE);
 	logger::info("exit code {}", rc);
 	logger::close();
 	return rc;
