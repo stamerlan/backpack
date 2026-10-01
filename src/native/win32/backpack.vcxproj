@@ -49,7 +49,7 @@
       <LanguageStandard>stdcpp23</LanguageStandard>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;UNICODE;_UNICODE;_USE_DETAILED_FUNCTION_NAME_IN_SOURCE_LOCATION=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(ProjectDir);$(PythonIncludeDir);%(ClCompile.AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization Condition="'$(Configuration)'=='Debug'">Disabled</Optimization>
       <Optimization Condition="'$(Configuration)'=='Release'">MaxSpeed</Optimization>
@@ -69,6 +69,7 @@
     <ClCompile Include="defer_call.cc" />
     <ClCompile Include="dialog.cc" />
     <ClCompile Include="event_queue.cc" />
+    <ClCompile Include="logger.cc" />
     <ClCompile Include="main.cc" />
     <ClCompile Include="py\event_queue.cc" />
     <ClCompile Include="py\script_queue.cc" />
@@ -82,6 +83,7 @@
     <ClInclude Include="defer_call.h" />
     <ClInclude Include="dialog.h" />
     <ClInclude Include="event_queue.h" />
+    <ClInclude Include="logger.h" />
     <ClInclude Include="py\config.h" />
     <ClInclude Include="py\invoke.h" />
     <ClInclude Include="py\keep.h" />

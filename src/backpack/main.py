@@ -104,8 +104,7 @@ def main(app: AppHost) -> None:
             storage.write_settings_file(settings_path)
         except OSError as e:
             logger.warning(f"Could not store settings: {e}")
-
-        logger.info("Exit\n")
+        logger.info("Exit")
 
 
 async def _serve(host: AppHost, app: Backpack) -> None:
