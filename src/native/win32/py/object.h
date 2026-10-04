@@ -15,6 +15,7 @@ PyObject *to_object(window_t& window);
 PyObject *to_object(webview_t& webview, HWND hwnd);
 PyObject *to_object(event_queue_t& events);
 PyObject *to_object(script_queue_t& queue);
+PyObject *logger_object(void);
 
 } /* namespace py */
 

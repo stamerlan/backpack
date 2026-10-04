@@ -153,6 +153,30 @@ app_t::~app_t(void)
 	SetWindowLongPtrW(window.hwnd(), GWLP_USERDATA, 0);
 }
 
+/* Route Python logging to the native log. Runs before backpack is imported, so
+ * its import time records are captured too. A failure is logged and Python
+ * logging stays unconfigured.
+ */
+static void install_py_logger(void)
+{
+	PyObject *handler = py::logger_object();
+	PyObject *r = nullptr;
+	if (handler) {
+		PyObject *mod = PyImport_ImportModule("native.logger");
+		if (mod) {
+			r = PyObject_CallMethod(mod, "setup", "O", handler);
+			Py_DECREF(mod);
+		}
+		Py_DECREF(handler);
+	}
+	if (!r) {
+		logger::warning(
+			"python logging setup failed: {}", get_py_exception());
+		return;
+	}
+	Py_DECREF(r);
+}
+
 /* Build the Windows app host (native.win32.WinAppHost) that Core drives,
  * injecting the Python objects over the native window, webview and queues.
  * Returns a new reference, or nullptr with a Python error set.
@@ -239,6 +263,10 @@ try {
 	logger::timer_t py_init_timer("python init");
 	config.init();
 	py_init_timer.stop();
+
+	logger::timer_t py_logger_timer("python logger install");
+	install_py_logger();
+	py_logger_timer.stop();
 
 	logger::timer_t py_app_timer("build_py_app()");
 	PyObject *pyapp = build_py_app(app);

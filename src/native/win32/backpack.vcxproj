@@ -73,6 +73,7 @@
     <ClCompile Include="logger.cc" />
     <ClCompile Include="main.cc" />
     <ClCompile Include="py\event_queue.cc" />
+    <ClCompile Include="py\logger.cc" />
     <ClCompile Include="py\script_queue.cc" />
     <ClCompile Include="py\webview.cc" />
     <ClCompile Include="py\window.cc" />
