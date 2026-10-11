@@ -131,6 +131,17 @@ HRESULT webview_t::on_ctrl_created(HRESULT hr, ICoreWebView2Controller *c)
 				COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
 	}
 
+	/* SmartScreen looks up each navigation online, which holds the first
+	 * page parsing. The webview only loads the app's own UI, so the check
+	 * protects nothing.
+	 */
+	Microsoft::WRL::ComPtr<ICoreWebView2Settings> settings;
+	Microsoft::WRL::ComPtr<ICoreWebView2Settings8> settings8;
+	if (SUCCEEDED(core->get_Settings(&settings)) &&
+		SUCCEEDED(settings.As(&settings8))
+	)
+		settings8->put_IsReputationCheckingRequired(FALSE);
+
 	EventRegistrationToken token;
 	core->add_WebMessageReceived(
 		Microsoft::WRL::Callback<
