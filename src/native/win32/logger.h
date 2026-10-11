@@ -11,6 +11,8 @@
 #include <utility>
 #include <windows.h>
 
+typedef struct _object PyObject;
+
 class logger_t {
 public:
 	/* Python-compatible numeric levels */
@@ -104,6 +106,12 @@ public:
 	{
 		log(CRITICAL_LEVEL, f, std::forward<Args>(args)...);
 	}
+
+	/* New reference to a new Python object (native.win32.Logger)
+	 * borrowing this logger, or nullptr with a Python error set. Requires
+	 * the GIL.
+	 */
+	PyObject *to_py(void);
 
 private:
 	/* Output callbacks. An output that is not open uses the *_none
