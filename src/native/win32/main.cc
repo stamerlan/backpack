@@ -192,6 +192,27 @@ static PyObject *build_py_app(app_t& app)
 	return py_app;
 }
 
+/* Import native.logger and call setup() */
+static void setup_logger(void)
+{
+	PyObject *py_logger = logger::instance().to_py();
+	PyObject *ret = nullptr;
+	if (py_logger) {
+		PyObject *mod = PyImport_ImportModule("native.logger");
+		if (mod) {
+			ret = PyObject_CallMethod(mod, "setup", "O", py_logger);
+			Py_DECREF(mod);
+		}
+		Py_DECREF(py_logger);
+	}
+
+	if (ret)
+		Py_DECREF(ret);
+	else
+		logger::error("py logger setup failed: {}", get_py_exception());
+	logger::debug("python log ready");
+}
+
 /* Run the app: window, webview, Python and the core thread. Returns the
  * process exit code. Fatal errors are logged and shown to the user.
  */
@@ -257,6 +278,8 @@ try {
 	std::thread core_thread([&app, &core_exc] {
 		PyGILState_STATE gil = PyGILState_Ensure();
 		try {
+			setup_logger();
+
 			py_ref pyapp(build_py_app(app), Py_DecRef);
 			if (!pyapp)
 				throw std::runtime_error(get_py_exception());

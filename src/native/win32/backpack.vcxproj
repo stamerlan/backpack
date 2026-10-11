@@ -71,6 +71,7 @@
     <ClCompile Include="event_queue.cc" />
     <ClCompile Include="event_queue_py.cc" />
     <ClCompile Include="logger.cc" />
+    <ClCompile Include="logger_py.cc" />
     <ClCompile Include="main.cc" />
     <ClCompile Include="script_queue.cc" />
     <ClCompile Include="script_queue_py.cc" />
