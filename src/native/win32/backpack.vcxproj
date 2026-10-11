@@ -96,6 +96,7 @@
     <ClInclude Include="py\config.h" />
     <ClInclude Include="py\invoke.h" />
     <ClInclude Include="py\keep.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="script_queue.h" />
     <ClInclude Include="utf8.h" />
     <ClInclude Include="webview.h" />
@@ -104,6 +105,9 @@
   </ItemGroup>
   <ItemGroup>
     <Manifest Include="backpack.manifest" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="backpack.rc" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
