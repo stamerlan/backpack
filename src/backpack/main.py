@@ -1,62 +1,20 @@
 import asyncio
 import logging
-import logging.handlers
 import os
 import platform
 import sys
-from argparse import ArgumentParser
 from dataclasses import replace
-from datetime import datetime
 
 from backpack.app_host import AppHost
 from backpack.app_info import APP_NAME, APP_VERSION
 from backpack.core import Backpack
-from backpack.paths import app_settings_path, applogs
+from backpack.paths import app_settings_path
 from backpack.storage import Storage
 
 logger = logging.getLogger(APP_NAME)
 
 
-class LogFormatter(logging.Formatter):
-    def formatTime(
-        self, record: logging.LogRecord, datefmt: str | None = None
-    ) -> str:
-        dt = datetime.fromtimestamp(record.created)
-        if datefmt:
-            return dt.strftime(datefmt)
-        return dt.strftime("%H:%M:%S.%f")
-
-
 def main(app: AppHost) -> None:
-    parser = ArgumentParser(add_help=False)
-    parser.add_argument("-d", "--debug", action="store_true")
-    args, _ = parser.parse_known_args()
-
-    log_formatter = LogFormatter(
-        "%(asctime)s %(name)s.%(funcName)s(): %(message)s"
-    )
-    log_handler = logging.StreamHandler()
-    log_handler.setFormatter(log_formatter)
-    handlers: list[logging.Handler] = [log_handler]
-
-    try:
-        log_dir = applogs()
-        log_dir.mkdir(parents=True, exist_ok=True)
-        file_handler = logging.handlers.RotatingFileHandler(
-            log_dir / "backpack.log", maxBytes=1_000_000, backupCount=3,
-            encoding="utf-8"
-        )
-        file_handler.setFormatter(log_formatter)
-        handlers.append(file_handler)
-    except OSError:
-        # A read-only home must never block startup; keep stream-only.
-        pass
-
-    logging.basicConfig(
-        level=logging.DEBUG if args.debug else logging.INFO,
-        handlers=handlers
-    )
-    logging.getLogger("pywebview").handlers.clear()
     logging.getLogger("httpcore").setLevel(logging.INFO)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("google_genai").setLevel(logging.ERROR)

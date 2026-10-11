@@ -1,17 +1,59 @@
 """MacOS application entry"""
 
 import logging
+import logging.handlers
 import threading
 from argparse import ArgumentParser
+from datetime import datetime
 
 import backpack
 from backpack import APP_NAME
-from backpack.paths import app_icon_path, assets_dir
+from backpack.paths import app_icon_path, applogs, assets_dir
 from native.macos import MacAppHost
 
 DEV_SERVER_URL = "http://localhost:5173"
 
 logger = logging.getLogger(APP_NAME)
+
+
+class LogFormatter(logging.Formatter):
+    def formatTime(
+        self, record: logging.LogRecord, datefmt: str | None = None
+    ) -> str:
+        dt = datetime.fromtimestamp(record.created)
+        if datefmt:
+            return dt.strftime(datefmt)
+        return dt.strftime("%H:%M:%S.%f")
+
+
+def _setup_logging(debug: bool) -> None:
+    """Log to the console and the rotating backpack.log"""
+    log_formatter = LogFormatter(
+        "%(asctime)s %(name)s.%(funcName)s(): %(message)s"
+    )
+    log_handler = logging.StreamHandler()
+    log_handler.setFormatter(log_formatter)
+    handlers: list[logging.Handler] = [log_handler]
+
+    try:
+        log_dir = applogs()
+        log_dir.mkdir(parents=True, exist_ok=True)
+        file_handler = logging.handlers.RotatingFileHandler(
+            log_dir / "backpack.log", maxBytes=1_000_000, backupCount=3,
+            encoding="utf-8"
+        )
+        file_handler.setFormatter(log_formatter)
+        handlers.append(file_handler)
+    except OSError:
+        # A read-only home must never block startup; keep stream-only.
+        pass
+
+    logging.basicConfig(
+        level=logging.DEBUG if debug else logging.INFO,
+        handlers=handlers
+    )
+    # pywebview adds its own stream handler; keep only ours
+    logging.getLogger("pywebview").handlers.clear()
 
 
 def main() -> None:
@@ -25,6 +67,7 @@ def main() -> None:
         help="log at debug level and open the web view with dev tools",
     )
     args = parser.parse_args()
+    _setup_logging(args.debug)
 
     # Override the identity inherited from the embedded Python.app so the menu
     # bar and cmd+tab switcher show Backpack, not Python, when run from source.
