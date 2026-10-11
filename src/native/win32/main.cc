@@ -18,6 +18,7 @@
 #include "event_queue.h"
 #include "logger.h"
 #include "py/config.h"
+#include "resource.h"
 #include "script_queue.h"
 #include "utf8.h"
 #include "webview.h"
@@ -230,6 +231,7 @@ try {
 	wc.style = CS_HREDRAW | CS_VREDRAW;
 	wc.lpfnWndProc = wnd_proc;
 	wc.hInstance = hinst;
+	wc.hIcon = LoadIconW(hinst, MAKEINTRESOURCEW(IDI_APP));
 	wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
 	wc.lpszClassName = wnd_class;
 
