@@ -95,14 +95,27 @@ HRESULT webview_t::on_env_created(HRESULT hr, ICoreWebView2Environment *e)
 	}
 	env = e;
 
-	hr = env->CreateCoreWebView2Controller(
-		hwnd,
-		Microsoft::WRL::Callback<
-			ICoreWebView2CreateCoreWebView2ControllerCompletedHandler
-		>(
-			this, &webview_t::on_ctrl_created
-		).Get()
+	auto handler = Microsoft::WRL::Callback<
+		ICoreWebView2CreateCoreWebView2ControllerCompletedHandler
+	>(
+		this, &webview_t::on_ctrl_created
 	);
+
+	/* Transparent default background, so the parent window's theme color
+	 * shows until the page paints.
+	 */
+	Microsoft::WRL::ComPtr<ICoreWebView2Environment10> env10;
+	Microsoft::WRL::ComPtr<ICoreWebView2ControllerOptions> opts;
+	Microsoft::WRL::ComPtr<ICoreWebView2ControllerOptions3> opts3;
+	if (SUCCEEDED(env.As(&env10)) &&
+		SUCCEEDED(env10->CreateCoreWebView2ControllerOptions(&opts)) &&
+		SUCCEEDED(opts.As(&opts3)) &&
+		SUCCEEDED(opts3->put_DefaultBackgroundColor({ 0, 0, 0, 0 }))
+	)
+		hr = env10->CreateCoreWebView2ControllerWithOptions(
+			hwnd, opts.Get(), handler.Get());
+	else
+		hr = env->CreateCoreWebView2Controller(hwnd, handler.Get());
 	if (FAILED(hr))
 		defer_call(hwnd, [this, hr] { if (on_create) on_create(hr); });
 	return S_OK;

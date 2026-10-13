@@ -27,7 +27,7 @@ static bool is_system_dark_theme(void) noexcept
 }
 
 window_t::window_t(HWND hwnd, ATOM atom) noexcept
-	: handle(hwnd), atom(atom)
+	: handle(hwnd), atom(atom), theme{ true, is_system_dark_theme() }
 {
 }
 
@@ -61,20 +61,33 @@ void window_t::hide(void) const noexcept
 	ShowWindow(handle, SW_HIDE);
 }
 
-void window_t::set_theme(std::wstring mode) noexcept
+void window_t::fill(HDC dc, uint32_t rgb) const noexcept
+{
+	RECT rect;
+	COLORREF color = RGB(rgb >> 16 & 0xFF, rgb >> 8 & 0xFF, rgb & 0xFF);
+
+	GetClientRect(handle, &rect);
+	SetDCBrushColor(dc, color);
+	FillRect(dc, &rect, static_cast<HBRUSH>(GetStockObject(DC_BRUSH)));
+}
+
+void window_t::set_theme(const std::wstring& mode) noexcept
 {
 	if (!handle)
 		return;
 
-	theme = std::move(mode);
+	if (mode == L"dark") {
+		theme.dark = true;
+		theme.sys = false;
+	} else if (mode == L"light") {
+		theme.dark = false;
+		theme.sys = false;
+	} else {
+		theme.dark = is_system_dark_theme();
+		theme.sys = true;
+	}
 
-	BOOL is_dark;
-	if (theme == L"dark")
-		is_dark = TRUE;
-	else if (theme == L"light")
-		is_dark = FALSE;
-	else
-		is_dark = is_system_dark_theme() ? TRUE : FALSE;
+	BOOL is_dark = theme.dark ? TRUE : FALSE;
 
 	/* The immersive dark mode attribute is 20 on Windows 10 20H1 and later.
 	 * The pre-20H1 value 19 is tried when 20 is rejected.
@@ -95,9 +108,16 @@ void window_t::set_theme(std::wstring mode) noexcept
 	int backdrop = is_dark ? DWMSBT_MAINWINDOW : DWMSBT_NONE;
 	DwmSetWindowAttribute(handle, DWMWA_SYSTEMBACKDROP_TYPE,
 		&backdrop, sizeof(backdrop));
+
+	InvalidateRect(handle, nullptr, TRUE);
 }
 
 bool window_t::is_system_theme(void) const noexcept
 {
-	return theme != L"light" && theme != L"dark";
+	return theme.sys;
+}
+
+bool window_t::is_dark_theme(void) const noexcept
+{
+	return theme.dark;
 }
