@@ -31,10 +31,11 @@ frontend edits refresh without a rebuild::
     bin\windows-x64\backpack.exe --dev
 
 ``--dev`` takes an optional URL for a dev server other than
-``http://localhost:5173``. The app runs the Python sources bundled under
-``bin/windows-x64/lib``, so run ``build.bat`` after Python changes. Without
-``--dev`` the app loads the built ``bin/assets/index.html``, so run
-``build.bat`` after frontend changes when testing that path.
+``http://localhost:5173``. The app runs the Python code bundled under
+``bin/windows-x64/lib``, compiled to ``.pyc`` with the sources stripped, so
+run ``build.bat`` after Python changes. Without ``--dev`` the app loads the
+built ``bin/assets/index.html``, so run ``build.bat`` after frontend changes
+when testing that path.
 
 Checks
 ------

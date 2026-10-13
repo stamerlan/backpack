@@ -1,4 +1,5 @@
 import argparse
+import compileall
 import hashlib
 import shutil
 import subprocess
@@ -70,6 +71,25 @@ def prune_babel(lib: Path, locales: Path) -> None:
             dat.unlink()
 
 
+def compile_lib(lib: Path) -> None:
+    """Compile the sources under lib/ to .pyc files and drop the sources.
+
+    Each .pyc sits beside its source, where the import system loads it
+    without the .py, so the app never compiles at startup and never writes
+    into its bundle. Sources compiled by a previous build are already gone,
+    so only what this build added gets compiled. Code objects record paths
+    relative to lib/, keeping the build machine's paths out of tracebacks.
+    """
+    # Interpreter-written caches from runs before sources were stripped
+    for cache in list(lib.rglob("__pycache__")):
+        shutil.rmtree(cache)
+    if not compileall.compile_dir(lib, quiet=1, legacy=True, force=True,
+                                  workers=0, stripdir=str(lib)):
+        sys.exit("compiling the bundled Python sources failed")
+    for src in lib.rglob("*.py"):
+        src.unlink()
+
+
 def pip_install(lib: Path, project: Path, *extra: str) -> None:
     """Install project into lib/ with pip, without writing .pyc files."""
     subprocess.run(
@@ -137,6 +157,8 @@ def main() -> None:
 
     # pip leaves console-script launchers under bin/ that nothing invokes
     shutil.rmtree(lib / "bin", ignore_errors=True)
+
+    compile_lib(lib)
 
     # Bundled resources next to the exe. paths.py probes the backpack package
     # parents and finds them there. Only the compiled *.mo catalogs are used
