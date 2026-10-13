@@ -1,6 +1,7 @@
 #ifndef WINDOW_H
 #define WINDOW_H
 
+#include <stdint.h>
 #include <string>
 
 #include <windows.h>
@@ -20,10 +21,12 @@ public:
 	void set_title(const std::wstring& title) const noexcept;
 	void show(void) const noexcept;
 	void hide(void) const noexcept;
+	void fill(HDC dc, uint32_t rgb) const noexcept;
 
 	/* Apply the theme. mode is "light", "dark" or "system" */
-	void set_theme(std::wstring mode) noexcept;
+	void set_theme(const std::wstring& mode) noexcept;
 	bool is_system_theme(void) const noexcept;
+	bool is_dark_theme(void) const noexcept;
 
 	/* New reference to a new Python object (native.win32.Window) borrowing
 	 * this window, or nullptr with a Python error set. Requires the GIL.
@@ -32,7 +35,11 @@ public:
 private:
 	HWND handle = nullptr;
 	ATOM atom = 0;
-	std::wstring theme;
+
+	struct {
+		bool sys;
+		bool dark;
+	} theme = { true, false };
 };
 
 #endif /* WINDOW_H */

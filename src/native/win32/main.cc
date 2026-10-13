@@ -105,6 +105,11 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT m, WPARAM wp, LPARAM lp)
 	case WM_APP:
 		defer_call_run(wp);
 		return 0;
+	case WM_ERASEBKGND:
+		/* Fluent colorNeutralBackground1 of light and dark theme */
+		self->window.fill(reinterpret_cast<HDC>(wp),
+			self->window.is_dark_theme() ? 0x292929 : 0xffffff);
+		return 1;
 	case WM_SETTINGCHANGE:
 		/* Apply system theme, just in case it's changed */
 		if (self->window.is_system_theme())
