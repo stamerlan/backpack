@@ -126,6 +126,14 @@ export function App() {
     theme_mode === "dark" || (theme_mode === "system" && sys_theme_dark)
   );
 
+  /* Native widgets such as scrollbars ignore the Fluent theme and draw from
+   * the CSS color-scheme instead.
+   */
+  useEffect(() => {
+    document.documentElement.style.colorScheme =
+      is_dark_theme ? "dark" : "light";
+  }, [is_dark_theme]);
+
   return (
     <FluentProvider
       theme={is_dark_theme ? webDarkTheme : webLightTheme}
