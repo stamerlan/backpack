@@ -1,6 +1,8 @@
 #include "script_queue.h"
 #include <utility>
 #include "defer_call.h"
+#include "logger.h"
+#include "winerr.h"
 
 /* turn a JS throw into a pywebviewJavascriptError420 object, the same shape
  * as pywebview uses
@@ -116,6 +118,9 @@ void script_queue_t::settle(HRESULT hr, const std::wstring& json)
 		ent = std::move(cur_ent);
 		cur_ent.reset();
 	}
+	/* a JS throw still succeeds, so this is the webview failing */
+	if (FAILED(hr) && hr != E_ABORT)
+		logger::error("script failed: {}", fmt_err(hr));
 	try {
 		ent->cb(hr, json);
 	} catch (...) {

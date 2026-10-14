@@ -26,6 +26,19 @@ inline std::wstring get_err_str(DWORD code, DWORD lang = 0)
 	return len ? std::wstring(raw, len) : std::wstring();
 }
 
+static inline std::string fmt_err(DWORD code)
+{
+	std::string msg = wstr_to_utf8(get_err_str(code));
+	if (!msg.empty())
+		msg += ' ';
+	return msg + std::format("(0x{:08X})", code);
+}
+
+static inline std::string fmt_err(HRESULT hr)
+{
+	return fmt_err(static_cast<DWORD>(hr));
+}
+
 class traced_error : public std::runtime_error {
 public:
 	explicit traced_error(const std::string& msg)
@@ -68,13 +81,9 @@ private:
 		DWORD code, std::format_string<Args...> fmt, Args &&...args)
 	{
 		std::string msg = std::format(fmt, std::forward<Args>(args)...);
-		std::wstring err_str = get_err_str(code);
-		if (!err_str.empty()) {
-			if (!msg.empty())
-				msg += ": ";
-			msg += wstr_to_utf8(err_str);
-		}
-		return msg + std::format(" (0x{:08X})", code);
+		if (!msg.empty())
+			msg += ": ";
+		return msg + fmt_err(code);
 	}
 
 	DWORD code_;
@@ -102,14 +111,9 @@ private:
 		HRESULT hr, std::format_string<Args...> fmt, Args &&...args)
 	{
 		std::string msg = std::format(fmt, std::forward<Args>(args)...);
-		std::wstring err_str = get_err_str(static_cast<DWORD>(hr));
-		if (!err_str.empty()) {
-			if (!msg.empty())
-				msg += ": ";
-			msg += wstr_to_utf8(err_str);
-		}
-		return msg + std::format(
-			" (0x{:08X})", static_cast<unsigned>(hr));
+		if (!msg.empty())
+			msg += ": ";
+		return msg + fmt_err(hr);
 	}
 
 	HRESULT hr_;

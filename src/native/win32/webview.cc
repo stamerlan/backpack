@@ -2,6 +2,7 @@
 #include <utility>
 #include <wrl.h>
 #include "defer_call.h"
+#include "logger.h"
 #include "utf8.h"
 
 /* Provide the same API as pywebview */
@@ -292,7 +293,11 @@ HRESULT webview_t::on_web_msg_received(
 
 		if (on_msg)
 			on_msg(json);
-	} catch (...) {}
+	} catch (const std::exception& e) {
+		logger::warning("web message dropped: {}", e.what());
+	} catch (...) {
+		logger::warning("web message dropped: unknown exception");
+	}
 
 	return S_OK;
 }

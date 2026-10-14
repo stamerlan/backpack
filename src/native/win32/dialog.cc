@@ -1,6 +1,7 @@
 #include "dialog.h"
 #include <wrl/client.h>
 #include <shobjidl.h>
+#include "logger.h"
 #include "winerr.h"
 
 #pragma comment(lib, "ole32.lib")
@@ -25,8 +26,10 @@ new_dialog(REFCLSID clsid, FILEOPENDIALOGOPTIONS extra,
 	ComPtr<IFileDialog> dlg;
 	HRESULT hr = CoCreateInstance(clsid, nullptr, CLSCTX_INPROC_SERVER,
 		IID_PPV_ARGS(&dlg));
-	if (FAILED(hr))
+	if (FAILED(hr)) {
+		logger::error("create dialog failed: {}", fmt_err(hr));
 		return std::unexpected(hr);
+	}
 
 	FILEOPENDIALOGOPTIONS fos;
 	dlg->GetOptions(&fos);
@@ -50,8 +53,11 @@ static dialog::result_t show(IFileDialog *dlg, HWND owner) noexcept
 	std::vector<std::wstring> paths;
 
 	HRESULT hr = dlg->Show(owner);
-	if (FAILED(hr))
+	if (FAILED(hr)) {
+		if (hr != HRESULT_FROM_WIN32(ERROR_CANCELLED))
+			logger::error("show dialog failed: {}", fmt_err(hr));
 		return std::unexpected(hr);
+	}
 
 	FILEOPENDIALOGOPTIONS fos = 0;
 	dlg->GetOptions(&fos);
@@ -67,26 +73,33 @@ static dialog::result_t show(IFileDialog *dlg, HWND owner) noexcept
 		if (SUCCEEDED(hr))
 			hr = items->GetCount(&count);
 
+		/* an unreadable item is skipped, the rest are still returned */
 		for (DWORD i = 0; SUCCEEDED(hr) && i < count; ++i) {
 			ComPtr<IShellItem> item;
-			if (FAILED(items->GetItemAt(i, &item)))
-				continue;
 			std::wstring path;
-			if (SUCCEEDED(item_to_path(item.Get(), path)))
+			HRESULT item_hr = items->GetItemAt(i, &item);
+			if (SUCCEEDED(item_hr))
+				item_hr = item_to_path(item.Get(), path);
+			if (SUCCEEDED(item_hr))
 				paths.push_back(std::move(path));
+			else
+				logger::warning("skip selected item {}: {}", i,
+					fmt_err(item_hr));
 		}
 	} else {
 		ComPtr<IShellItem> item;
+		std::wstring path;
 		hr = dlg->GetResult(&item);
-		if (SUCCEEDED(hr)) {
-			std::wstring path;
-			if (SUCCEEDED(item_to_path(item.Get(), path)))
-				paths.push_back(std::move(path));
-		}
+		if (SUCCEEDED(hr))
+			hr = item_to_path(item.Get(), path);
+		if (SUCCEEDED(hr))
+			paths.push_back(std::move(path));
 	}
 
-	if (FAILED(hr))
+	if (FAILED(hr)) {
+		logger::error("get result failed: {}", fmt_err(hr));
 		return std::unexpected(hr);
+	}
 	return paths;
 }
 
