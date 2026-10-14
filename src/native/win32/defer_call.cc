@@ -1,6 +1,7 @@
 #include "defer_call.h"
 #include <memory>
 #include <utility>
+#include "logger.h"
 #include "winerr.h"
 
 void defer_call(HWND hwnd, std::function<void()> fn)
@@ -19,8 +20,14 @@ try {
 
 	if (fn && *fn)
 		(*fn)();
-} catch (...) {
+} catch (const traced_error& e) {
 	/* no exception may propagate out of WndProc */
+	logger::error("deferred call failed: {}\nstack trace:\n{}", e.what(),
+		std::to_string(e.trace()));
+} catch (const std::exception& e) {
+	logger::error("deferred call failed: {}", e.what());
+} catch (...) {
+	logger::error("deferred call failed: unknown exception");
 }
 
 void defer_call_cancel(HWND hwnd)

@@ -7,6 +7,7 @@
 #include <vector>
 #include "defer_call.h"
 #include "dialog.h"
+#include "logger.h"
 #include "utf8.h"
 #include "window.h"
 #include "py/invoke.h"
@@ -167,6 +168,7 @@ static PyObject *py_show_open_dialog(PyObject *self, PyObject *args)
 			std::move(*filters));
 		show_dialog(self, std::move(show), py_cb);
 	} catch (...) {
+		logger::error("open dialog failed");
 		call_dialog_cb(py_cb, std::unexpected(E_FAIL));
 	}
 	Py_RETURN_NONE;
@@ -193,6 +195,7 @@ static PyObject *py_show_save_dialog(PyObject *self, PyObject *args)
 			std::move(*filters));
 		show_dialog(self, std::move(show), py_cb);
 	} catch (...) {
+		logger::error("save dialog failed");
 		call_dialog_cb(py_cb, std::unexpected(E_FAIL));
 	}
 	Py_RETURN_NONE;

@@ -129,9 +129,8 @@ app_t::app_t(HWND hwnd, ATOM atom, std::wstring url, std::wstring assets)
 		reinterpret_cast<LONG_PTR>(this));
 	webview.on_create = [this, hwnd](HRESULT hr) {
 		if (FAILED(hr)) {
-			show_fatal(std::format(
-				L"WebView2 failed to start (0x{:08X})",
-				static_cast<unsigned>(hr)), hwnd);
+			show_fatal(L"WebView2 failed to start: "
+				+ utf8_to_wstr(fmt_err(hr)), hwnd);
 			webview.close();
 			return;
 		}

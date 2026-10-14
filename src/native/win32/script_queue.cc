@@ -2,6 +2,8 @@
 #include <cwchar>
 #include <utility>
 #include "defer_call.h"
+#include "logger.h"
+#include "winerr.h"
 
 /* a script result message is "script_cb:<id>:<json>" */
 static const std::wstring msg_prefix = L"script_cb:";
@@ -124,9 +126,17 @@ try {
 		cb_map.erase(cb_it);
 	}
 
+	if (FAILED(hr) && hr != E_ABORT)
+		logger::error("script failed: {}", fmt_err(hr));
+
 	cb(hr, json);
+} catch (const traced_error& e) {
+	logger::error("script callback failed: {}\nstack trace:\n{}",
+		e.what(), std::to_string(e.trace()));
+} catch (const std::exception& e) {
+	logger::error("script callback failed: {}", e.what());
 } catch (...) {
-	/* exception during callback execution - do nothing */
+	logger::error("script callback failed: unknown exception");
 }
 
 void script_queue_t::abort(void)
@@ -144,8 +154,15 @@ void script_queue_t::abort(void)
 	for (auto const& [id, cb] : abort_map) {
 		try {
 			cb(E_ABORT, {});
+		} catch (const traced_error& e) {
+			logger::error(
+				"script callback failed: {}\nstack trace:\n{}",
+				e.what(), std::to_string(e.trace()));
+		} catch (const std::exception& e) {
+			logger::error("script callback failed: {}", e.what());
 		} catch (...) {
-			/* do nothing */
+			logger::error(
+				"script callback failed: unknown exception");
 		}
 	}
 }
