@@ -142,6 +142,27 @@ a Visual Studio developer prompt, or install the VS Build Tools). On macOS
 ``build.sh`` builds the frontend assets and catalogs, and ``--app`` produces the
 distributable.
 
+On Windows ARM64, the ``cryptography`` python package has no prebuilt wheels, so
+pip builds it from source with Rust, which needs OpenSSL. Use ``vcpkg`` (run
+from a Visual Studio developer prompt) to install OpenSSL to an empty folder::
+
+    mkdir c:\bin\openssl-arm64
+    cd c:\bin\openssl-arm64
+    vcpkg new --application
+    vcpkg add port openssl
+    vcpkg install --triplet arm64-windows-static-md
+
+Then point the build at it before running ``build.bat`` (``setx`` keeps the
+variables for new terminals)::
+
+    set "OPENSSL_DIR=%CD%\vcpkg_installed\arm64-windows-static-md"
+    set "OPENSSL_STATIC=1"
+
+The ``static-md`` triplet links OpenSSL into the ``cryptography`` extension
+against the DLL C runtime Rust uses by default, so no OpenSSL DLLs ship with
+the app. pip caches the built wheel, so this only rebuilds when the
+``cryptography`` version changes.
+
 Artifacts are placed under ``bin/{os}-{arch}/`` where ``{os}`` is ``windows``,
 ``linux``, or ``macos`` and ``{arch}`` is ``x64`` or ``arm64``. Node modules are
 shared at ``bin/node_modules/``.
