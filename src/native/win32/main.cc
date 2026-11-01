@@ -83,6 +83,22 @@ static std::string get_py_exception(void)
 
 static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT m, WPARAM wp, LPARAM lp)
 {
+	/* Minimum client size of 800x600 logical pixels. Handled before
+	 * GWLP_USERDATA is set.
+	 */
+	if (m == WM_GETMINMAXINFO) {
+		UINT dpi = GetDpiForWindow(hwnd);
+		RECT r = {
+			0, 0,
+			MulDiv(800, dpi, USER_DEFAULT_SCREEN_DPI),
+			MulDiv(600, dpi, USER_DEFAULT_SCREEN_DPI)
+		};
+		AdjustWindowRectExForDpi(&r, WS_OVERLAPPEDWINDOW, FALSE, 0, dpi);
+		auto *mmi = reinterpret_cast<MINMAXINFO *>(lp);
+		mmi->ptMinTrackSize = { r.right - r.left, r.bottom - r.top };
+		return 0;
+	}
+
 	auto *self = reinterpret_cast<app_t *>(
 		GetWindowLongPtrW(hwnd, GWLP_USERDATA));
 	if (!self)
