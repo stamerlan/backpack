@@ -4,8 +4,6 @@
  * hosts publish the bridge under that name - pywebview on macOS, a native shim
  * over the WebView2 web-message channel on Windows.
  */
-let action_chain: Promise<unknown> = Promise.resolve();
-
 interface PyWebView {
   api: { dispatch(name: string, ...args: unknown[]): Promise<unknown> };
 }
@@ -15,6 +13,13 @@ declare global {
     pywebview?: PyWebView;
   }
 }
+
+let action_chain: Promise<unknown> = new Promise<void>((resolve) => {
+  if (window.pywebview?.api?.dispatch !== undefined)
+    resolve();
+  else
+    window.addEventListener("pywebviewready", () => resolve(), { once: true });
+});
 
 function api_call(name: string, ...args: unknown[]): void {
   action_chain = action_chain
@@ -29,6 +34,7 @@ function api_call(name: string, ...args: unknown[]): void {
 
 /* Backend exposed methods */
 interface Api {
+  ui_ready(): void;
   new_doc(): void;
   open_doc(filename?: string): void;
   save_doc(filename?: string | null, save_as?: boolean): void;

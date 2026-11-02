@@ -67,7 +67,7 @@ def main(app: AppHost) -> None:
 
 async def _serve(host: AppHost, app: Backpack) -> None:
     """Service the host events until the app close"""
-    loaded = False
+    ui_ready = False
     try:
         while True:
             try:
@@ -75,10 +75,10 @@ async def _serve(host: AppHost, app: Backpack) -> None:
             except asyncio.CancelledError:
                 return
             try:
-                if event.name == "load":
-                    if loaded:
+                if event.name == "ui_ready":
+                    if ui_ready:
                         continue
-                    loaded = True
+                    ui_ready = True
                     await app.start()
                 elif event.name == "close":
                     try:

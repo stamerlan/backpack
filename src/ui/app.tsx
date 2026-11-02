@@ -134,6 +134,11 @@ export function App() {
       is_dark_theme ? "dark" : "light";
   }, [is_dark_theme]);
 
+  /* React runs child effects before the parent's, and a component's effects in
+   * order, so by now every method the backend calls is initialized.
+   */
+  useEffect(() => api.ui_ready(), []);
+
   return (
     <FluentProvider
       theme={is_dark_theme ? webDarkTheme : webLightTheme}

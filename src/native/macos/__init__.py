@@ -154,12 +154,12 @@ class Events:
     """Inbound event queue: js2py calls and OS events, drained by Core.
 
     post() enqueues one event from any thread (a pywebview worker for js2py,
-    the GUI thread for window load/close) and hands it to a waiting
-    get_event(), or queues it until one asks; it returns False once shut down
-    so the caller can react. get_event() returns a concurrent future for the
-    next event that Core drives on its loop. A lock guards the queue and the
-    single pending waiter, so no event loop is involved. shutdown() cancels
-    the waiter and drops the queue so Core stops waiting.
+    the GUI thread for window close) and hands it to a waiting get_event(), or
+    queues it until one asks; it returns False once shut down so the caller can
+    react. get_event() returns a concurrent future for the next event that Core
+    drives on its loop. A lock guards the queue and the single pending waiter,
+    so no event loop is involved. shutdown() cancels the waiter and drops the
+    queue so Core stops waiting.
     """
 
     def __init__(self) -> None:
@@ -236,11 +236,11 @@ class MacAppHost:
         self._debug = debug
         self._icon = icon
 
-        # The py2js and js2py bridges are host-owned and reached by Core
-        # through exec_script and get_event; both settle work as concurrent
-        # futures, so the host keeps no event loop. window load/close are
-        # posted as events too, so Core drives the whole lifecycle off one
-        # stream.
+        # The py2js and js2py bridges are host-owned and reached by Core through
+        # exec_script() and get_event(). Both settle work as concurrent futures,
+        # so the host keeps no event loop. window close is posted as an event
+        # too, so Core drives the whole lifecycle off one stream. "ui_ready"
+        # comes from the frontend once React is mounted.
         self._events = Events()
 
         window = webview.create_window(
@@ -251,14 +251,11 @@ class MacAppHost:
         self._window = window
         self._js = Js(WebView(window))
 
-        def cb_loaded() -> None:
-            self._events.post("load", ())
         def cb_closing() -> bool:
             # Post the attempt and keep the window open so Core can run its
             # shutdown; if the bridge is already down (Core gone), allow close.
             return not self._events.post("close", ())
 
-        window.events.loaded += cb_loaded
         window.events.closing += cb_closing
 
     def start(self) -> None:

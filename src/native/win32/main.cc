@@ -165,12 +165,10 @@ app_t::app_t(HWND hwnd, ATOM atom, std::wstring url, std::wstring assets)
 		event_q.push(std::move(json));
 	};
 	webview.on_load =
-		[this](bool ok, COREWEBVIEW2_WEB_ERROR_STATUS web_err, int http)
-		{
+		[](bool ok, COREWEBVIEW2_WEB_ERROR_STATUS web_err, int http) {
 			logger::info(
 				"webview.on_load: ok:{} web_err:{} http:{}",
 				ok, static_cast<int>(web_err), http);
-			event_q.push("{ \"name\": \"load\", \"args\": [] }");
 		};
 	webview.create(hwnd, L"", assets);
 }
