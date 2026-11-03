@@ -83,7 +83,7 @@ jobs:
           cache-dependency-path: src/ui/package-lock.json
 
       - name: Set up MSBuild
-        uses: microsoft/setup-msbuild@v2
+        uses: microsoft/setup-msbuild@v3
 
       - name: Build package
         shell: cmd
@@ -131,7 +131,7 @@ jobs:
           cache-dependency-path: src/ui/package-lock.json
 
       - name: Set up MSBuild
-        uses: microsoft/setup-msbuild@v2
+        uses: microsoft/setup-msbuild@v3
 
       # cryptography has no ARM64 Windows wheels, so pip builds it from
       # source against this OpenSSL.
@@ -238,7 +238,7 @@ jobs:
             "${GITHUB_REF_NAME}" "${GITHUB_REPOSITORY}" release
 
       - name: Publish release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             release/*.zip
