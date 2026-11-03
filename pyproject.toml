@@ -2,7 +2,7 @@
 name = "backpack"
 dynamic = ["version"]
 description = "Backpacking trip planner"
-requires-python = ">=3.14"
+requires-python = ">=3.15"
 dependencies = [
     "pywebview>=6.2,<7",
     "certifi",
