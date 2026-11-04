@@ -3,6 +3,7 @@
 
 #include <Python.h>
 #include <memory>
+#include "interp_view.h"
 
 namespace py {
 
@@ -10,7 +11,9 @@ namespace py {
  *
  * A shared_ptr with a GIL-taking deleter lets the std::function copy freely
  * without touching the reference count and releases the one strong reference
- * under the GIL whenever the last copy dies.
+ * under the GIL whenever the last copy dies. A copy that outlives the
+ * interpreter (held by WebView2 or app_t past Py_Finalize) leaks the reference
+ * instead: the object went away with the interpreter.
  */
 inline std::shared_ptr<PyObject> keep(PyObject *o)
 {
@@ -18,9 +21,9 @@ inline std::shared_ptr<PyObject> keep(PyObject *o)
 	return std::shared_ptr<PyObject>(o, [](PyObject *p) {
 		if (!p)
 			return;
-		PyGILState_STATE gil = PyGILState_Ensure();
-		Py_DECREF(p);
-		PyGILState_Release(gil);
+		interp_view_t py;
+		if (py)
+			Py_DECREF(p);
 	});
 }
 

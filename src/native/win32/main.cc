@@ -18,6 +18,7 @@
 #include "event_queue.h"
 #include "logger.h"
 #include "py/config.h"
+#include "py/interp_view.h"
 #include "resource.h"
 #include "script_queue.h"
 #include "utf8.h"
@@ -300,8 +301,11 @@ try {
 
 	std::exception_ptr core_exc;
 	std::thread core_thread([&app, &core_exc] {
-		PyGILState_STATE gil = PyGILState_Ensure();
+		py::interp_view_t py;
 		try {
+			if (!py)
+				throw std::runtime_error(
+					"python attach failed");
 			setup_logger();
 
 			py_ref pyapp(build_py_app(app), Py_DecRef);
@@ -324,7 +328,6 @@ try {
 		} catch (...) {
 			core_exc = std::current_exception();
 		}
-		PyGILState_Release(gil);
 	});
 
 	/* Process messages while python thread is running */

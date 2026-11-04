@@ -2,6 +2,7 @@
 #include <string>
 #include "script_queue.h"
 #include "utf8.h"
+#include "py/interp_view.h"
 #include "py/invoke.h"
 #include "py/keep.h"
 
@@ -25,12 +26,13 @@ static PyObject *py_exec_script(PyObject *self, PyObject *args)
 	bool ok = q->exec_script(utf8_to_wstr(script),
 		[ref](HRESULT hr, const std::wstring &json) {
 			std::string payload = wstr_to_utf8(json);
-			PyGILState_STATE gil = PyGILState_Ensure();
+			py::interp_view_t py;
+			if (!py)
+				return;
 			py::invoke(ref.get(), Py_BuildValue("(ks#)",
 				static_cast<unsigned long>(hr),
 				payload.data(),
 				static_cast<Py_ssize_t>(payload.size())));
-			PyGILState_Release(gil);
 		});
 	if (!ok)
 		Py_RETURN_FALSE;

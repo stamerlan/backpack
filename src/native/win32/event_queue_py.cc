@@ -1,6 +1,7 @@
 #include <Python.h>
 #include <string>
 #include "event_queue.h"
+#include "py/interp_view.h"
 #include "py/invoke.h"
 #include "py/keep.h"
 
@@ -22,10 +23,11 @@ static PyObject *py_get(PyObject *self, PyObject *args)
 	event_queue_t *ev = reinterpret_cast<EventQueueObject *>(self)->events;
 	std::shared_ptr<PyObject> ref = py::keep(cb);
 	bool ok = ev->set_cb([ref](std::string event) {
-		PyGILState_STATE gil = PyGILState_Ensure();
+		py::interp_view_t py;
+		if (!py)
+			return;
 		py::invoke(ref.get(), Py_BuildValue("(s#)",
 			event.data(), static_cast<Py_ssize_t>(event.size())));
-		PyGILState_Release(gil);
 	});
 	if (!ok)
 		Py_RETURN_FALSE;

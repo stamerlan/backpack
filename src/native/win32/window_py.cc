@@ -10,6 +10,7 @@
 #include "logger.h"
 #include "utf8.h"
 #include "window.h"
+#include "py/interp_view.h"
 #include "py/invoke.h"
 #include "py/keep.h"
 
@@ -59,7 +60,10 @@ static std::optional<dialog::filters_t> parse_filters(PyObject *obj) noexcept
  */
 static void call_dialog_cb(PyObject *py_cb, const dialog::result_t& result)
 {
-	PyGILState_STATE gil = PyGILState_Ensure();
+	py::interp_view_t py;
+	if (!py)
+		return;
+
 	PyObject *paths = PyList_New(0);
 	if (paths && result) {
 		for (const auto& p : *result) {
@@ -80,7 +84,6 @@ static void call_dialog_cb(PyObject *py_cb, const dialog::result_t& result)
 	} else {
 		PyErr_WriteUnraisable(py_cb);
 	}
-	PyGILState_Release(gil);
 }
 
 /* Show dialog modally on the window's UI thread and call py_cb with its result.
