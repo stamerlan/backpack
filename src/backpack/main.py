@@ -11,6 +11,8 @@ from backpack.core import Backpack
 from backpack.paths import app_settings_path
 from backpack.storage import Storage
 
+lazy import certifi
+
 logger = logging.getLogger(APP_NAME)
 
 
@@ -31,7 +33,6 @@ def main(app: AppHost) -> None:
     # and OpenSSL honors SSL_CERT_FILE when building the default context. This
     # is additive on Windows.
     try:
-        import certifi
         ca = certifi.where()
         os.environ.setdefault("SSL_CERT_FILE", ca)
         os.environ.setdefault("REQUESTS_CA_BUNDLE", ca)

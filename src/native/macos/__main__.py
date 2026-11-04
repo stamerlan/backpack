@@ -11,6 +11,8 @@ from backpack import APP_NAME
 from backpack.paths import app_icon_path, applogs, assets_dir
 from native.macos import MacAppHost
 
+lazy from Foundation import NSBundle
+
 DEV_SERVER_URL = "http://localhost:5173"
 
 logger = logging.getLogger(APP_NAME)
@@ -72,7 +74,6 @@ def main() -> None:
     # Override the identity inherited from the embedded Python.app so the menu
     # bar and cmd+tab switcher show Backpack, not Python, when run from source.
     try:
-        from Foundation import NSBundle
         bundle = NSBundle.mainBundle()
         info = bundle.localizedInfoDictionary() or bundle.infoDictionary()
         info["CFBundleName"] = "Backpack"

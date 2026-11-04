@@ -1,4 +1,5 @@
 """Gettext i18n runtime backed by Babel."""
+import os
 import sys
 from collections.abc import Sequence
 from gettext import NullTranslations
@@ -7,6 +8,10 @@ from babel.support import Translations
 
 from backpack.app_info import APP_NAME
 from backpack.paths import locales_dir
+
+lazy import ctypes
+lazy import subprocess
+lazy from ctypes import wintypes
 
 
 SUPPORTED_LANG: tuple[str, ...] = ("en", "ru")
@@ -143,9 +148,6 @@ def system_units() -> str | None:
     """
     if sys.platform == "win32":
         # Read LOCALE_IMEASURE for the current user (0 metric, 1 US)
-        import ctypes
-        from ctypes import wintypes
-
         LOCALE_IMEASURE = 0x0000000D
         LOCALE_RETURN_NUMBER = 0x20000000
         try:
@@ -172,8 +174,6 @@ def system_units() -> str | None:
         return "imperial" if value.value == 1 else "metric"
     if sys.platform == "darwin":
         # AppleMeasurementUnits is "Inches" (imperial) or "Centimeters"
-        import subprocess
-
         try:
             out = subprocess.run(
                 ["defaults", "read", "-g", "AppleMeasurementUnits"],
@@ -206,9 +206,6 @@ def system_locales() -> list[str]:
     LC_MESSAGES and LANG each name a single locale).
     """
     if sys.platform == "win32":
-        import ctypes
-        from ctypes import wintypes
-
         MUI_LANGUAGE_NAME = 0x8
         try:
             func = ctypes.windll.kernel32.GetUserPreferredUILanguages
@@ -238,8 +235,6 @@ def system_locales() -> list[str]:
         return [tag for tag in raw.split("\x00") if tag]
 
     if sys.platform == "darwin":
-        import subprocess
-
         try:
             out = subprocess.run(
                 ["defaults", "read", "-g", "AppleLocale"],
@@ -253,8 +248,6 @@ def system_locales() -> list[str]:
             return []
         tag = out.stdout.strip()
         return [tag] if tag else []
-
-    import os
 
     language = os.environ.get("LANGUAGE")
     if language:
