@@ -35,7 +35,7 @@ class Backpack:
         # Origin token for edits made in response to a frontend call. The
         # frontend reflects these optimistically, so on_change skips pushing
         # them back to it.
-        self.frontend = object()
+        self.frontend = sentinel("frontend")
         self.ui = UI(app.exec_script)
         self.storage = storage
         self.poi: dict[str, tuple[model.Poi, ...]] = {}
