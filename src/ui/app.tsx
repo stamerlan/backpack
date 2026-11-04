@@ -1,6 +1,7 @@
 /* The window shell: the app bar over the notification strip, the document
- * with the assistant beside it, and the menu, dialogs and busy overlay that
- * lie on top. It owns the theme and the locale every one of them is drawn in.
+ * with the assistant beside it, and the menu, dialogs, busy overlay and launch
+ * splash that lie on top. It owns the theme and the locale every one of them is
+ * drawn in.
  *
  * Properties:
  *   - (none): index.tsx mounts it.
@@ -35,6 +36,7 @@ import { DialogHost } from "./dialog-host";
 import { Menu } from "./menu";
 import { NotifyHost } from "./notify";
 import { SettingsDialog } from "./settings";
+import { Splash } from "./splash";
 import type { LocaleDetail } from "./i18n";
 import "./app.css";
 
@@ -163,6 +165,7 @@ export function App() {
       <DialogHost />
       <SettingsDialog />
       <Busy />
+      <Splash />
     </FluentProvider>
   );
 }

@@ -148,7 +148,9 @@ class Backpack:
     async def start(self) -> None:
         """Push the saved preferences to the frontend and open a document.
 
-        Run once the frontend has loaded, so it is ready for the calls.
+        Run once the frontend has loaded, so it is ready for the calls. The
+        frontend shows a splash until this returns, which also covers the
+        mainloop waiting on the lazy imports.
         """
         async def _evict_poi_cache() -> None:
             """Run POI cache eviction on a worker thread."""
@@ -159,22 +161,26 @@ class Backpack:
             except Exception:
                 logger.exception("poi cache eviction failed")
 
-        await self.set_locale(
-            self.storage.settings.locale, self.storage.settings.units
-        )
-        await self.set_theme(self.storage.settings.theme)
-        self._update_recent_items_view()
+        try:
+            await self.set_locale(
+                self.storage.settings.locale, self.storage.settings.units
+            )
+            await self.set_theme(self.storage.settings.theme)
+            self._update_recent_items_view()
 
-        self.add_task(_evict_poi_cache())
+            self.add_task(_evict_poi_cache())
 
-        # load last opened document
-        last = self.storage.settings.last_filepath
-        if not (last and pathlib.Path(last).exists()
-                and await self.open_doc(last)):
-            await self.new_doc()
+            # load last opened document
+            last = self.storage.settings.last_filepath
+            if not (last and pathlib.Path(last).exists()
+                    and await self.open_doc(last)):
+                await self.new_doc()
 
-        # set available LLM list
-        self.ui.assist.set_models(ai.Agent.enum_models())
+            # set available LLM list
+            self.ui.assist.set_models(ai.Agent.enum_models())
+        finally:
+            self.ui.set_ready()
+            logger.info("ready")
 
     async def new_doc(self) -> None:
         if not await self._show_save_dialog():

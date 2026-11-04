@@ -164,6 +164,10 @@ class UI:
     def set_busy(self, busy: bool, label: str = "") -> "Future[Any]":
         return self._exec_script("set_busy", (busy, label))
 
+    def set_ready(self) -> "Future[Any]":
+        """Lower the launch splash, once startup is done."""
+        return self._exec_script("set_ready", ())
+
     def clear_doc(self) -> "Future[Any]":
         return self._exec_script("doc.clear", ())
 
