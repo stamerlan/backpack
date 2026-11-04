@@ -151,8 +151,18 @@ def sample(
 def nearest(
     lat: float, lon: float, track: Iterable[model.TrackPoint]
 ) -> model.TrackPoint:
-    """Return a track point nearest to lat/lon."""
-    return min(track, key=lambda p: distance_m((lat, lon), p))
+    """Return a track point nearest to lat/lon.
+
+    Ranks points by a flat-earth distance (much faster than geodesic distance).
+    The longitude difference is wrapped into -180..180, so tracks crossing the
+    antimeridian rank correctly.
+    """
+    k = math.cos(math.radians(lat))
+    return min(
+        track,
+        key=lambda p: (((p.long - lon + 180) % 360 - 180) * k) ** 2
+        + (p.lat - lat) ** 2
+    )
 
 
 def distance_m(
