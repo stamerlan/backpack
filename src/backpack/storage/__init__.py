@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import threading
 from pathlib import Path
 
 from backpack import paths
@@ -9,6 +10,8 @@ from backpack.app_info import APP_NAME
 from backpack.storage.poi_cache import PoiCache
 from backpack.storage.settings import Settings
 from backpack.storage.vault import Vault
+
+lazy import keyring.errors
 
 
 logger = logging.getLogger(__name__)
@@ -18,6 +21,14 @@ class Storage:
         self.settings = Settings()
         self.vault = Vault()
         self.poi_cache = PoiCache()
+
+        def mod_import() -> None:
+            import keyring.errors
+            keyring.get_keyring()
+            logger.debug("background module import done")
+        threading.Thread(
+            target=mod_import, name="storage.mod_import", daemon=True
+        ).start()
 
     async def load_settings(
         self, filepath: str | os.PathLike[str] | None = None
@@ -72,7 +83,6 @@ class Storage:
         Returns None if there is no such key. Raises KeyringError if the store
         cannot be read.
         """
-        import keyring
         return keyring.get_password(APP_NAME, key)
 
     def write_key_store(self, key: str, value: str | None) -> None:
@@ -81,8 +91,6 @@ class Storage:
         An empty value deletes the key, a no-op when nothing is stored.
         Raises KeyringError on any other failure.
         """
-        import keyring
-        import keyring.errors
         try:
             if value:
                 keyring.set_password(APP_NAME, key, value)

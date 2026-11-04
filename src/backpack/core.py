@@ -9,7 +9,8 @@ import threading
 from collections.abc import Callable, Coroutine
 from concurrent.futures import CancelledError, Future
 from dataclasses import replace
-from typing import TYPE_CHECKING, Any
+from functools import cached_property
+from typing import Any
 from uuid import uuid4
 
 from backpack import model
@@ -21,10 +22,9 @@ from backpack.storage import Storage
 from backpack.storage.settings import Settings
 from backpack.ui import UI, DialogAction, NotifyAction, RecentItem
 
-if TYPE_CHECKING:
-    from backpack import ai
-    from backpack.nominatim import Nominatim
-    from backpack.route_details import RouteDetails
+lazy from backpack import ai, route
+lazy from backpack.nominatim import Nominatim
+lazy from backpack.route_details import RouteDetails
 
 logger = logging.getLogger(__name__)
 
@@ -40,15 +40,15 @@ class Backpack:
         self.storage = storage
         self.poi: dict[str, tuple[model.Poi, ...]] = {}
 
-        # geopy (geocoding, distance math), overpy and the ai package
-        # (pydantic-ai, google-genai) are well over a second of imports the
-        # window does not need to paint. Build them on one background thread so
-        # the window comes up meanwhile. Each future settles with its object,
-        # or with the exception if the build failed; async callers await it and
-        # only block if it is not ready yet.
-        self._nominatim: Future[Nominatim] = Future()
-        self._route_details: Future[RouteDetails] = Future()
-        self._ai: Future[ai.Agent] = Future()
+        def mod_import() -> None:
+            import backpack.route
+            import backpack.route_details
+            import backpack.nominatim
+            import backpack.ai
+            logger.debug("background module import done")
+        threading.Thread(
+            target=mod_import, name="app.mod_import", daemon=True
+        ).start()
 
         self.doc = model.Document()
         self.filepath: str | None = None
@@ -84,48 +84,19 @@ class Backpack:
             "stop_assist": self.stop_assist,
         }
 
-        self._bg_load_thread = threading.Thread(
-            target=self._bg_load, name="app.bg_load", daemon=True
-        )
-        self._bg_load_thread.start()
+    # The services are built on first use rather than in __init__, which would
+    # bind their lazy imports at once and wait out the preload.
+    @cached_property
+    def _nominatim(self) -> Nominatim:
+        return Nominatim()
 
-    def _bg_load(self) -> None:
-        """Import and build the heavy services off the startup path.
+    @cached_property
+    def _route_details(self) -> RouteDetails:
+        return RouteDetails(self.storage.poi_cache)
 
-        Runs on a background thread started in __init__ and settles each service
-        future with its object, or with the exception if the import or build
-        failed. Only Python object construction happens here, no event loop, so
-        it is safe off the mainloop. The agent is built last since it needs th
-        geocoder.
-        """
-        if self._nominatim.set_running_or_notify_cancel():
-            try:
-                from backpack.nominatim import Nominatim
-                self._nominatim.set_result(Nominatim())
-            except Exception as e:
-                self._nominatim.set_exception(e)
-                logger.exception("nominatim load failed")
-
-        if self._route_details.set_running_or_notify_cancel():
-            try:
-                from backpack.route_details import RouteDetails
-                self._route_details.set_result(
-                    RouteDetails(self.storage.poi_cache)
-                )
-            except Exception as e:
-                self._route_details.set_exception(e)
-                logger.exception("route_details load failed")
-
-        if self._ai.set_running_or_notify_cancel():
-            try:
-                from backpack import ai
-                self._ai.set_result(
-                    ai.Agent(self.storage, self._nominatim.result())
-                )
-            except Exception as e:
-                self._ai.set_exception(e)
-                logger.exception("ai load failed")
-        logger.debug("background load done")
+    @cached_property
+    def _ai(self) -> ai.Agent:
+        return ai.Agent(self.storage, self._nominatim)
 
     async def dispatch(self, name: str, args: tuple[Any, ...]) -> None:
         """Run the frontend call name with args, if it is allowed."""
@@ -165,20 +136,13 @@ class Backpack:
         if self._closed:
             return
         self._closed = True
-        logger.debug("App shutting down")
 
+        logger.debug("App shutting down")
         # cancel running agents and pending detail loads
         for task in list(self._tasks):
             task.cancel()
-
-        # Drop a pending build so its awaiters wake, or cancel the built
-        # service; a build still in flight cannot be cancelled and just
-        # finishes on the daemon thread.
-        for svc in (self._nominatim, self._route_details):
-            if svc.cancel():
-                continue
-            if svc.done() and svc.exception() is None:
-                svc.result().cancel()
+        self._route_details.cancel()
+        self._nominatim.cancel()
         self.storage.poi_cache.close()
 
     async def start(self) -> None:
@@ -205,9 +169,12 @@ class Backpack:
 
         # load last opened document
         last = self.storage.settings.last_filepath
-        if last and pathlib.Path(last).exists() and await self.open_doc(last):
-            return
-        await self.new_doc()
+        if not (last and pathlib.Path(last).exists()
+                and await self.open_doc(last)):
+            await self.new_doc()
+
+        # set available LLM list
+        self.ui.assist.set_models(ai.Agent.enum_models())
 
     async def new_doc(self) -> None:
         if not await self._show_save_dialog():
@@ -285,33 +252,7 @@ class Backpack:
         return True
 
     def _reset_ui(self, doc: model.Document) -> None:
-        """Render the whole UI to match doc: trip, routes and chats.
-
-        The assistant model list is not needed to draw the document, so it is
-        pushed separately when the background ai import lands, keeping the
-        render off that import.
-        """
-        async def enum_llm() -> None:
-            """Fill the composer once the model list is ready.
-
-            Scheduled from _reset_ui so the document paints without waiting for
-            the background ai import; the models arrive a moment later.
-            """
-            try:
-                agent = await asyncio.wrap_future(self._ai)
-                self.ui.assist.set_models(await agent.enum_models())
-            except asyncio.CancelledError:
-                return
-            except Exception as e:
-                logger.exception("failed to enumerate assistant models")
-                self.ui.notify(
-                    str(e) or type(e).__name__,
-                    intent="error",
-                    title=i18n.gettext("Assistant unavailable"),
-                )
-
-        from backpack import route
-
+        """Render the whole UI to match doc: trip, routes and chats."""
         self.ui.clear_notify()
         self.ui.clear_doc()
         self.ui.add_trip_card(f"trip-{uuid4().hex}", doc.title, doc.notes)
@@ -321,7 +262,6 @@ class Backpack:
                 route.RouteStats.from_track(r.track) if r.track else None,
             )
         self.ui.assist.clear()
-        self.add_task(enum_llm())
         for chat in doc.chats():
             self.ui.assist.new_chat(chat.id, chat.title)
             for turn in chat.turns:
@@ -638,28 +578,8 @@ class Backpack:
         turn_id = model.ChatTurn.unique_id()
         self.ui.assist.new_turn(chat_id, turn_id, prompt)
 
-        # The agent is normally loaded well before the first prompt, but wait
-        # for the background import here in case it is not, so the very first
-        # turn still works instead of failing.
         try:
-            agent = await asyncio.wrap_future(self._ai)
-        except asyncio.CancelledError:
-            self.ui.assist.del_turn(chat_id, turn_id)
-            self.ui.assist.end_turn(chat_id)
-            return
-        except Exception as e:
-            logger.exception("assistant unavailable")
-            self.ui.assist.del_turn(chat_id, turn_id)
-            self.ui.assist.end_turn(chat_id)
-            self.ui.notify(
-                str(e) or type(e).__name__,
-                intent="error",
-                title=i18n.gettext("Assistant unavailable"),
-            )
-            return
-
-        try:
-            items = await agent.ask(
+            items = await self._ai.ask(
                 self.doc, self.poi, chat_id, model_id, prompt,
                 on_text=lambda text: self.ui.assist.append_reply(chat_id, text),
                 on_think=(
@@ -674,7 +594,7 @@ class Backpack:
             return
 
         turn = model.ChatTurn(turn_id, prompt, items)
-        with self.doc.edit(agent) as ed:
+        with self.doc.edit(self._ai) as ed:
             ed.apply(model.AppendChatTurn(chat_id, turn))
 
         for item in items:
@@ -690,18 +610,13 @@ class Backpack:
         The stopped run drops its streamed turn and clears the busy state,
         leaving the chat ready for the next prompt.
         """
-        # Nothing can be running before the agent exists, so a stop that races
-        # the background load is a no-op rather than a wait.
-        if self._ai.done() and self._ai.exception() is None:
-            self._ai.result().stop(chat_id)
+        self._ai.stop(chat_id)
 
     async def set_trip_info(self, card_id: str, title: str, notes: str) -> None:
         with self.doc.edit(self.frontend) as ed:
             ed.apply(model.SetDocInfo(title=title, notes=notes))
 
     async def add_route(self) -> None:
-        from backpack import route
-
         files = await asyncio.wrap_future(self.app.show_open_dialog(
             multiple=True,
             filters=(
@@ -787,18 +702,10 @@ class Backpack:
                 return False
             return bool(action == "retry")
 
-        try:
-            route_details = await asyncio.wrap_future(self._route_details)
-        except CancelledError:
-            return
-        except Exception:
-            logger.exception("route details unavailable")
-            return
-
         while True:
             self.ui.set_route_loading(route_id, True)
             try:
-                poi = await route_details.load_poi(track)
+                poi = await self._route_details.load_poi(track)
             except CancelledError:
                 self.ui.set_route_loading(route_id, False)
                 return
@@ -818,8 +725,6 @@ class Backpack:
         # also moves the title, so refresh the app bar and window title here.
         self._push_doc_state()
         if isinstance(change, model.AddRoute):
-            from backpack import route
-
             track = change.route.track
             self.ui.add_route_card(
                 change.route.id,

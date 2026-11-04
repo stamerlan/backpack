@@ -34,7 +34,7 @@ class AiModel:
 
 class Agent:
     @staticmethod
-    async def enum_models() -> tuple[AiModel, ...]:
+    def enum_models() -> tuple[AiModel, ...]:
         """Return available model descriptors."""
         return (
             AiModel("google:gemini-3.7-flash", "Gemini 3.7 Flash"),
