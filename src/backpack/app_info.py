@@ -1,4 +1,4 @@
-from importlib.metadata import PackageNotFoundError, version
+lazy from importlib.metadata import PackageNotFoundError, version
 
 APP_NAME = "backpack"
 
