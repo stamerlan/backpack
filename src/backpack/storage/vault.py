@@ -1,14 +1,9 @@
-from collections.abc import Mapping
-from dataclasses import dataclass, field
-from types import MappingProxyType
-
-
-_EMPTY: Mapping[str, str | None] = MappingProxyType({})
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True, slots=True)
 class Vault:
-    _keys: Mapping[str, str | None] = field(default=_EMPTY)
+    _keys: frozendict[str, str | None] = frozendict()
 
     def get(self, key: str) -> str | None:
         """Return the cached value for key, or None if unknown."""
@@ -20,4 +15,4 @@ class Vault:
 
     def set(self, key: str, value: str | None) -> "Vault":
         """Return a copy with key set to value."""
-        return Vault(MappingProxyType({**self._keys, key: value}))
+        return Vault(self._keys | {key: value})
