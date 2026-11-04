@@ -44,7 +44,7 @@ class Backpack:
             import backpack.route
             import backpack.route_details
             import backpack.nominatim
-            import backpack.ai
+            self._ai.agent
             logger.debug("background module import done")
         threading.Thread(
             target=mod_import, name="app.mod_import", daemon=True

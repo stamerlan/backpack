@@ -1,19 +1,21 @@
+import asyncio
 import logging
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Any, Callable, TYPE_CHECKING
 
-import pydantic_ai
-import pydantic_ai.capabilities
+lazy import pydantic_ai
+lazy import pydantic_ai.capabilities
 from babel import Locale
-from google.genai.types import HttpRetryOptions
-from pydantic_ai.models import Model
-from pydantic_ai.models.google import GoogleModel
-from pydantic_ai.providers.google import GoogleProvider
-from pydantic_ai.settings import ModelSettings
+lazy from google.genai.types import HttpRetryOptions
+lazy from pydantic_ai.models import Model
+lazy from pydantic_ai.models.google import GoogleModel
+lazy from pydantic_ai.providers.google import GoogleProvider
+lazy from pydantic_ai.settings import ModelSettings
 
-from backpack.ai import prompts, tools
-from backpack.ai.assist_run import AssistRun
-from backpack.ai.errors import AiError
+lazy from backpack.ai import prompts, tools
+lazy from backpack.ai.assist_run import AssistRun
+lazy from backpack.ai.errors import AiError
 from backpack.i18n import i18n
 from backpack.model import ChatCardAction
 
@@ -90,7 +92,18 @@ class Agent:
         self.storage = storage
         self.nominatim = nominatim
         self._runs: dict[str, AssistRun] = {}
-        self.agent = pydantic_ai.Agent[AssistRun, str](
+
+    @cached_property
+    def agent(self) -> pydantic_ai.Agent[AssistRun, str]:
+        """The pydantic-ai agent, built on first use.
+
+        Building also imports pydantic-ai and google-genai, which takes a lot of
+        time on a cold start.
+        """
+        import pydantic_ai.models.google
+        import pydantic_ai.providers.google
+
+        agent = pydantic_ai.Agent[AssistRun, str](
             deps_type=AssistRun,
             instructions=prompts.SYSTEM,
             capabilities=[
@@ -99,16 +112,21 @@ class Agent:
             ],
         )
 
-        self.agent.instructions(self._get_locale)
-        self.agent.instructions(self._get_chat_title)
-        self.agent.tool(tools.geocode)
-        self.agent.tool(tools.get_poi)
-        self.agent.tool(tools.get_trip_info)
-        self.agent.tool(tools.google_maps)
-        self.agent.tool(tools.reverse_geocode)
-        self.agent.tool(tools.set_chat_title)
-        self.agent.tool(tools.set_route_info)
-        self.agent.tool(tools.set_trip_info)
+        agent.instructions(self._get_locale)
+        agent.instructions(self._get_chat_title)
+        agent.tool(tools.geocode)
+        agent.tool(tools.get_poi)
+        agent.tool(tools.get_trip_info)
+        agent.tool(tools.google_maps)
+        agent.tool(tools.reverse_geocode)
+        agent.tool(tools.set_chat_title)
+        agent.tool(tools.set_route_info)
+        agent.tool(tools.set_trip_info)
+        return agent
+
+    @property
+    def _agent_ready(self) -> bool:
+        return "agent" in self.__dict__
 
     async def ask(
         self,
@@ -146,6 +164,8 @@ class Agent:
         self._runs[chat_id] = run
 
         try:
+            if not self._agent_ready:
+                await asyncio.to_thread(getattr, self, "agent")
             run.model = await self.build_model(model_id, self.storage)
             if (chat := doc.chat(chat_id)) is None:
                 raise AiError(f"No chat id:{chat_id}")
