@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FluentProvider, webLightTheme } from "@fluentui/react-components";
-import { Chat, type Turn } from "./chat";
-import type { ChatCardData } from "./card";
+import { Chat, type Turn } from "../../src/ui/chat";
+import type { ChatCardData } from "../../src/ui/card";
 
 /* Chat is now presentational: it renders the turns handed to it and calls a
  * card item's resolve when an action is clicked. The turn state and the

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
 import { FluentProvider, webLightTheme } from "@fluentui/react-components";
-import { Splash } from "./splash";
+import { Splash } from "../../src/ui/splash";
 import { act_bridge } from "./test-utils";
 
 function mount_splash(): HTMLElement {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FluentProvider, webLightTheme } from "@fluentui/react-components";
-import { NotifyHost } from "./notify";
+import { NotifyHost } from "../../src/ui/notify";
 import { act_bridge, t } from "./test-utils";
 
 function mount_host() {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FluentProvider, webLightTheme } from "@fluentui/react-components";
-import { DialogHost } from "./dialog-host";
+import { DialogHost } from "../../src/ui/dialog-host";
 import { act_bridge, t } from "./test-utils";
 
 function mount_host() {

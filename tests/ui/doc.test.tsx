@@ -2,10 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FluentProvider, webLightTheme } from "@fluentui/react-components";
-import { Doc } from "./doc";
-import { DialogHost } from "./dialog-host";
-import type { RouteStats } from "./route-card";
-import { dist_str, elev_str } from "./i18n";
+import { Doc } from "../../src/ui/doc";
+import { DialogHost } from "../../src/ui/dialog-host";
+import type { RouteStats } from "../../src/ui/route-card";
+import { dist_str, elev_str } from "../../src/ui/i18n";
 import { act_bridge, t } from "./test-utils";
 
 function mount_host(on_title_change: (title: string) => void = () => {}) {

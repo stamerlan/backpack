@@ -20,6 +20,6 @@
       ]
     }
   },
-  "include": ["."],
+  "include": [".", "../../tests/ui"],
   "exclude": ["vite.config.ts"]
 }

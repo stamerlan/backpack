@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { FluentProvider, webLightTheme } from "@fluentui/react-components";
-import { Busy } from "./busy";
+import { Busy } from "../../src/ui/busy";
 import { act_bridge } from "./test-utils";
 
 function mount_busy() {

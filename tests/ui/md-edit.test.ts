@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { make_link, prefix_lines, wrap, type Edit } from "./md-edit";
+import { make_link, prefix_lines, wrap, type Edit } from "../../src/ui/md-edit";
 
 /* Apply an edit the way the component does: splice insert into the range, then
  * report where the selection lands, so a test reads the finished text and caret

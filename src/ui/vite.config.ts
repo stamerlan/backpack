@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const binNm = path.join(dir, "..", "..", "bin", "node_modules");
+const testDir = path.join(dir, "..", "..", "tests", "ui");
 
 const { default: react } = await import(
   pathToFileURL(
@@ -39,6 +40,10 @@ function extraNm() {
 export default {
   root: dir,
   base: "./",
+  /* Vite defaults its cache to node_modules/.vite under the root, which would
+   * create src/ui/node_modules. Keep it with the other build output instead.
+   */
+  cacheDir: path.join(dir, "..", "..", "bin", ".vite"),
   plugins: [react(), extraNm()],
   /* extraNm routes the app's own imports to bin/node_modules, but the esbuild
    * pre-bundler does not run that Rollup hook, so a library resolves react
@@ -68,7 +73,8 @@ export default {
   test: {
     globals: true,
     environment: "jsdom",
-    setupFiles: ["./vitest.setup.ts"],
+    dir: testDir,
+    setupFiles: [path.join(testDir, "vitest.setup.ts")],
     css: false,
     deps: {
       moduleDirectories: ["../../bin/node_modules"],

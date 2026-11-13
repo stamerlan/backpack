@@ -2,7 +2,7 @@ import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MdInput } from "./md-input";
+import { MdInput } from "../../src/ui/md-input";
 
 /* Small host so the field stays controlled, the way the cards drive it. */
 function Host(props: {

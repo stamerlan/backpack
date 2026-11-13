@@ -5,14 +5,14 @@
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { screen } from "@testing-library/react";
-import { TripCard } from "./trip-card";
+import { TripCard } from "../../src/ui/trip-card";
 import {
   dist_str,
   elev_str,
   to_dist,
   to_elev,
   unit_system,
-} from "./i18n";
+} from "../../src/ui/i18n";
 import { render_ui, reset_locale, set_locale, t } from "./test-utils";
 
 /* Every spec leaves the shared instance on the English, metric defaults so a

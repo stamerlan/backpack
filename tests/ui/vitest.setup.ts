@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import "./i18n";
+import "../../src/ui/i18n";
 
 /* No afterEach(cleanup) here on purpose. React Testing Library registers its
  * own cleanup afterEach the first time a spec imports it, and test.globals
