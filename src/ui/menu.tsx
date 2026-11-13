@@ -19,6 +19,8 @@ import {
   DrawerHeaderTitle,
   DrawerBody,
   DrawerFooter,
+  makeStyles,
+  mergeClasses,
   Text,
 } from "@fluentui/react-components";
 import { useTranslation } from "react-i18next";
@@ -32,12 +34,28 @@ export interface RecentItem {
   filename: string;
 }
 
+const useStyles = makeStyles({
+  /* Full-width rows with the icon and label on the left, like menu items. */
+  entry: {
+    width: "100%",
+    justifyContent: "flex-start",
+  },
+  recent_card: {
+    padding: "8px 10px",
+    cursor: "pointer",
+  },
+  footer: {
+    display: "block",
+  },
+});
+
 export function Menu(props: {
   open: boolean;
   show_menu: (open: boolean) => void;
 }) {
   const { t } = useTranslation();
   const [recent, set_recent] = useState<RecentItem[]>([]);
+  const styles = useStyles();
 
   useEffect(() => {
     window.menu = { set_recent };
@@ -72,7 +90,7 @@ export function Menu(props: {
       <DrawerBody>
         <div className="menu-actions">
           <Button
-            className="menu-entry"
+            className={styles.entry}
             appearance="subtle"
             icon={icon("doc-add")}
             onClick={() => { hide_menu(); api.new_doc(); }}
@@ -80,7 +98,7 @@ export function Menu(props: {
             {t("menu.new_trip")}
           </Button>
           <Button
-            className="menu-entry"
+            className={styles.entry}
             appearance="subtle"
             icon={icon("folder-open")}
             onClick={() => { hide_menu(); api.open_doc(); }}
@@ -88,7 +106,7 @@ export function Menu(props: {
             {t("menu.open_trip")}
           </Button>
           <Button
-            className="menu-entry"
+            className={styles.entry}
             appearance="subtle"
             icon={icon("save")}
             onClick={() => { hide_menu(); api.save_doc(); }}
@@ -96,7 +114,7 @@ export function Menu(props: {
             {t("menu.save")}
           </Button>
           <Button
-            className="menu-entry"
+            className={styles.entry}
             appearance="subtle"
             icon={icon("save-as")}
             onClick={() => { hide_menu(); api.save_doc(null, true); }}
@@ -112,7 +130,8 @@ export function Menu(props: {
               {recent.map((item) => (
                 <Card
                   key={item.filename}
-                  className="menu-recent-card"
+                  className={
+                    mergeClasses("menu-recent-card", styles.recent_card)}
                   appearance="subtle"
                   onClick={() => { hide_menu(); api.open_doc(item.filename); }}
                 >
@@ -151,9 +170,9 @@ export function Menu(props: {
         )}
       </DrawerBody>
 
-      <DrawerFooter className="menu-footer">
+      <DrawerFooter className={styles.footer}>
         <Button
-          className="menu-entry"
+          className={styles.entry}
           appearance="subtle"
           icon={icon("settings")}
           onClick={() => { hide_menu(); api.open_settings(); }}

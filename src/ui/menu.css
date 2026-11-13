@@ -36,19 +36,7 @@
   color: var(--colorNeutralForeground3);
 }
 
-/* Fluent injects its own styles after this file, so overriding one of its
- * components needs the extra specificity its fui-* class provides.
- */
-.fui-Button.menu-entry {
-  width: 100%;
-  justify-content: flex-start;
-}
-
-.fui-Card.menu-recent-card {
-  padding: 8px 10px;
-  cursor: pointer;
-}
-
+/* The remove cross stays hidden until the pointer or focus is on its card. */
 .menu-recent-card .menu-recent-remove {
   opacity: 0;
 }
@@ -56,8 +44,4 @@
 .menu-recent-card:hover .menu-recent-remove,
 .menu-recent-card:focus-within .menu-recent-remove {
   opacity: 1;
-}
-
-.fui-DrawerFooter.menu-footer {
-  display: block;
 }
