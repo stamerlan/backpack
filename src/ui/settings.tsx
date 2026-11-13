@@ -114,6 +114,19 @@ const useStyles = makeStyles({
   surface: {
     maxWidth: "760px",
   },
+  /* Fills the control block. The dropdown carries a wider min-width of its
+   * own, which would push the row wider than the shared control width.
+   */
+  control: {
+    flex: "1 1 auto",
+    minWidth: 0,
+  },
+  /* A button beside a control, or alone in the block, keeps its natural
+   * width instead of being squeezed by the control next to it.
+   */
+  button: {
+    flex: "0 0 auto",
+  },
 });
 
 /* Read a string field from the untyped settings, falling back to a default. */
@@ -228,7 +241,7 @@ export function SettingsDialog() {
                 <div className="settings-row">
                   <span className="settings-icon">{icon("key")}</span>
                   <div className="settings-text">
-                    <Label className="settings-label"
+                    <Label weight="semibold"
                       htmlFor="settings-gemini-api-key">
                       {t("settings.gemini.label")}
                     </Label>
@@ -237,7 +250,7 @@ export function SettingsDialog() {
                   <div className="settings-control-group">
                     <Input
                       id="settings-gemini-api-key"
-                      className="settings-control"
+                      className={styles.control}
                       type="password"
                       autoComplete="off"
                       spellCheck={false}
@@ -252,6 +265,7 @@ export function SettingsDialog() {
                     />
                     {req.key_set && (
                       <Button
+                        className={styles.button}
                         appearance="subtle"
                         aria-label={key_action}
                         title={key_action}
@@ -268,7 +282,7 @@ export function SettingsDialog() {
                 <div className="settings-row">
                   <span className="settings-icon">{icon("contrast")}</span>
                   <div className="settings-text">
-                    <Label className="settings-label"
+                    <Label weight="semibold"
                       htmlFor="settings-theme">
                       {t("settings.theme.label")}
                     </Label>
@@ -279,7 +293,7 @@ export function SettingsDialog() {
                   <div className="settings-control-group">
                     <Dropdown
                       id="settings-theme"
-                      className="settings-control"
+                      className={styles.control}
                       inlinePopup
                       positioning={{ strategy: "fixed" }}
                       value={t(selected_theme.key)}
@@ -307,7 +321,7 @@ export function SettingsDialog() {
                 <div className="settings-row">
                   <span className="settings-icon">{icon("globe")}</span>
                   <div className="settings-text">
-                    <Label className="settings-label"
+                    <Label weight="semibold"
                       htmlFor="settings-locale">
                       {t("settings.locale.label")}
                     </Label>
@@ -318,7 +332,7 @@ export function SettingsDialog() {
                   <div className="settings-control-group">
                     <Dropdown
                       id="settings-locale"
-                      className="settings-control"
+                      className={styles.control}
                       inlinePopup
                       positioning={{ strategy: "fixed" }}
                       value={t(selected_locale.key)}
@@ -346,7 +360,7 @@ export function SettingsDialog() {
                 <div className="settings-row">
                   <span className="settings-icon">{icon("ruler")}</span>
                   <div className="settings-text">
-                    <Label className="settings-label"
+                    <Label weight="semibold"
                       htmlFor="settings-units">
                       {t("settings.units.label")}
                     </Label>
@@ -357,7 +371,7 @@ export function SettingsDialog() {
                   <div className="settings-control-group">
                     <Dropdown
                       id="settings-units"
-                      className="settings-control"
+                      className={styles.control}
                       inlinePopup
                       positioning={{ strategy: "fixed" }}
                       value={t(selected_units.key)}
@@ -385,7 +399,7 @@ export function SettingsDialog() {
                 <div className="settings-row">
                   <span className="settings-icon">{icon("pin")}</span>
                   <div className="settings-text">
-                    <Label className="settings-label">
+                    <Label weight="semibold">
                       {t("settings.poi.label")}
                     </Label>
                     <span className="settings-hint">
@@ -396,6 +410,7 @@ export function SettingsDialog() {
                   </div>
                   <div className="settings-control-group">
                     <Button
+                      className={styles.button}
                       appearance="subtle"
                       disabled={req.poi_cache_bytes === 0}
                       icon={icon(clear_poi_cache ? "close" : "trash")}
@@ -415,7 +430,7 @@ export function SettingsDialog() {
                 <div className="settings-row">
                   <span className="settings-icon">{icon("log")}</span>
                   <div className="settings-text">
-                    <Label className="settings-label">
+                    <Label weight="semibold">
                       {t("settings.logs.label")}
                     </Label>
                     <span className="settings-hint">
@@ -424,6 +439,7 @@ export function SettingsDialog() {
                   </div>
                   <div className="settings-control-group">
                     <Button
+                      className={styles.button}
                       appearance="subtle"
                       icon={icon("folder-open")}
                       onClick={() => void api.open_logs()}
@@ -439,7 +455,7 @@ export function SettingsDialog() {
                   <div className="settings-row">
                     <span className="settings-icon">{icon("info")}</span>
                     <div className="settings-text">
-                      <Label className="settings-label">
+                      <Label weight="semibold">
                         {t("settings.version.label")}
                       </Label>
                       <span className="settings-hint">

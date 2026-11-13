@@ -57,24 +57,6 @@
   flex: 0 0 var(--settings-control-width);
 }
 
-.settings-control-group > .fui-Button {
-  flex: 0 0 auto;
-}
-
-/* Fluent injects its own styles after this file, so overriding one of its
- * components needs the extra specificity its fui-* class provides. The
- * dropdown in particular carries a wider min-width of its own.
- */
-.fui-Label.settings-label {
-  font-weight: var(--fontWeightSemibold);
-}
-
-.fui-Input.settings-control,
-.fui-Dropdown.settings-control {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
 /* Read-only version value on the right of its row. Selectable so it can be
  * copied into a bug report, and it wraps rather than pushing the row wider.
  */
