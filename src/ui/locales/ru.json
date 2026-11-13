@@ -106,7 +106,7 @@
     "loading": "Загрузка сведений о маршруте...",
     "delete": "Удалить маршрут",
     "delete_confirm_title": "Удалить маршрут?",
-    "delete_confirm_text": "Маршрут и его заметки будут удалены из похода.",
+    "delete_confirm_text": "Маршрут и его заметки будут удалены.",
     "notes_placeholder": "Заметки к маршруту..."
   },
   "route_profile": {
@@ -135,7 +135,7 @@
     "new_chat": "Новый чат",
     "delete_chat": "Удалить чат",
     "delete_confirm_title": "Удалить чат?",
-    "delete_confirm_text": "Чат и вся переписка будут удалены из похода.",
+    "delete_confirm_text": "Чат и вся его переписка будут удалены.",
     "chats": "Чаты",
     "unread": "Новая активность",
     "working": "Работаю..."

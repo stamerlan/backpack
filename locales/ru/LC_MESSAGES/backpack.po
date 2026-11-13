@@ -28,7 +28,7 @@ msgstr "Все файлы"
 
 #: src/backpack/app.py:263
 msgid "Could not open trip"
-msgstr "Не удалось открыть поход"
+msgstr "Не удалось открыть файл"
 
 #: src/backpack/app.py:315 src/backpack/app.py:661
 msgid "Assistant unavailable"
@@ -36,7 +36,7 @@ msgstr "Помощник недоступен"
 
 #: src/backpack/app.py:379
 msgid "Could not save trip"
-msgstr "Не удалось сохранить поход"
+msgstr "Не удалось сохранить файл"
 
 #: src/backpack/app.py:398
 msgid "Save changes?"
@@ -44,9 +44,7 @@ msgstr "Сохранить изменения?"
 
 #: src/backpack/app.py:400
 msgid "This trip has unsaved changes. Save them before continuing?"
-msgstr ""
-"В этом походе есть несохранённые изменения. Сохранить их перед "
-"продолжением?"
+msgstr "Есть несохраненные изменения. Сохранить их, прежде чем продолжить?"
 
 #: src/backpack/app.py:403
 msgid "Cancel"
@@ -62,7 +60,7 @@ msgstr "Сохранить"
 
 #: src/backpack/app.py:440
 msgid "Untitled trip"
-msgstr ""
+msgstr "Поход без названия"
 
 #: src/backpack/app.py:448
 msgid "no routes"
