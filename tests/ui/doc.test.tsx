@@ -183,7 +183,7 @@ describe("document view", () => {
     await user.click(screen.getByLabelText(t("route_card.delete")));
     await user.click(
       await screen.findByRole("button", {
-        name: t("route_card.delete_confirm_ok"),
+        name: t("dialog.delete"),
       })
     );
     await waitFor(() =>
@@ -203,13 +203,13 @@ describe("document view", () => {
     await user.click(screen.getByLabelText(t("route_card.delete")));
     await user.click(
       await screen.findByRole("button", {
-        name: t("route_card.delete_confirm_cancel"),
+        name: t("dialog.cancel"),
       })
     );
     await waitFor(() =>
       expect(
         screen.queryByRole("button", {
-          name: t("route_card.delete_confirm_cancel"),
+          name: t("dialog.cancel"),
         })
       ).not.toBeInTheDocument()
     );

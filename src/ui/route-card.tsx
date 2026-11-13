@@ -35,6 +35,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { dist_str, elev_str } from "./i18n";
 import api from "./api";
+import { confirm_delete } from "./dialog-host";
 import { icon } from "./icon";
 import { MdInput } from "./md-input";
 import {
@@ -173,17 +174,10 @@ export function RouteCard(props: {
 
   /* Deleting a route is destructive, so ask before telling the backend. */
   const remove = async (): Promise<void> => {
-    const confirmed = await window.show_dialog(
+    const confirmed = await confirm_delete(
+      t,
       t("route_card.delete_confirm_title"),
       t("route_card.delete_confirm_text"),
-      [
-        { title: t("route_card.delete_confirm_cancel"), result: false },
-        {
-          title: t("route_card.delete_confirm_ok"),
-          result: true,
-          appearance: "primary",
-        },
-      ],
     );
     if (!confirmed)
       return;

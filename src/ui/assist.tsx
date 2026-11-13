@@ -30,6 +30,7 @@ import {
 } from "@fluentui/react-components";
 import { useTranslation } from "react-i18next";
 import api from "./api";
+import { confirm_delete } from "./dialog-host";
 import { icon } from "./icon";
 import { Chat, type AiModel, type Turn, type TurnItem } from "./chat";
 import type { ChatCardData } from "./card";
@@ -314,8 +315,22 @@ export function Assist(props: {
                 <MenuList>
                   {chats.map((c) => {
                     const label = c.title || t("assist.new_chat");
-                    const close = t("assist.close_chat");
-                    const do_close = () => { void api.del_chat(c.id); };
+                    const del = t("assist.delete_chat");
+                    /* An empty chat has nothing to lose, so only a chat
+                     * with turns asks first.
+                     */
+                    const do_delete = async (): Promise<void> => {
+                      if ((turns[c.id]?.length ?? 0) > 0) {
+                        const confirmed = await confirm_delete(
+                          t,
+                          t("assist.delete_confirm_title"),
+                          t("assist.delete_confirm_text"),
+                        );
+                        if (!confirmed)
+                          return;
+                      }
+                      void api.del_chat(c.id);
+                    };
                     return (
                       <MenuItem
                         key={c.id}
@@ -348,21 +363,21 @@ export function Assist(props: {
                             className="assist-chat-item-close"
                             role="button"
                             tabIndex={0}
-                            title={close}
-                            aria-label={close}
+                            title={del}
+                            aria-label={del}
                             onClick={(e) => {
                               e.stopPropagation();
-                              do_close();
+                              void do_delete();
                             }}
                             onKeyDown={(e) => {
                               if (e.key === "Enter" || e.key === " ") {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                do_close();
+                                void do_delete();
                               }
                             }}
                           >
-                            {icon("close", 12)}
+                            {icon("trash", 12)}
                           </span>
                         </span>
                       </MenuItem>

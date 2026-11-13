@@ -22,6 +22,7 @@ import {
   makeStyles,
 } from "@fluentui/react-components";
 import type { ButtonProps } from "@fluentui/react-components";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { not_mounted } from "./ui-api";
 import { icon } from "./icon";
@@ -51,6 +52,20 @@ const useStyles = makeStyles({
     whiteSpace: "nowrap",
   },
 });
+
+/* Ask before a destructive action. Every one goes through here so they all
+ * offer the same Cancel and Delete pair. Resolves true only on Delete;
+ * Cancel, Escape and the close button all leave things as they are.
+ */
+export async function confirm_delete(
+  t: TFunction, title: string, text: string,
+): Promise<boolean> {
+  const result = await window.show_dialog(title, text, [
+    { title: t("dialog.cancel"), result: false },
+    { title: t("dialog.delete"), result: true, appearance: "primary" },
+  ]);
+  return result === true;
+}
 
 interface DialogRequest {
   id: string;

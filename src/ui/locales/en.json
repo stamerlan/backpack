@@ -9,7 +9,9 @@
     "untitled_trip": "Untitled trip"
   },
   "dialog": {
-    "close": "Close"
+    "close": "Close",
+    "cancel": "Cancel",
+    "delete": "Delete"
   },
   "notify": {
     "dismiss": "Dismiss"
@@ -105,8 +107,6 @@
     "delete": "Delete route",
     "delete_confirm_title": "Delete route?",
     "delete_confirm_text": "This removes the route and its notes from the trip.",
-    "delete_confirm_ok": "Delete",
-    "delete_confirm_cancel": "Cancel",
     "notes_placeholder": "Notes for this route..."
   },
   "route_profile": {
@@ -133,7 +133,9 @@
     "label": "AI assistant",
     "resize": "Drag to resize",
     "new_chat": "New chat",
-    "close_chat": "Close chat",
+    "delete_chat": "Delete chat",
+    "delete_confirm_title": "Delete chat?",
+    "delete_confirm_text": "This removes the chat and its conversation from the trip.",
     "chats": "Chats",
     "unread": "New activity",
     "working": "Working..."
