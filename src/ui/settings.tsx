@@ -26,6 +26,7 @@ import {
   Dropdown,
   Input,
   Label,
+  makeStyles,
   Option,
 } from "@fluentui/react-components";
 import { useTranslation } from "react-i18next";
@@ -105,6 +106,16 @@ const UNITS_OPTIONS = [
   { value: "imperial", key: "settings.units.imperial" },
 ] as const;
 
+/* Fluent caps every dialog at 600px, which leaves translated hints only a
+ * narrow strip beside the controls. A window too narrow for the wider cap still
+ * gets a surface that fills it.
+ */
+const useStyles = makeStyles({
+  surface: {
+    maxWidth: "760px",
+  },
+});
+
 /* Read a string field from the untyped settings, falling back to a default. */
 function get_str(value: unknown, fallback: string): string {
   return typeof value === "string" ? value : fallback;
@@ -121,6 +132,7 @@ export function SettingsDialog() {
   const { t } = useTranslation();
   const [req, set_req] = useState<Request | null>(null);
   const [open, set_open] = useState(false);
+  const styles = useStyles();
 
   useEffect(() => {
     window.show_settings_dialog = (settings) => new Promise((resolve) => {
@@ -195,7 +207,7 @@ export function SettingsDialog() {
       if (!data.open)
         close(null);
     }}>
-      <DialogSurface>
+      <DialogSurface className={styles.surface}>
         <DialogBody>
           <DialogTitle
             action={
@@ -214,6 +226,7 @@ export function SettingsDialog() {
             <div className="settings-form">
               <Card>
                 <div className="settings-row">
+                  <span className="settings-icon">{icon("key")}</span>
                   <div className="settings-text">
                     <Label className="settings-label"
                       htmlFor="settings-gemini-api-key">
@@ -253,6 +266,7 @@ export function SettingsDialog() {
 
               <Card>
                 <div className="settings-row">
+                  <span className="settings-icon">{icon("contrast")}</span>
                   <div className="settings-text">
                     <Label className="settings-label"
                       htmlFor="settings-theme">
@@ -291,6 +305,7 @@ export function SettingsDialog() {
 
               <Card>
                 <div className="settings-row">
+                  <span className="settings-icon">{icon("globe")}</span>
                   <div className="settings-text">
                     <Label className="settings-label"
                       htmlFor="settings-locale">
@@ -329,6 +344,7 @@ export function SettingsDialog() {
 
               <Card>
                 <div className="settings-row">
+                  <span className="settings-icon">{icon("ruler")}</span>
                   <div className="settings-text">
                     <Label className="settings-label"
                       htmlFor="settings-units">
@@ -367,6 +383,7 @@ export function SettingsDialog() {
 
               <Card>
                 <div className="settings-row">
+                  <span className="settings-icon">{icon("pin")}</span>
                   <div className="settings-text">
                     <Label className="settings-label">
                       {t("settings.poi.label")}
@@ -396,6 +413,7 @@ export function SettingsDialog() {
 
               <Card>
                 <div className="settings-row">
+                  <span className="settings-icon">{icon("log")}</span>
                   <div className="settings-text">
                     <Label className="settings-label">
                       {t("settings.logs.label")}
@@ -419,6 +437,7 @@ export function SettingsDialog() {
               {req.version && (
                 <Card>
                   <div className="settings-row">
+                    <span className="settings-icon">{icon("info")}</span>
                     <div className="settings-text">
                       <Label className="settings-label">
                         {t("settings.version.label")}

@@ -2,27 +2,42 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-width: min(520px, 80vw);
   padding: 4px 0;
   /* Width of a whole control block, buttons included. Rows are laid out
    * independently inside their own card, so a shared width is what keeps the
    * controls on one vertical line.
    */
-  --settings-control-width: 256px;
+  --settings-control-width: 288px;
 }
 
 .settings-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 24px;
+  gap: 12px;
 }
 
+/* Every item leads with an icon so the list can be scanned by shape. It sits
+ * on the first line of the label rather than centered on the row, so it stays
+ * next to the label when the hint wraps.
+ */
+.settings-icon {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  display: flex;
+  margin-top: 1px;
+  color: var(--colorNeutralForeground2);
+}
+
+/* Takes all the room the control leaves, which also pushes the control to
+ * the right edge of the card.
+ */
 .settings-text {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  margin-right: 12px;
 }
 
 .settings-hint {
