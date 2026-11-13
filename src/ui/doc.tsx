@@ -22,7 +22,11 @@ import {
   useState,
   type ButtonHTMLAttributes,
 } from "react";
-import { Button, mergeClasses } from "@fluentui/react-components";
+import {
+  Button,
+  makeStyles,
+  mergeClasses,
+} from "@fluentui/react-components";
 import { useTranslation } from "react-i18next";
 import {
   DndContext,
@@ -101,6 +105,13 @@ export interface DocApi {
  */
 const EMPTY_TRACK: TrackPoint[] = [];
 const EMPTY_OVERLAY: MapOverlay = { polylines: [], markers: [], fit: null };
+
+const useStyles = makeStyles({
+  /* Centered under the cards rather than stretched across the column. */
+  add_route: {
+    alignSelf: "center",
+  },
+});
 
 /* Turn one route and the trip's tracks into a map overlay. Every route map
  * shows the whole trip: the sibling routes as dim dashed context lines, then
@@ -209,6 +220,7 @@ export function Doc(props: {
   on_title_change: (title: string) => void;
 }) {
   const { t } = useTranslation();
+  const styles = useStyles();
   const [cards, set_cards] = useState<CardView[]>([]);
   const [tracks, set_tracks] = useState<RouteTracks>({});
 
@@ -375,7 +387,7 @@ export function Doc(props: {
             })}
           </SortableContext>
           <Button
-            className="doc-add-route"
+            className={styles.add_route}
             onClick={() => { void api.add_route(); }}
           >
             + {t("doc.add_route")}

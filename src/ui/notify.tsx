@@ -16,12 +16,29 @@ import {
   MessageBarBody,
   MessageBarGroup,
   MessageBarTitle,
+  makeStyles,
+  tokens,
 } from "@fluentui/react-components";
 import type { ButtonProps } from "@fluentui/react-components";
 import { useTranslation } from "react-i18next";
 import { not_mounted } from "./ui-api";
 import { icon } from "./icon";
-import "./notify.css";
+
+/* The banners stack in a strip of their own under the app bar, which keeps
+ * its height instead of shrinking when the document below wants the room.
+ */
+const useStyles = makeStyles({
+  group: {
+    flex: "none",
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+    padding: "4px 8px",
+    borderBottomWidth: "1px",
+    borderBottomStyle: "solid",
+    borderBottomColor: tokens.colorNeutralStroke2,
+  },
+});
 
 export type NotifyIntent = "info" | "success" | "warning" | "error";
 
@@ -43,6 +60,7 @@ interface NotifyRequest {
 export function NotifyHost() {
   const { t } = useTranslation();
   const [items, set_items] = useState<NotifyRequest[]>([]);
+  const styles = useStyles();
 
   useEffect(() => {
     window.notify = (message, intent = "info", title = "", actions) =>
@@ -75,7 +93,7 @@ export function NotifyHost() {
     return null;
 
   return (
-    <MessageBarGroup className="notify-group" animate="both">
+    <MessageBarGroup className={styles.group} animate="both">
       {items.map((msg) => (
         <MessageBar key={msg.id} intent={msg.intent}>
           <MessageBarBody>
