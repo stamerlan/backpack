@@ -19,12 +19,12 @@ import {
   DialogSurface,
   DialogTitle,
   DialogTrigger,
+  makeStyles,
 } from "@fluentui/react-components";
 import type { ButtonProps } from "@fluentui/react-components";
 import { useTranslation } from "react-i18next";
 import { not_mounted } from "./ui-api";
 import { icon } from "./icon";
-import "./dialog-host.css";
 
 export interface DialogAction {
   title: string;
@@ -32,6 +32,25 @@ export interface DialogAction {
   size?: NonNullable<ButtonProps["size"]>;
   appearance?: NonNullable<ButtonProps["appearance"]>;
 }
+
+/* Footer buttons share the width of the longest label so a translated title
+ * stays on one line. Fluent's default end slot is only half the dialog, which
+ * wraps a long label. fluid plus max-content gives the row the full surface,
+ * then sizes it to the labels.
+ */
+const useStyles = makeStyles({
+  actions: {
+    display: "grid",
+    gridAutoFlow: "column",
+    gridAutoColumns: "1fr",
+    width: "max-content",
+    maxWidth: "100%",
+    marginInlineStart: "auto",
+  },
+  button: {
+    whiteSpace: "nowrap",
+  },
+});
 
 interface DialogRequest {
   id: string;
@@ -61,6 +80,7 @@ function DialogView(props: {
 }) {
   const { t } = useTranslation();
   const [open, set_open] = useState(true);
+  const styles = useStyles();
 
   /* Settling a promise twice is a no-op, so the close paths need no guard
    * against one another.
@@ -71,10 +91,11 @@ function DialogView(props: {
   };
 
   const footer = props.actions.length > 0 ? (
-    <DialogActions fluid className="dialog-actions">
+    <DialogActions fluid className={styles.actions}>
       {props.actions.map((action, index) => (
         <Button
           key={index}
+          className={styles.button}
           appearance={action.appearance}
           size={action.size}
           onClick={() => close(action.result ?? null)}
