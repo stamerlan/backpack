@@ -33,9 +33,11 @@ import {
   MenuList,
   MenuPopover,
   MenuTrigger,
+  makeStyles,
   mergeClasses,
   Spinner,
   Text,
+  tokens,
 } from "@fluentui/react-components";
 import { useTranslation } from "react-i18next";
 import { marked } from "marked";
@@ -153,6 +155,34 @@ function ThinkingBlock(props: {
   );
 }
 
+const useStyles = makeStyles({
+  /* Title and description read from the left edge, like a list. */
+  suggest_item: {
+    justifyContent: "flex-start",
+  },
+  spinner: {
+    alignSelf: "center",
+    marginTop: "16px",
+    marginBottom: "16px",
+  },
+  /* A fixed round button beside the input that neither grows nor shrinks
+   * with the row.
+   */
+  send: {
+    flex: "none",
+    width: "26px",
+    minWidth: "26px",
+    maxWidth: "26px",
+    height: "26px",
+    padding: 0,
+  },
+  /* A quiet caption-sized picker that does not compete with the input. */
+  model: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+  },
+});
+
 export function Chat(props: {
   chat_id: string;
   visible: boolean;
@@ -165,6 +195,7 @@ export function Chat(props: {
   const { t } = useTranslation();
   const [prompt, set_prompt] = useState("");
   const [sending, set_sending] = useState(false);
+  const styles = useStyles();
   const log_ref = useRef<HTMLDivElement>(null);
   const input_ref = useRef<HTMLTextAreaElement>(null);
   const sent_ref = useRef("");
@@ -274,7 +305,7 @@ export function Chat(props: {
                 {suggestions.map((s) => (
                   <CompoundButton
                     key={s.id}
-                    className="chat-suggest-item"
+                    className={styles.suggest_item}
                     appearance="subtle"
                     secondaryContent={s.description}
                     onClick={() => on_suggestion_btn_click(s.prompt)}
@@ -321,7 +352,7 @@ export function Chat(props: {
                   }
                 })}
                 {props.busy && active && (
-                  <Spinner className="chat-spinner" size="huge" />
+                  <Spinner className={styles.spinner} size="huge" />
                 )}
               </div>
             );
@@ -343,7 +374,7 @@ export function Chat(props: {
               disabled={!idle}
             />
             <Button
-              className="chat-send"
+              className={styles.send}
               appearance="primary"
               size="small"
               shape="circular"
@@ -358,7 +389,7 @@ export function Chat(props: {
             <Menu>
               <MenuTrigger disableButtonEnhancement>
                 <MenuButton
-                  className="chat-model-btn"
+                  className={styles.model}
                   appearance="subtle"
                   size="small"
                 >

@@ -193,30 +193,3 @@
   justify-content: space-between;
   gap: 8px;
 }
-
-/* Fluent injects its own styles after this file, so overriding one of its
- * components needs the extra specificity its fui-* class provides.
- */
-.fui-CompoundButton.chat-suggest-item {
-  justify-content: flex-start;
-}
-
-.fui-Spinner.chat-spinner {
-  align-self: center;
-  margin-top: 16px;
-  margin-bottom: 16px;
-}
-
-.fui-Button.chat-send {
-  flex: none;
-  width: 26px;
-  min-width: 26px;
-  max-width: 26px;
-  height: 26px;
-  padding: 0;
-}
-
-.fui-MenuButton.chat-model-btn {
-  font-size: var(--fontSizeBase200);
-  color: var(--colorNeutralForeground3);
-}
