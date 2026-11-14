@@ -418,6 +418,7 @@ class Backpack:
         i18n.load([locale] + system_locales(), units)
         self.ui.set_locale(i18n.tag, i18n.units)
         self._update_recent_items_view()
+        self._push_doc_state()
 
     async def open_settings(self) -> None:
         """Open the settings dialog without blocking the calling frontend.
