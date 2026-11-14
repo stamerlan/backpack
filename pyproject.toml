@@ -7,19 +7,19 @@ dependencies = [
     "pywebview>=6.2,<7",
     "certifi",
     "gpxpy>=1.6,<2",
-    "geopy>=2.4,<3",
+    "geopy>=2.5,<3",
     "keyring>=25.7,<26",
     "overpy>=0.7,<1",
-    "pydantic-ai-slim[google]>=2.21,<3",
+    "pydantic-ai-slim[google]>=2.68,<3",
     "babel>=2.18,<3",
 ]
 readme = "README.rst"
 
 [project.optional-dependencies]
 dev = [
-    "mypy>=2.3,<3",
-    "pytest>=9.1,<10",
-    "pytest-mypy>=1.0,<2",
+    "mypy>=2.4,<3",
+    "pytest>=9.2,<10",
+    "pytest-mypy>=1.1,<2",
     "pyinstaller>=6.22,<7",
 ]
 
